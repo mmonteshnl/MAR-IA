@@ -47,7 +47,7 @@ Considera lo siguiente para el mensaje:
 Genera solo el cuerpo del mensaje.`,
 });
 
-const welcomeMessageFlow = ai.defineFlow(
+export const welcomeMessageFlow = ai.defineFlow(
   {
     name: 'welcomeMessageFlow',
     inputSchema: WelcomeMessageInputSchema,

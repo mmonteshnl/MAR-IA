@@ -58,7 +58,7 @@ Puntos Fuertes:
 Genera solo la evaluación.`,
 });
 
-const evaluateBusinessFlow = ai.defineFlow(
+export const evaluateBusinessFlow = ai.defineFlow(
   {
     name: 'evaluateBusinessFlow',
     inputSchema: EvaluateBusinessInputSchema,

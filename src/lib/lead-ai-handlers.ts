@@ -34,6 +34,27 @@ const isFieldMissing = (value: string | null | undefined): boolean => {
   return lowerValue === "null" || lowerValue === "string";
 };
 
+// --- Transformers ---
+function transformUserProductsSimple(products: AIProduct[] | undefined): { name: string; description: string; category?: string; price?: string }[] | undefined {
+  if (!products) return undefined;
+  return products.map(p => ({
+    name: p.name,
+    description: typeof p.description === "string" ? p.description : "",
+    category: p.category || "",
+    price: p.price_usd ? String(p.price_usd) : undefined,
+  }));
+}
+function transformUserProductsFull(products: AIProduct[] | undefined): { name: string; category: string; price_usd: string; original_price_usd?: string; description: string }[] | undefined {
+  if (!products) return undefined;
+  return products.map(p => ({
+    name: p.name,
+    category: p.category || "",
+    price_usd: String(p.price_usd ?? ""),
+    original_price_usd: p.original_price_usd ? String(p.original_price_usd) : undefined,
+    description: typeof p.description === "string" ? p.description : "",
+  }));
+}
+
 interface HandlerContext {
   user: FirebaseUser;
   lead: Lead;
@@ -69,11 +90,11 @@ export const handleGenerateSalesRecommendations = async ({ user, lead, userProdu
     currentProducts = querySnapshot.docs.map(docSnap => {
       const data = docSnap.data();
       return {
-        name: data.name,
-        category: data.category,
-        description: data.description || undefined,
-        price_usd: data.price_usd,
-        original_price_usd: data.original_price_usd || undefined,
+        name: data.name ?? "",
+        category: data.category ?? "",
+        price_usd: String(data.price_usd ?? ""),
+        original_price_usd: data.original_price_usd ? String(data.original_price_usd) : undefined,
+        description: data.description ?? "",
       };
     });
   }
@@ -81,7 +102,7 @@ export const handleGenerateSalesRecommendations = async ({ user, lead, userProdu
   const input: SalesRecommendationsInput = {
     leadName: lead.name,
     businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
-    userProducts: currentProducts.length > 0 ? currentProducts : undefined,
+    userProducts: currentProducts.length > 0 ? transformUserProductsSimple(currentProducts) : undefined,
     businessEvaluation: isFieldMissing(lead.notes) ? undefined : lead.notes!,
   };
   return await generateSalesRecommendations(input);
@@ -94,7 +115,7 @@ export const handleGenerateContactStrategy = async ({ user, lead, userProducts =
     businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
     leadStage: lead.stage,
     leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
-    userProducts: userProducts.length > 0 ? userProducts : undefined,
+    userProducts: userProducts.length > 0 ? transformUserProductsSimple(userProducts) : undefined,
   };
   return await generateContactStrategy(input);
 };
@@ -123,7 +144,7 @@ export const handleGenerateFollowUpEmail = async ({ user, lead, userProducts = [
     previousContextSummary: "Primera conversación sobre sus necesidades",
     senderName: userName,
     senderCompany: companyName,
-    userProducts: userProducts.length > 0 ? userProducts : undefined,
+    userProducts: userProducts.length > 0 ? transformUserProductsSimple(userProducts) : undefined,
   };
   return await generateFollowUpEmail(input);
 };
@@ -237,7 +258,7 @@ export const handleGenerateRecoveryStrategy = async ({ user, lead, userProducts 
     lossReason: "Optaron por competidor con precio más bajo",
     timesSinceLoss: 30,
     competitorWhoWon: "Competidor local",
-    userProducts: userProducts.length > 0 ? userProducts : undefined,
+    userProducts: userProducts.length > 0 ? transformUserProductsFull(userProducts) : undefined,
   };
   return await generateRecoveryStrategy(input);
 };
@@ -253,7 +274,7 @@ export const handleAnalyzeLossReasons = async ({ user, lead, userProducts = [] }
     competitorWhoWon: "Competidor con solución más básica",
     proposalValue: 5000,
     salesCycleLength: 45,
-    userProducts: userProducts.length > 0 ? userProducts : undefined,
+    userProducts: userProducts.length > 0 ? transformUserProductsFull(userProducts) : undefined,
   };
   return await analyzeLossReasons(input);
 };
@@ -270,7 +291,7 @@ export const handleGenerateCompetitorReport = async ({ user, lead, userProducts 
     competitorPrice: 3500,
     ourProposalValue: 5000,
     lossReason: "Diferencia de precio y simplicidad de implementación",
-    userProducts: userProducts.length > 0 ? userProducts : undefined,
+    userProducts: userProducts.length > 0 ? transformUserProductsFull(userProducts) : undefined,
   };
   return await generateCompetitorReport(input);
 };
@@ -291,7 +312,7 @@ export const handleGenerateThankYouMessage = async ({ user, lead, userProducts =
     implementationDate: "Próximas 2 semanas",
     senderName: userName,
     senderCompany: companyName,
-    userProducts: userProducts.length > 0 ? userProducts : undefined,
+    userProducts: userProducts.length > 0 ? transformUserProductsFull(userProducts) : undefined,
   };
   return await generateThankYouMessage(input);
 };
@@ -307,7 +328,7 @@ export const handleGenerateCrossSellOpportunities = async ({ user, lead, userPro
     purchaseValue: 5000,
     implementationStatus: "Exitosa - 3 meses de uso",
     satisfactionLevel: "Alta",
-    userProducts: userProducts.length > 0 ? userProducts : undefined,
+    userProducts: userProducts.length > 0 ? transformUserProductsFull(userProducts) : undefined,
   };
   return await generateCrossSellOpportunities(input);
 };
@@ -327,7 +348,7 @@ export const handleGenerateCustomerSurvey = async ({ user, lead, userProducts = 
     timeWithSolution: 90,
     senderName: userName,
     senderCompany: companyName,
-    userProducts: userProducts.length > 0 ? userProducts : undefined,
+    userProducts: userProducts.length > 0 ? transformUserProductsFull(userProducts) : undefined,
   };
   return await generateCustomerSurvey(input);
 };
@@ -345,7 +366,7 @@ export const handleAssessRiskFactors = async ({ user, lead, userProducts = [] }:
     competitionLevel: "Media - 2 competidores identificados",
     budgetStatus: "Confirmado pero ajustado",
     decisionMakers: ["CEO", "CFO", "CTO"],
-    userProducts: userProducts.length > 0 ? userProducts : undefined,
+    userProducts: userProducts.length > 0 ? transformUserProductsFull(userProducts) : undefined,
   };
   return await assessRiskFactors(input);
 };

@@ -43,11 +43,25 @@ import { aiApiClient } from '@/lib/ai-api-client';
 
 import { formatXmlLeads, type FormatXmlLeadsInput, type FormatXmlLeadsOutput, type FormattedLead as XmlFormattedLead } from '@/ai/flows/formatXmlLeadsFlow';
 import { formatCsvLeads, type FormatCsvLeadsInput, type FormatCsvLeadsOutput, type FormattedLead as CsvFormattedLead } from '@/ai/flows/formatCsvLeadsFlow';
+import { assessRiskFactors, type AssessRiskFactorsInput } from '@/ai/flows/assessRiskFactorsFlow';
+import { generateCompetitorAnalysisInsights, GenerateCompetitorAnalysisInsightsInput } from '@/ai/flows/generateCompetitorAnalysisInsightsFlow';
+import { generateObjectionHandlingGuidance, GenerateObjectionHandlingGuidanceInput } from '@/ai/flows/generateObjectionHandlingGuidanceFlow';
+import { generateFollowUpReminderMessage, GenerateFollowUpReminderMessageInput } from '@/ai/flows/generateFollowUpReminderMessageFlow';
+import { generateProposalSummary, GenerateProposalSummaryInput } from '@/ai/flows/generateProposalSummaryFlow';
+import { suggestNegotiationTactics } from '@/ai/flows/suggestNegotiationTacticsFlow';
+import { developNegotiationStrategy, DevelopNegotiationStrategyInput } from '@/ai/flows/developNegotiationStrategyFlow';
+import { generateCustomerSurvey, GenerateCustomerSurveyInput } from '@/ai/flows/generateCustomerSurveyFlow';
+import { generateCrossSellOpportunities, GenerateCrossSellOpportunitiesInput } from '@/ai/flows/generateCrossSellOpportunitiesFlow';
+import { generateThankYouMessage, GenerateThankYouMessageInput } from '@/ai/flows/generateThankYouMessageFlow';
+import { generateCompetitorReport, GenerateCompetitorReportInput } from '@/ai/flows/generateCompetitorReportFlow';
+import { generateRecoveryStrategy, GenerateRecoveryStrategyInput } from '@/ai/flows/generateRecoveryStrategyFlow';
+import { analyzeLossReasons, AnalyzeLossReasonsInput } from '@/ai/flows/analyzeLossReasonsFlow';
+import { generateCounterOfferMessage, GenerateCounterOfferMessageInput } from '@/ai/flows/generateCounterOfferMessageFlow';
 
 type ImportedFormattedLead = (XmlFormattedLead | CsvFormattedLead) & { suggestedStage?: string };
 
 
-const LEAD_STAGES = [
+export const LEAD_STAGES = [
   "Nuevo",
   "Contactado",
   "Calificado",
@@ -57,14 +71,14 @@ const LEAD_STAGES = [
   "Perdido",
 ] as const;
 
-type LeadStage = typeof LEAD_STAGES[number];
+export type LeadStage = typeof LEAD_STAGES[number];
 
 const LOCAL_STORAGE_LEADS_KEY_PREFIX = 'leadsia_leads_';
 const LOCAL_FALLBACK_SOURCE = 'google_places_search_local_fallback';
 
 // ActionResult type is now imported from @/types/ai-actions
 
-const stageColors: Record<LeadStage, string> = {
+export const stageColors: Record<LeadStage, string> = {
   Nuevo: 'bg-muted text-muted-foreground',
   Contactado: 'bg-primary/10 text-primary',
   Calificado: 'bg-secondary text-secondary-foreground',
@@ -77,7 +91,7 @@ const stageColors: Record<LeadStage, string> = {
 
 console.log("Database instance from firebase.ts:", db);
 
-function formatFirestoreTimestamp(timestamp: any): string {
+export function formatFirestoreTimestamp(timestamp: any): string {
   if (!timestamp) return new Date().toISOString();
   if (timestamp instanceof FirestoreTimestamp) {
     return timestamp.toDate().toISOString();
@@ -105,7 +119,7 @@ function formatFirestoreTimestamp(timestamp: any): string {
   return new Date().toISOString();
 }
 
-const isFieldMissing = (value: string | null | undefined): boolean => {
+export const isFieldMissing = (value: string | null | undefined): boolean => {
   if (value === null || value === undefined || value.trim() === "") return true;
   const lowerValue = value.toLowerCase();
   return lowerValue === "null" || lowerValue === "string";
@@ -645,7 +659,6 @@ export default function LeadsPage() {
         leadId: lead.id,
         leadName: lead.name,
         businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
-        leadStage: lead.stage,
         leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
         objectionRaised: "Es muy caro", // TODO: Get from actual conversation or allow user input
         stageInSalesProcess: lead.stage,
@@ -720,7 +733,14 @@ export default function LeadsPage() {
         leadStage: lead.stage,
         leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
         knownCompetitors: [],
-        userProducts: userProducts.length > 0 ? userProducts : undefined,
+        userProducts: userProducts.length > 0
+          ? userProducts.map(p => ({
+              name: p.name,
+              description: p.description ?? "",
+              category: p.category,
+              price: p.price_usd,
+            }))
+          : undefined,
       };
       const result = await generateCompetitorAnalysisInsights(input);
       setActionResult(result);
