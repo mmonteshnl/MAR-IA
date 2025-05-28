@@ -48,6 +48,13 @@ import { generateFollowUpReminderMessage, type GenerateFollowUpReminderMessageIn
 import { suggestNegotiationTactics, type SuggestNegotiationTacticsInput } from '@/ai/flows/suggestNegotiationTacticsFlow';
 import { developNegotiationStrategy, type DevelopNegotiationStrategyInput } from '@/ai/flows/developNegotiationStrategyFlow';
 import { generateCounterOfferMessage, type GenerateCounterOfferMessageInput } from '@/ai/flows/generateCounterOfferMessageFlow';
+import { generateRecoveryStrategy, type GenerateRecoveryStrategyInput } from '@/ai/flows/generateRecoveryStrategyFlow';
+import { analyzeLossReasons, type AnalyzeLossReasonsInput } from '@/ai/flows/analyzeLossReasonsFlow';
+import { generateCompetitorReport, type GenerateCompetitorReportInput } from '@/ai/flows/generateCompetitorReportFlow';
+import { generateThankYouMessage, type GenerateThankYouMessageInput } from '@/ai/flows/generateThankYouMessageFlow';
+import { generateCrossSellOpportunities, type GenerateCrossSellOpportunitiesInput } from '@/ai/flows/generateCrossSellOpportunitiesFlow';
+import { generateCustomerSurvey, type GenerateCustomerSurveyInput } from '@/ai/flows/generateCustomerSurveyFlow';
+import { assessRiskFactors, type AssessRiskFactorsInput } from '@/ai/flows/assessRiskFactorsFlow';
 
 import { formatXmlLeads, type FormatXmlLeadsInput, type FormatXmlLeadsOutput, type FormattedLead as XmlFormattedLead } from '@/ai/flows/formatXmlLeadsFlow';
 import { formatCsvLeads, type FormatCsvLeadsInput, type FormatCsvLeadsOutput, type FormattedLead as CsvFormattedLead } from '@/ai/flows/formatCsvLeadsFlow';
@@ -904,6 +911,249 @@ export default function LeadsPage() {
       setIsActionResultModalOpen(true);
     }
   };
+
+  // Handlers for "Perdido" stage
+  const handleGenerateRecoveryStrategy = async (lead: Lead) => {
+    if (!user) {
+      toast({ title: "Error de Autenticación", description: "Inicia sesión para usar las acciones de IA.", variant: "destructive" });
+      return;
+    }
+    setCurrentActionLead(lead);
+    setIsActionLoading(true);
+    setActionResult(null);
+    setCurrentActionType("Recuperación");
+
+    try {
+      const input: GenerateRecoveryStrategyInput = {
+        leadId: lead.id,
+        leadName: lead.name,
+        businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
+        leadStage: lead.stage,
+        leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
+        lossReason: "Optaron por competidor con precio más bajo",
+        timesSinceLoss: 30,
+        competitorWhoWon: "Competidor local",
+        userProducts: userProducts.length > 0 ? userProducts : undefined,
+      };
+      const result = await generateRecoveryStrategy(input);
+      setActionResult(result);
+    } catch (error: any) {
+      setActionResult({ error: error.message || "Error al generar estrategia de recuperación. Asegúrate de que la API Key de Gemini esté configurada." });
+    } finally {
+      setIsActionLoading(false);
+      setIsActionResultModalOpen(true);
+    }
+  };
+
+  const handleAnalyzeLossReasons = async (lead: Lead) => {
+    if (!user) {
+      toast({ title: "Error de Autenticación", description: "Inicia sesión para usar las acciones de IA.", variant: "destructive" });
+      return;
+    }
+    setCurrentActionLead(lead);
+    setIsActionLoading(true);
+    setActionResult(null);
+    setCurrentActionType("Análisis de Pérdidas");
+
+    try {
+      const input: AnalyzeLossReasonsInput = {
+        leadId: lead.id,
+        leadName: lead.name,
+        businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
+        leadStage: lead.stage,
+        leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
+        lossReason: "Precio demasiado alto para su presupuesto",
+        competitorWhoWon: "Competidor con solución más básica",
+        proposalValue: 5000,
+        salesCycleLength: 45,
+        userProducts: userProducts.length > 0 ? userProducts : undefined,
+      };
+      const result = await analyzeLossReasons(input);
+      setActionResult(result);
+    } catch (error: any) {
+      setActionResult({ error: error.message || "Error al analizar razones de pérdida. Asegúrate de que la API Key de Gemini esté configurada." });
+    } finally {
+      setIsActionLoading(false);
+      setIsActionResultModalOpen(true);
+    }
+  };
+
+  const handleGenerateCompetitorReport = async (lead: Lead) => {
+    if (!user) {
+      toast({ title: "Error de Autenticación", description: "Inicia sesión para usar las acciones de IA.", variant: "destructive" });
+      return;
+    }
+    setCurrentActionLead(lead);
+    setIsActionLoading(true);
+    setActionResult(null);
+    setCurrentActionType("Informe de Competidores");
+
+    try {
+      const input: GenerateCompetitorReportInput = {
+        leadId: lead.id,
+        leadName: lead.name,
+        businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
+        leadStage: lead.stage,
+        leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
+        competitorWhoWon: "SoftLocal Solutions",
+        competitorSolution: "Sistema CRM básico con funcionalidades limitadas",
+        competitorPrice: 3500,
+        ourProposalValue: 5000,
+        lossReason: "Diferencia de precio y simplicidad de implementación",
+        userProducts: userProducts.length > 0 ? userProducts : undefined,
+      };
+      const result = await generateCompetitorReport(input);
+      setActionResult(result);
+    } catch (error: any) {
+      setActionResult({ error: error.message || "Error al generar informe de competidores. Asegúrate de que la API Key de Gemini esté configurada." });
+    } finally {
+      setIsActionLoading(false);
+      setIsActionResultModalOpen(true);
+    }
+  };
+
+  // Handlers for "Ganado" stage
+  const handleGenerateThankYouMessage = async (lead: Lead) => {
+    if (!user) {
+      toast({ title: "Error de Autenticación", description: "Inicia sesión para usar las acciones de IA.", variant: "destructive" });
+      return;
+    }
+    setCurrentActionLead(lead);
+    setIsActionLoading(true);
+    setActionResult(null);
+    setCurrentActionType("Agradecimiento");
+
+    try {
+      const userName = user.displayName || user.email?.split('@')[0] || "Tu nombre";
+      const companyName = process.env.NEXT_PUBLIC_COMPANY_NAME || "Nuestra empresa";
+      
+      const input: GenerateThankYouMessageInput = {
+        leadId: lead.id,
+        leadName: lead.name,
+        businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
+        leadStage: lead.stage,
+        leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
+        purchasedSolution: userProducts.length > 0 ? userProducts[0].name : "Solución personalizada",
+        purchaseValue: 5000,
+        implementationDate: "Próximas 2 semanas",
+        senderName: userName,
+        senderCompany: companyName,
+        userProducts: userProducts.length > 0 ? userProducts : undefined,
+      };
+      const result = await generateThankYouMessage(input);
+      setActionResult(result);
+    } catch (error: any) {
+      setActionResult({ error: error.message || "Error al generar mensaje de agradecimiento. Asegúrate de que la API Key de Gemini esté configurada." });
+    } finally {
+      setIsActionLoading(false);
+      setIsActionResultModalOpen(true);
+    }
+  };
+
+  const handleGenerateCrossSellOpportunities = async (lead: Lead) => {
+    if (!user) {
+      toast({ title: "Error de Autenticación", description: "Inicia sesión para usar las acciones de IA.", variant: "destructive" });
+      return;
+    }
+    setCurrentActionLead(lead);
+    setIsActionLoading(true);
+    setActionResult(null);
+    setCurrentActionType("Venta Cruzada");
+
+    try {
+      const input: GenerateCrossSellOpportunitiesInput = {
+        leadId: lead.id,
+        leadName: lead.name,
+        businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
+        leadStage: lead.stage,
+        leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
+        currentSolution: userProducts.length > 0 ? userProducts[0].name : "Solución implementada",
+        purchaseValue: 5000,
+        implementationStatus: "Exitosa - 3 meses de uso",
+        satisfactionLevel: "Alta",
+        userProducts: userProducts.length > 0 ? userProducts : undefined,
+      };
+      const result = await generateCrossSellOpportunities(input);
+      setActionResult(result);
+    } catch (error: any) {
+      setActionResult({ error: error.message || "Error al generar oportunidades de venta cruzada. Asegúrate de que la API Key de Gemini esté configurada." });
+    } finally {
+      setIsActionLoading(false);
+      setIsActionResultModalOpen(true);
+    }
+  };
+
+  const handleGenerateCustomerSurvey = async (lead: Lead) => {
+    if (!user) {
+      toast({ title: "Error de Autenticación", description: "Inicia sesión para usar las acciones de IA.", variant: "destructive" });
+      return;
+    }
+    setCurrentActionLead(lead);
+    setIsActionLoading(true);
+    setActionResult(null);
+    setCurrentActionType("Encuesta Cliente");
+
+    try {
+      const userName = user.displayName || user.email?.split('@')[0] || "Tu nombre";
+      const companyName = process.env.NEXT_PUBLIC_COMPANY_NAME || "Nuestra empresa";
+      
+      const input: GenerateCustomerSurveyInput = {
+        leadId: lead.id,
+        leadName: lead.name,
+        businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
+        leadStage: lead.stage,
+        leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
+        purchasedSolution: userProducts.length > 0 ? userProducts[0].name : "Solución implementada",
+        implementationDate: "Hace 3 meses",
+        timeWithSolution: 90,
+        senderName: userName,
+        senderCompany: companyName,
+        userProducts: userProducts.length > 0 ? userProducts : undefined,
+      };
+      const result = await generateCustomerSurvey(input);
+      setActionResult(result);
+    } catch (error: any) {
+      setActionResult({ error: error.message || "Error al generar encuesta de cliente. Asegúrate de que la API Key de Gemini esté configurada." });
+    } finally {
+      setIsActionLoading(false);
+      setIsActionResultModalOpen(true);
+    }
+  };
+
+  // Handler for risk assessment (any stage)
+  const handleAssessRiskFactors = async (lead: Lead) => {
+    if (!user) {
+      toast({ title: "Error de Autenticación", description: "Inicia sesión para usar las acciones de IA.", variant: "destructive" });
+      return;
+    }
+    setCurrentActionLead(lead);
+    setIsActionLoading(true);
+    setActionResult(null);
+    setCurrentActionType("Evaluación de Riesgos");
+
+    try {
+      const input: AssessRiskFactorsInput = {
+        leadId: lead.id,
+        leadName: lead.name,
+        businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
+        leadStage: lead.stage,
+        leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
+        proposalValue: 5000,
+        decisionTimeframe: "Próximas 4 semanas",
+        competitionLevel: "Media - 2 competidores identificados",
+        budgetStatus: "Confirmado pero ajustado",
+        decisionMakers: ["CEO", "CFO", "CTO"],
+        userProducts: userProducts.length > 0 ? userProducts : undefined,
+      };
+      const result = await assessRiskFactors(input);
+      setActionResult(result);
+    } catch (error: any) {
+      setActionResult({ error: error.message || "Error al evaluar factores de riesgo. Asegúrate de que la API Key de Gemini esté configurada." });
+    } finally {
+      setIsActionLoading(false);
+      setIsActionResultModalOpen(true);
+    }
+  };
   
   const renderActionResultModal = () => {
     if (!isActionResultModalOpen || !currentActionLead) return null;
@@ -1378,6 +1628,365 @@ export default function LeadsPage() {
             )}
           </div>
         );
+      } else if (currentActionType === "Recuperación" && 'recoveryApproach' in actionResult) {
+        content = (
+          <div className="space-y-3 text-sm text-foreground">
+            <div className="bg-primary/10 p-3 rounded-md">
+              <h4 className="font-semibold mb-1">Enfoque de Recuperación:</h4>
+              <p>{actionResult.recoveryApproach}</p>
+            </div>
+            
+            {'keyRecoveryMessages' in actionResult && Array.isArray(actionResult.keyRecoveryMessages) && (
+              <div>
+                <h4 className="font-semibold mb-2">Mensajes Clave de Recuperación:</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  {(actionResult.keyRecoveryMessages as string[]).map((message, index) => (
+                    <li key={index}>{message}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {'timingStrategy' in actionResult && (
+              <div>
+                <h4 className="font-semibold mb-2">Estrategia de Timing:</h4>
+                <p className="bg-muted/20 p-3 rounded-md">{actionResult.timingStrategy}</p>
+              </div>
+            )}
+            
+            {'incentivesOrOffers' in actionResult && Array.isArray(actionResult.incentivesOrOffers) && (
+              <div>
+                <h4 className="font-semibold mb-2">Incentivos y Ofertas:</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  {(actionResult.incentivesOrOffers as string[]).map((offer, index) => (
+                    <li key={index}>{offer}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {'relationshipRebuildingTactics' in actionResult && Array.isArray(actionResult.relationshipRebuildingTactics) && (
+              <div>
+                <h4 className="font-semibold mb-2">Tácticas de Reconstrucción:</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  {(actionResult.relationshipRebuildingTactics as string[]).map((tactic, index) => (
+                    <li key={index}>{tactic}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {'successProbabilityAssessment' in actionResult && (
+              <div className="bg-amber-100 dark:bg-amber-900/20 p-3 rounded-md border-l-4 border-amber-500">
+                <h4 className="font-semibold mb-1">Probabilidad de Éxito:</h4>
+                <p>{actionResult.successProbabilityAssessment}</p>
+              </div>
+            )}
+          </div>
+        );
+      } else if (currentActionType === "Análisis de Pérdidas" && 'primaryLossCategory' in actionResult) {
+        content = (
+          <div className="space-y-3 text-sm text-foreground">
+            <div className="bg-destructive/10 p-3 rounded-md">
+              <h4 className="font-semibold mb-1">Categoría Principal de Pérdida:</h4>
+              <p className="font-medium text-destructive">{actionResult.primaryLossCategory}</p>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold mb-2">Análisis Detallado:</h4>
+              <p className="bg-muted/20 p-3 rounded-md leading-relaxed">{actionResult.detailedLossAnalysis}</p>
+            </div>
+            
+            {'preventableFactors' in actionResult && Array.isArray(actionResult.preventableFactors) && (
+              <div>
+                <h4 className="font-semibold mb-2">Factores Prevenibles:</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  {(actionResult.preventableFactors as string[]).map((factor, index) => (
+                    <li key={index} className="text-amber-600">{factor}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {'nonPreventableFactors' in actionResult && Array.isArray(actionResult.nonPreventableFactors) && (
+              <div>
+                <h4 className="font-semibold mb-2">Factores No Prevenibles:</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  {(actionResult.nonPreventableFactors as string[]).map((factor, index) => (
+                    <li key={index} className="text-muted-foreground">{factor}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {'processImprovements' in actionResult && Array.isArray(actionResult.processImprovements) && (
+              <div>
+                <h4 className="font-semibold mb-2">Mejoras de Proceso:</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  {(actionResult.processImprovements as string[]).map((improvement, index) => (
+                    <li key={index} className="text-primary">{improvement}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {'futurePreventionStrategy' in actionResult && (
+              <div className="bg-primary/10 p-3 rounded-md">
+                <h4 className="font-semibold mb-1">Estrategia de Prevención Futura:</h4>
+                <p>{actionResult.futurePreventionStrategy}</p>
+              </div>
+            )}
+          </div>
+        );
+      } else if (currentActionType === "Informe de Competidores" && 'competitorProfile' in actionResult) {
+        content = (
+          <div className="space-y-3 text-sm text-foreground">
+            <div>
+              <h4 className="font-semibold mb-2">Perfil del Competidor:</h4>
+              <p className="bg-muted/20 p-3 rounded-md">{actionResult.competitorProfile}</p>
+            </div>
+            
+            {'productComparison' in actionResult && Array.isArray(actionResult.productComparison) && (
+              <div>
+                <h4 className="font-semibold mb-2">Comparación de Productos:</h4>
+                <div className="space-y-2">
+                  {(actionResult.productComparison as any[]).map((item, index) => (
+                    <div key={index} className="bg-muted/10 p-3 rounded-md">
+                      <p className="font-medium text-primary">{item.feature}</p>
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Competidor:</p>
+                          <p className="text-sm">{item.competitor}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Nuestra Oferta:</p>
+                          <p className="text-sm">{item.ourOffering}</p>
+                        </div>
+                      </div>
+                      <p className="text-xs mt-2 font-medium">
+                        Ventaja: <span className={item.advantage === 'Nosotros' ? 'text-green-600' : 'text-amber-600'}>
+                          {item.advantage}
+                        </span>
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {'strategicRecommendations' in actionResult && Array.isArray(actionResult.strategicRecommendations) && (
+              <div>
+                <h4 className="font-semibold mb-2">Recomendaciones Estratégicas:</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  {(actionResult.strategicRecommendations as string[]).map((rec, index) => (
+                    <li key={index} className="text-primary">{rec}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {'futureCompetitiveStrategy' in actionResult && (
+              <div className="bg-primary/10 p-3 rounded-md">
+                <h4 className="font-semibold mb-1">Estrategia Competitiva Futura:</h4>
+                <p>{actionResult.futureCompetitiveStrategy}</p>
+              </div>
+            )}
+          </div>
+        );
+      } else if (currentActionType === "Agradecimiento" && 'thankYouSubject' in actionResult) {
+        content = (
+          <div className="space-y-3 text-sm text-foreground">
+            <div className="bg-primary/10 p-3 rounded-md">
+              <p className="font-semibold">Asunto:</p>
+              <p>{actionResult.thankYouSubject}</p>
+            </div>
+            
+            <div>
+              <p className="font-semibold mb-2">Mensaje de Agradecimiento:</p>
+              <div className="bg-muted/20 p-3 rounded-md whitespace-pre-wrap">
+                {actionResult.thankYouMessage}
+              </div>
+            </div>
+            
+            {'nextSteps' in actionResult && Array.isArray(actionResult.nextSteps) && (
+              <div>
+                <h4 className="font-semibold mb-2">Próximos Pasos:</h4>
+                <ol className="list-decimal pl-5 space-y-1">
+                  {(actionResult.nextSteps as string[]).map((step, index) => (
+                    <li key={index}>{step}</li>
+                  ))}
+                </ol>
+              </div>
+            )}
+            
+            {'onboardingHighlights' in actionResult && Array.isArray(actionResult.onboardingHighlights) && (
+              <div>
+                <h4 className="font-semibold mb-2">Destacados del Onboarding:</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  {(actionResult.onboardingHighlights as string[]).map((highlight, index) => (
+                    <li key={index} className="text-primary">{highlight}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {'personalizedTouch' in actionResult && (
+              <div className="bg-green-100 dark:bg-green-900/20 p-3 rounded-md border-l-4 border-green-500">
+                <h4 className="font-semibold mb-1">Toque Personal:</h4>
+                <p>{actionResult.personalizedTouch}</p>
+              </div>
+            )}
+          </div>
+        );
+      } else if (currentActionType === "Venta Cruzada" && 'crossSellRecommendations' in actionResult) {
+        content = (
+          <div className="space-y-3 text-sm text-foreground">
+            {'crossSellRecommendations' in actionResult && Array.isArray(actionResult.crossSellRecommendations) && (
+              <div>
+                <h4 className="font-semibold mb-2">Recomendaciones de Venta Cruzada:</h4>
+                <div className="space-y-3">
+                  {(actionResult.crossSellRecommendations as any[]).map((rec, index) => (
+                    <div key={index} className="bg-muted/10 p-3 rounded-md">
+                      <h5 className="font-medium text-primary">{rec.productName}</h5>
+                      <p className="text-sm mt-1">{rec.relevanceReason}</p>
+                      <div className="flex justify-between items-center mt-2">
+                        <span className="text-xs text-green-600 font-semibold">{rec.estimatedValue}</span>
+                        <span className="text-xs text-muted-foreground">{rec.implementationComplexity}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {'bundleOpportunities' in actionResult && Array.isArray(actionResult.bundleOpportunities) && (
+              <div>
+                <h4 className="font-semibold mb-2">Oportunidades de Bundle:</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  {(actionResult.bundleOpportunities as string[]).map((bundle, index) => (
+                    <li key={index} className="text-primary">{bundle}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {'optimalTiming' in actionResult && (
+              <div>
+                <h4 className="font-semibold mb-2">Timing Óptimo:</h4>
+                <p className="bg-amber-100 dark:bg-amber-900/20 p-3 rounded-md">{actionResult.optimalTiming}</p>
+              </div>
+            )}
+            
+            {'expectedROI' in actionResult && (
+              <div className="bg-green-100 dark:bg-green-900/20 p-3 rounded-md border-l-4 border-green-500">
+                <h4 className="font-semibold mb-1">ROI Esperado:</h4>
+                <p>{actionResult.expectedROI}</p>
+              </div>
+            )}
+          </div>
+        );
+      } else if (currentActionType === "Encuesta Cliente" && 'surveyTitle' in actionResult) {
+        content = (
+          <div className="space-y-3 text-sm text-foreground">
+            <div className="bg-primary/10 p-3 rounded-md">
+              <h3 className="font-bold text-lg text-primary">{actionResult.surveyTitle}</h3>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold mb-2">Mensaje de Introducción:</h4>
+              <div className="bg-muted/20 p-3 rounded-md whitespace-pre-wrap text-xs">
+                {actionResult.introMessage}
+              </div>
+            </div>
+            
+            {'surveyQuestions' in actionResult && Array.isArray(actionResult.surveyQuestions) && (
+              <div>
+                <h4 className="font-semibold mb-2">Preguntas de la Encuesta:</h4>
+                <div className="space-y-2">
+                  {(actionResult.surveyQuestions as any[]).slice(0, 4).map((q, index) => (
+                    <div key={index} className="bg-muted/10 p-2 rounded-md">
+                      <p className="font-medium text-xs">{q.category}</p>
+                      <p className="text-sm">{q.question}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Tipo: {q.type}</p>
+                    </div>
+                  ))}
+                  {(actionResult.surveyQuestions as any[]).length > 4 && (
+                    <p className="text-xs text-muted-foreground">... y {(actionResult.surveyQuestions as any[]).length - 4} preguntas más</p>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            {'incentiveOffered' in actionResult && (
+              <div className="bg-green-100 dark:bg-green-900/20 p-3 rounded-md border-l-4 border-green-500">
+                <h4 className="font-semibold mb-1">Incentivo Ofrecido:</h4>
+                <p className="text-xs">{actionResult.incentiveOffered}</p>
+              </div>
+            )}
+            
+            {'estimatedCompletionTime' in actionResult && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Clock className="h-4 w-4" />
+                <p className="text-xs">Tiempo estimado: {actionResult.estimatedCompletionTime}</p>
+              </div>
+            )}
+          </div>
+        );
+      } else if (currentActionType === "Evaluación de Riesgos" && 'overallRiskLevel' in actionResult) {
+        content = (
+          <div className="space-y-3 text-sm text-foreground">
+            <div className={`p-3 rounded-md ${actionResult.overallRiskLevel === 'Alto' ? 'bg-red-100 dark:bg-red-900/20' : actionResult.overallRiskLevel === 'Medio' ? 'bg-amber-100 dark:bg-amber-900/20' : 'bg-green-100 dark:bg-green-900/20'}`}>
+              <h4 className="font-semibold mb-1">Nivel de Riesgo General:</h4>
+              <div className="flex items-center gap-2">
+                <span className="font-bold">{actionResult.overallRiskLevel}</span>
+                {'riskScore' in actionResult && (
+                  <span className="text-xs">Score: {actionResult.riskScore}/100</span>
+                )}
+              </div>
+            </div>
+            
+            {'highRiskFactors' in actionResult && Array.isArray(actionResult.highRiskFactors) && actionResult.highRiskFactors.length > 0 && (
+              <div>
+                <h4 className="font-semibold mb-2 text-red-600">Factores de Alto Riesgo:</h4>
+                <div className="space-y-2">
+                  {(actionResult.highRiskFactors as any[]).map((risk, index) => (
+                    <div key={index} className="bg-red-50 dark:bg-red-900/10 p-3 rounded-md border-l-4 border-red-500">
+                      <p className="font-medium">{risk.factor}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Impacto: {risk.impact}</p>
+                      <p className="text-xs text-muted-foreground">Probabilidad: {risk.probability}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {'mitigationStrategies' in actionResult && Array.isArray(actionResult.mitigationStrategies) && (
+              <div>
+                <h4 className="font-semibold mb-2">Estrategias de Mitigación:</h4>
+                <div className="space-y-2">
+                  {(actionResult.mitigationStrategies as any[]).map((strategy, index) => (
+                    <div key={index} className="bg-muted/10 p-3 rounded-md">
+                      <p className="font-medium text-primary">{strategy.risk}</p>
+                      <p className="text-sm mt-1">{strategy.strategy}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Timeline: {strategy.timeline}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {'actionPriorities' in actionResult && Array.isArray(actionResult.actionPriorities) && (
+              <div>
+                <h4 className="font-semibold mb-2">Prioridades de Acción:</h4>
+                <ol className="list-decimal pl-5 space-y-1">
+                  {(actionResult.actionPriorities as string[]).map((priority, index) => (
+                    <li key={index} className="text-xs">{priority}</li>
+                  ))}
+                </ol>
+              </div>
+            )}
+          </div>
+        );
       }
     }
 
@@ -1710,10 +2319,15 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={(e) => { e.stopPropagation(); toast({ title: "Próximamente", description: "Evaluación de riesgos próximamente." }); }}
+          onClick={(e) => { e.stopPropagation(); handleAssessRiskFactors(lead); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
-          <AlertCircle className="h-3.5 w-3.5 mr-1.5" /> Evaluación Riesgos
+          {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Evaluación de Riesgos" ? (
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          ) : (
+            <AlertCircle className="h-3.5 w-3.5 mr-1.5" />
+          )}{" "}
+          Evaluación Riesgos
         </Button>
       );
       break;
@@ -1725,10 +2339,15 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={(e) => { e.stopPropagation(); toast({ title: "Próximamente", description: "Mensajes de agradecimiento próximamente." }); }}
+          onClick={(e) => { e.stopPropagation(); handleGenerateThankYouMessage(lead); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
-          <Heart className="h-3.5 w-3.5 mr-1.5" /> Agradecimiento
+          {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Agradecimiento" ? (
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          ) : (
+            <Heart className="h-3.5 w-3.5 mr-1.5" />
+          )}{" "}
+          Agradecimiento
         </Button>
       );
       buttons.push(
@@ -1737,10 +2356,15 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={(e) => { e.stopPropagation(); toast({ title: "Próximamente", description: "Oportunidades de venta cruzada próximamente." }); }}
+          onClick={(e) => { e.stopPropagation(); handleGenerateCrossSellOpportunities(lead); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
-          <PackageSearch className="h-3.5 w-3.5 mr-1.5" /> Venta Cruzada
+          {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Venta Cruzada" ? (
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          ) : (
+            <PackageSearch className="h-3.5 w-3.5 mr-1.5" />
+          )}{" "}
+          Venta Cruzada
         </Button>
       );
       buttons.push(
@@ -1749,10 +2373,15 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={(e) => { e.stopPropagation(); toast({ title: "Próximamente", description: "Encuestas de satisfacción próximamente." }); }}
+          onClick={(e) => { e.stopPropagation(); handleGenerateCustomerSurvey(lead); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
-          <ClipboardList className="h-3.5 w-3.5 mr-1.5" /> Encuesta Cliente
+          {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Encuesta Cliente" ? (
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          ) : (
+            <ClipboardList className="h-3.5 w-3.5 mr-1.5" />
+          )}{" "}
+          Encuesta Cliente
         </Button>
       );
       break;
@@ -1764,10 +2393,15 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={(e) => { e.stopPropagation(); toast({ title: "Próximamente", description: "Campañas de recuperación próximamente." }); }}
+          onClick={(e) => { e.stopPropagation(); handleGenerateRecoveryStrategy(lead); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
-          <Repeat className="h-3.5 w-3.5 mr-1.5" /> Recuperación
+          {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Recuperación" ? (
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          ) : (
+            <Repeat className="h-3.5 w-3.5 mr-1.5" />
+          )}{" "}
+          Recuperación
         </Button>
       );
       buttons.push(
@@ -1776,22 +2410,32 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={(e) => { e.stopPropagation(); toast({ title: "Próximamente", description: "Análisis de pérdidas próximamente." }); }}
+          onClick={(e) => { e.stopPropagation(); handleAnalyzeLossReasons(lead); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
-          <AlertCircle className="h-3.5 w-3.5 mr-1.5" /> Análisis Pérdidas
+          {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Análisis de Pérdidas" ? (
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          ) : (
+            <AlertCircle className="h-3.5 w-3.5 mr-1.5" />
+          )}{" "}
+          Análisis Pérdidas
         </Button>
       );
       buttons.push(
         <Button
           key="competitorReport"
-          // variant="ghost"
+          variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={(e) => { e.stopPropagation(); toast({ title: "Próximamente", description: "Informe de competidores próximamente." }); }}
+          onClick={(e) => { e.stopPropagation(); handleGenerateCompetitorReport(lead); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
-          <Users className="h-3.5 w-3.5 mr-1.5" /> Informe Competidores
+          {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Informe de Competidores" ? (
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          ) : (
+            <Users className="h-3.5 w-3.5 mr-1.5" />
+          )}{" "}
+          Informe Competidores
         </Button>
       );
       break;

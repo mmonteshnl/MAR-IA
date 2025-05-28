@@ -17,6 +17,13 @@ import { generateFollowUpReminderMessage, type GenerateFollowUpReminderMessageIn
 import { suggestNegotiationTactics, type SuggestNegotiationTacticsInput } from '@/ai/flows/suggestNegotiationTacticsFlow';
 import { developNegotiationStrategy, type DevelopNegotiationStrategyInput } from '@/ai/flows/developNegotiationStrategyFlow';
 import { generateCounterOfferMessage, type GenerateCounterOfferMessageInput } from '@/ai/flows/generateCounterOfferMessageFlow';
+import { generateRecoveryStrategy, type GenerateRecoveryStrategyInput } from '@/ai/flows/generateRecoveryStrategyFlow';
+import { analyzeLossReasons, type AnalyzeLossReasonsInput } from '@/ai/flows/analyzeLossReasonsFlow';
+import { generateCompetitorReport, type GenerateCompetitorReportInput } from '@/ai/flows/generateCompetitorReportFlow';
+import { generateThankYouMessage, type GenerateThankYouMessageInput } from '@/ai/flows/generateThankYouMessageFlow';
+import { generateCrossSellOpportunities, type GenerateCrossSellOpportunitiesInput } from '@/ai/flows/generateCrossSellOpportunitiesFlow';
+import { generateCustomerSurvey, type GenerateCustomerSurveyInput } from '@/ai/flows/generateCustomerSurveyFlow';
+import { assessRiskFactors, type AssessRiskFactorsInput } from '@/ai/flows/assessRiskFactorsFlow';
 
 import { collection, getDocs, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -217,4 +224,128 @@ export const handleGenerateCounterOfferMessage = async ({ user, lead }: HandlerC
     justificationForCounterOffer: "Necesitamos flujo de caja más rápido para garantizar el mejor servicio",
   };
   return await generateCounterOfferMessage(input);
+};
+
+// Handlers for "Perdido" stage
+export const handleGenerateRecoveryStrategy = async ({ user, lead, userProducts = [] }: HandlerContext) => {
+  const input: GenerateRecoveryStrategyInput = {
+    leadId: lead.id,
+    leadName: lead.name,
+    businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
+    leadStage: lead.stage,
+    leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
+    lossReason: "Optaron por competidor con precio más bajo",
+    timesSinceLoss: 30,
+    competitorWhoWon: "Competidor local",
+    userProducts: userProducts.length > 0 ? userProducts : undefined,
+  };
+  return await generateRecoveryStrategy(input);
+};
+
+export const handleAnalyzeLossReasons = async ({ user, lead, userProducts = [] }: HandlerContext) => {
+  const input: AnalyzeLossReasonsInput = {
+    leadId: lead.id,
+    leadName: lead.name,
+    businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
+    leadStage: lead.stage,
+    leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
+    lossReason: "Precio demasiado alto para su presupuesto",
+    competitorWhoWon: "Competidor con solución más básica",
+    proposalValue: 5000,
+    salesCycleLength: 45,
+    userProducts: userProducts.length > 0 ? userProducts : undefined,
+  };
+  return await analyzeLossReasons(input);
+};
+
+export const handleGenerateCompetitorReport = async ({ user, lead, userProducts = [] }: HandlerContext) => {
+  const input: GenerateCompetitorReportInput = {
+    leadId: lead.id,
+    leadName: lead.name,
+    businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
+    leadStage: lead.stage,
+    leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
+    competitorWhoWon: "SoftLocal Solutions",
+    competitorSolution: "Sistema CRM básico con funcionalidades limitadas",
+    competitorPrice: 3500,
+    ourProposalValue: 5000,
+    lossReason: "Diferencia de precio y simplicidad de implementación",
+    userProducts: userProducts.length > 0 ? userProducts : undefined,
+  };
+  return await generateCompetitorReport(input);
+};
+
+// Handlers for "Ganado" stage
+export const handleGenerateThankYouMessage = async ({ user, lead, userProducts = [] }: HandlerContext) => {
+  const userName = user.displayName || user.email?.split('@')[0] || "Tu nombre";
+  const companyName = process.env.NEXT_PUBLIC_COMPANY_NAME || "Nuestra empresa";
+  
+  const input: GenerateThankYouMessageInput = {
+    leadId: lead.id,
+    leadName: lead.name,
+    businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
+    leadStage: lead.stage,
+    leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
+    purchasedSolution: userProducts.length > 0 ? userProducts[0].name : "Solución personalizada",
+    purchaseValue: 5000,
+    implementationDate: "Próximas 2 semanas",
+    senderName: userName,
+    senderCompany: companyName,
+    userProducts: userProducts.length > 0 ? userProducts : undefined,
+  };
+  return await generateThankYouMessage(input);
+};
+
+export const handleGenerateCrossSellOpportunities = async ({ user, lead, userProducts = [] }: HandlerContext) => {
+  const input: GenerateCrossSellOpportunitiesInput = {
+    leadId: lead.id,
+    leadName: lead.name,
+    businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
+    leadStage: lead.stage,
+    leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
+    currentSolution: userProducts.length > 0 ? userProducts[0].name : "Solución implementada",
+    purchaseValue: 5000,
+    implementationStatus: "Exitosa - 3 meses de uso",
+    satisfactionLevel: "Alta",
+    userProducts: userProducts.length > 0 ? userProducts : undefined,
+  };
+  return await generateCrossSellOpportunities(input);
+};
+
+export const handleGenerateCustomerSurvey = async ({ user, lead, userProducts = [] }: HandlerContext) => {
+  const userName = user.displayName || user.email?.split('@')[0] || "Tu nombre";
+  const companyName = process.env.NEXT_PUBLIC_COMPANY_NAME || "Nuestra empresa";
+  
+  const input: GenerateCustomerSurveyInput = {
+    leadId: lead.id,
+    leadName: lead.name,
+    businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
+    leadStage: lead.stage,
+    leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
+    purchasedSolution: userProducts.length > 0 ? userProducts[0].name : "Solución implementada",
+    implementationDate: "Hace 3 meses",
+    timeWithSolution: 90,
+    senderName: userName,
+    senderCompany: companyName,
+    userProducts: userProducts.length > 0 ? userProducts : undefined,
+  };
+  return await generateCustomerSurvey(input);
+};
+
+// Handler for risk assessment (any stage)
+export const handleAssessRiskFactors = async ({ user, lead, userProducts = [] }: HandlerContext) => {
+  const input: AssessRiskFactorsInput = {
+    leadId: lead.id,
+    leadName: lead.name,
+    businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
+    leadStage: lead.stage,
+    leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
+    proposalValue: 5000,
+    decisionTimeframe: "Próximas 4 semanas",
+    competitionLevel: "Media - 2 competidores identificados",
+    budgetStatus: "Confirmado pero ajustado",
+    decisionMakers: ["CEO", "CFO", "CTO"],
+    userProducts: userProducts.length > 0 ? userProducts : undefined,
+  };
+  return await assessRiskFactors(input);
 };
