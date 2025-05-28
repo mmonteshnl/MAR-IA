@@ -28,9 +28,27 @@ import ImageUploader from '@/components/ImageUploader';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 
-import { generateWelcomeMessage, type WelcomeMessageInput, type WelcomeMessageOutput } from '@/ai/flows/welcomeMessageFlow';
-import { evaluateBusinessFeatures, type EvaluateBusinessInput, type EvaluateBusinessOutput } from '@/ai/flows/evaluateBusinessFlow';
-import { generateSalesRecommendations, type SalesRecommendationsInput, type SalesRecommendationsOutput, type Product as AIProduct } from '@/ai/flows/salesRecommendationsFlow';
+import type { ActionResult, ActionType } from '@/types/ai-actions';
+import { ActionButtons } from '@/components/leads/ActionButtons';
+import { ActionResultModal } from '@/components/leads/ActionResultModal';
+import * as aiHandlers from '@/lib/lead-ai-handlers';
+import type { Product as AIProduct } from '@/ai/flows/salesRecommendationsFlow';
+
+// Keep these imports for the handlers that are still used directly
+import { generateWelcomeMessage, type WelcomeMessageInput } from '@/ai/flows/welcomeMessageFlow';
+import { evaluateBusinessFeatures, type EvaluateBusinessInput } from '@/ai/flows/evaluateBusinessFlow';
+import { generateSalesRecommendations, type SalesRecommendationsInput } from '@/ai/flows/salesRecommendationsFlow';
+import { generateContactStrategy, type GenerateContactStrategyInput } from '@/ai/flows/generateContactStrategyFlow';
+import { suggestBestFollowUpTimes, type SuggestBestFollowUpTimesInput } from '@/ai/flows/suggestBestFollowUpTimesFlow';
+import { generateFollowUpEmail, type GenerateFollowUpEmailInput } from '@/ai/flows/generateFollowUpEmailFlow';
+import { generateObjectionHandlingGuidance, type GenerateObjectionHandlingGuidanceInput } from '@/ai/flows/generateObjectionHandlingGuidanceFlow';
+import { generateProposalSummary, type GenerateProposalSummaryInput } from '@/ai/flows/generateProposalSummaryFlow';
+import { generateCompetitorAnalysisInsights, type GenerateCompetitorAnalysisInsightsInput } from '@/ai/flows/generateCompetitorAnalysisInsightsFlow';
+import { generateFollowUpReminderMessage, type GenerateFollowUpReminderMessageInput } from '@/ai/flows/generateFollowUpReminderMessageFlow';
+import { suggestNegotiationTactics, type SuggestNegotiationTacticsInput } from '@/ai/flows/suggestNegotiationTacticsFlow';
+import { developNegotiationStrategy, type DevelopNegotiationStrategyInput } from '@/ai/flows/developNegotiationStrategyFlow';
+import { generateCounterOfferMessage, type GenerateCounterOfferMessageInput } from '@/ai/flows/generateCounterOfferMessageFlow';
+
 import { formatXmlLeads, type FormatXmlLeadsInput, type FormatXmlLeadsOutput, type FormattedLead as XmlFormattedLead } from '@/ai/flows/formatXmlLeadsFlow';
 import { formatCsvLeads, type FormatCsvLeadsInput, type FormatCsvLeadsOutput, type FormattedLead as CsvFormattedLead } from '@/ai/flows/formatCsvLeadsFlow';
 
@@ -52,7 +70,7 @@ type LeadStage = typeof LEAD_STAGES[number];
 const LOCAL_STORAGE_LEADS_KEY_PREFIX = 'leadsia_leads_';
 const LOCAL_FALLBACK_SOURCE = 'google_places_search_local_fallback';
 
-type ActionResult = WelcomeMessageOutput | EvaluateBusinessOutput | SalesRecommendationsOutput | { error: string } | null;
+// ActionResult type is now imported from @/types/ai-actions
 
 const stageColors: Record<LeadStage, string> = {
   Nuevo: 'bg-muted text-muted-foreground',
@@ -117,7 +135,7 @@ export default function LeadsPage() {
   const [currentActionLead, setCurrentActionLead] = useState<Lead | null>(null);
   const [actionResult, setActionResult] = useState<ActionResult>(null);
   const [isActionResultModalOpen, setIsActionResultModalOpen] = useState(false);
-  const [currentActionType, setCurrentActionType] = useState<string | null>(null);
+  const [currentActionType, setCurrentActionType] = useState<ActionType | null>(null);
 
   const [userProducts, setUserProducts] = useState<AIProduct[]>([]);
 
@@ -453,6 +471,7 @@ export default function LeadsPage() {
     setIsActionLoading(true);
     setActionResult(null);
     setCurrentActionType("Mensaje de Bienvenida");
+    setIsActionResultModalOpen(true);
     try {
       const input: WelcomeMessageInput = { 
         leadName: lead.name, 
@@ -464,7 +483,6 @@ export default function LeadsPage() {
       setActionResult({ error: error.message || "Error al generar mensaje. Asegúrate de que la API Key de Gemini esté configurada." });
     } finally {
       setIsActionLoading(false);
-      setIsActionResultModalOpen(true);
     }
   };
 
@@ -477,6 +495,7 @@ export default function LeadsPage() {
     setIsActionLoading(true);
     setActionResult(null);
     setCurrentActionType("Evaluación de Negocio");
+    setIsActionResultModalOpen(true);
     try {
       const input: EvaluateBusinessInput = {
         leadName: lead.name,
@@ -490,7 +509,6 @@ export default function LeadsPage() {
       setActionResult({ error: error.message || "Error al evaluar negocio. Asegúrate de que la API Key de Gemini esté configurada." });
     } finally {
       setIsActionLoading(false);
-      setIsActionResultModalOpen(true);
     }
   };
 
@@ -503,6 +521,7 @@ export default function LeadsPage() {
     setIsActionLoading(true);
     setActionResult(null);
     setCurrentActionType("Recomendaciones de Venta");
+    setIsActionResultModalOpen(true);
 
     // Ensure products are fetched if not already available or if they might be stale
     // This simple check might need refinement based on how often products change
@@ -553,8 +572,839 @@ export default function LeadsPage() {
       setActionResult({ error: error.message || "Error al generar recomendaciones. Asegúrate de que la API Key de Gemini esté configurada." });
     } finally {
       setIsActionLoading(false);
+    }
+  };
+
+  const handleGenerateContactStrategy = async (lead: Lead) => {
+    if (!user) {
+      toast({ title: "Error de Autenticación", description: "Inicia sesión para usar las acciones de IA.", variant: "destructive" });
+      return;
+    }
+    setCurrentActionLead(lead);
+    setIsActionLoading(true);
+    setActionResult(null);
+    setCurrentActionType("Estrategias de Contacto");
+    setIsActionResultModalOpen(true);
+    try {
+      const input: GenerateContactStrategyInput = {
+        leadId: lead.id,
+        leadName: lead.name,
+        businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
+        leadStage: lead.stage,
+        leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
+        userProducts: userProducts.length > 0 ? userProducts : undefined,
+      };
+      const result = await generateContactStrategy(input);
+      setActionResult(result);
+    } catch (error: any) {
+      setActionResult({ error: error.message || "Error al generar estrategias de contacto. Asegúrate de que la API Key de Gemini esté configurada." });
+    } finally {
+      setIsActionLoading(false);
       setIsActionResultModalOpen(true);
     }
+  };
+
+  const handleSuggestBestFollowUpTimes = async (lead: Lead) => {
+    if (!user) {
+      toast({ title: "Error de Autenticación", description: "Inicia sesión para usar las acciones de IA.", variant: "destructive" });
+      return;
+    }
+    setCurrentActionLead(lead);
+    setIsActionLoading(true);
+    setActionResult(null);
+    setCurrentActionType("Mejores Momentos");
+
+    try {
+      const input: SuggestBestFollowUpTimesInput = {
+        leadId: lead.id,
+        leadName: lead.name,
+        businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
+        leadStage: lead.stage,
+        leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
+        // TODO: Add lastInteraction, leadTimeZone, countryCode when available in the lead data
+      };
+      const result = await suggestBestFollowUpTimes(input);
+      setActionResult(result);
+    } catch (error: any) {
+      setActionResult({ error: error.message || "Error al sugerir mejores momentos. Asegúrate de que la API Key de Gemini esté configurada." });
+    } finally {
+      setIsActionLoading(false);
+      setIsActionResultModalOpen(true);
+    }
+  };
+
+  const handleGenerateFollowUpEmail = async (lead: Lead) => {
+    if (!user) {
+      toast({ title: "Error de Autenticación", description: "Inicia sesión para usar las acciones de IA.", variant: "destructive" });
+      return;
+    }
+    setCurrentActionLead(lead);
+    setIsActionLoading(true);
+    setActionResult(null);
+    setCurrentActionType("Email de Seguimiento");
+
+    try {
+      // Usar el nombre del usuario actual de Firebase
+      const userName = user.displayName || user.email?.split('@')[0] || "Tu nombre";
+      
+      // Usar variable de entorno para la empresa si existe, sino valor por defecto
+      const companyName = process.env.NEXT_PUBLIC_COMPANY_NAME || "Nuestra empresa";
+      
+      const input: GenerateFollowUpEmailInput = {
+        leadId: lead.id,
+        leadName: lead.name,
+        businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
+        leadStage: lead.stage,
+        leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
+        previousContextSummary: "Primera conversación sobre sus necesidades", // TODO: Get from actual interaction history
+        senderName: userName,
+        senderCompany: companyName,
+        userProducts: userProducts.length > 0 ? userProducts : undefined,
+      };
+      const result = await generateFollowUpEmail(input);
+      setActionResult(result);
+    } catch (error: any) {
+      setActionResult({ error: error.message || "Error al generar email de seguimiento. Asegúrate de que la API Key de Gemini esté configurada." });
+    } finally {
+      setIsActionLoading(false);
+      setIsActionResultModalOpen(true);
+    }
+  };
+
+  const handleGenerateObjectionHandlingGuidance = async (lead: Lead) => {
+    if (!user) {
+      toast({ title: "Error de Autenticación", description: "Inicia sesión para usar las acciones de IA.", variant: "destructive" });
+      return;
+    }
+    setCurrentActionLead(lead);
+    setIsActionLoading(true);
+    setActionResult(null);
+    setCurrentActionType("Manejo de Objeciones");
+
+    try {
+      const input: GenerateObjectionHandlingGuidanceInput = {
+        leadId: lead.id,
+        leadName: lead.name,
+        businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
+        leadStage: lead.stage,
+        leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
+        objectionRaised: "Es muy caro", // TODO: Get from actual conversation or allow user input
+        stageInSalesProcess: lead.stage,
+      };
+      const result = await generateObjectionHandlingGuidance(input);
+      setActionResult(result);
+    } catch (error: any) {
+      setActionResult({ error: error.message || "Error al generar guía de manejo de objeciones. Asegúrate de que la API Key de Gemini esté configurada." });
+    } finally {
+      setIsActionLoading(false);
+      setIsActionResultModalOpen(true);
+    }
+  };
+
+  const handleGenerateProposalSummary = async (lead: Lead) => {
+    if (!user) {
+      toast({ title: "Error de Autenticación", description: "Inicia sesión para usar las acciones de IA.", variant: "destructive" });
+      return;
+    }
+    setCurrentActionLead(lead);
+    setIsActionLoading(true);
+    setActionResult(null);
+    setCurrentActionType("Resumen Propuesta");
+
+    try {
+      // Para demo, usar valores predeterminados. En producción, estos vendrían de la propuesta real
+      const input: GenerateProposalSummaryInput = {
+        leadId: lead.id,
+        leadName: lead.name,
+        businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
+        leadStage: lead.stage,
+        leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
+        fullProposalDetails: {
+          problemStatement: "Necesidad de mejorar la presencia digital y automatizar procesos de ventas",
+          proposedSolution: "Implementación de sistema CRM integrado con herramientas de marketing digital",
+          keyDeliverables: [
+            "Configuración de CRM personalizado",
+            "Integración con redes sociales y email",
+            "Capacitación del equipo",
+            "Soporte por 3 meses"
+          ],
+          pricingSummary: "Inversión total: $5,000 USD con plan de pago flexible",
+          callToAction: "Agendar reunión de kick-off para la próxima semana"
+        },
+        targetAudienceForSummary: "Decisor principal"
+      };
+      const result = await generateProposalSummary(input);
+      setActionResult(result);
+    } catch (error: any) {
+      setActionResult({ error: error.message || "Error al generar resumen de propuesta. Asegúrate de que la API Key de Gemini esté configurada." });
+    } finally {
+      setIsActionLoading(false);
+      setIsActionResultModalOpen(true);
+    }
+  };
+
+  const handleGenerateCompetitorAnalysisInsights = async (lead: Lead) => {
+    if (!user) {
+      toast({ title: "Error de Autenticación", description: "Inicia sesión para usar las acciones de IA.", variant: "destructive" });
+      return;
+    }
+    setCurrentActionLead(lead);
+    setIsActionLoading(true);
+    setActionResult(null);
+    setCurrentActionType("Análisis de Competencia");
+
+    try {
+      const input: GenerateCompetitorAnalysisInsightsInput = {
+        leadId: lead.id,
+        leadName: lead.name,
+        businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
+        leadStage: lead.stage,
+        leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
+        knownCompetitors: [],
+        userProducts: userProducts.length > 0 ? userProducts : undefined,
+      };
+      const result = await generateCompetitorAnalysisInsights(input);
+      setActionResult(result);
+    } catch (error: any) {
+      setActionResult({ error: error.message || "Error al generar análisis de competencia. Asegúrate de que la API Key de Gemini esté configurada." });
+    } finally {
+      setIsActionLoading(false);
+      setIsActionResultModalOpen(true);
+    }
+  };
+
+  const handleGenerateFollowUpReminderMessage = async (lead: Lead) => {
+    if (!user) {
+      toast({ title: "Error de Autenticación", description: "Inicia sesión para usar las acciones de IA.", variant: "destructive" });
+      return;
+    }
+    setCurrentActionLead(lead);
+    setIsActionLoading(true);
+    setActionResult(null);
+    setCurrentActionType("Recordatorio de Seguimiento");
+
+    try {
+      const userName = user.displayName || user.email?.split('@')[0] || "Tu nombre";
+      const companyName = process.env.NEXT_PUBLIC_COMPANY_NAME || "Nuestra empresa";
+      
+      const input: GenerateFollowUpReminderMessageInput = {
+        leadId: lead.id,
+        leadName: lead.name,
+        businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
+        leadStage: lead.stage,
+        leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
+        daysSinceProposal: 7,
+        proposalContextSummary: "Propuesta enviada para solución de automatización",
+        senderName: userName,
+        senderCompany: companyName,
+      };
+      const result = await generateFollowUpReminderMessage(input);
+      setActionResult(result);
+    } catch (error: any) {
+      setActionResult({ error: error.message || "Error al generar recordatorio. Asegúrate de que la API Key de Gemini esté configurada." });
+    } finally {
+      setIsActionLoading(false);
+      setIsActionResultModalOpen(true);
+    }
+  };
+
+  const handleSuggestNegotiationTactics = async (lead: Lead) => {
+    if (!user) {
+      toast({ title: "Error de Autenticación", description: "Inicia sesión para usar las acciones de IA.", variant: "destructive" });
+      return;
+    }
+    setCurrentActionLead(lead);
+    setIsActionLoading(true);
+    setActionResult(null);
+    setCurrentActionType("Tácticas de Negociación");
+
+    try {
+      const input: SuggestNegotiationTacticsInput = {
+        leadId: lead.id,
+        leadName: lead.name,
+        businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
+        leadStage: lead.stage,
+        leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
+        proposalValue: 50000,
+        previousProposalContext: "Propuesta inicial enviada con todas las características",
+        userProducts: userProducts.length > 0 ? userProducts : undefined,
+      };
+      const result = await suggestNegotiationTactics(input);
+      setActionResult(result);
+    } catch (error: any) {
+      setActionResult({ error: error.message || "Error al sugerir tácticas. Asegúrate de que la API Key de Gemini esté configurada." });
+    } finally {
+      setIsActionLoading(false);
+      setIsActionResultModalOpen(true);
+    }
+  };
+
+  const handleDevelopNegotiationStrategy = async (lead: Lead) => {
+    if (!user) {
+      toast({ title: "Error de Autenticación", description: "Inicia sesión para usar las acciones de IA.", variant: "destructive" });
+      return;
+    }
+    setCurrentActionLead(lead);
+    setIsActionLoading(true);
+    setActionResult(null);
+    setCurrentActionType("Estrategia de Negociación");
+
+    try {
+      const input: DevelopNegotiationStrategyInput = {
+        leadId: lead.id,
+        leadName: lead.name,
+        businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
+        leadStage: lead.stage,
+        leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
+        negotiationContext: "Cliente interesado pero con dudas sobre el precio",
+        userProducts: userProducts.length > 0 ? userProducts : undefined,
+      };
+      const result = await developNegotiationStrategy(input);
+      setActionResult(result);
+    } catch (error: any) {
+      setActionResult({ error: error.message || "Error al desarrollar estrategia. Asegúrate de que la API Key de Gemini esté configurada." });
+    } finally {
+      setIsActionLoading(false);
+      setIsActionResultModalOpen(true);
+    }
+  };
+
+  const handleGenerateCounterOfferMessage = async (lead: Lead) => {
+    if (!user) {
+      toast({ title: "Error de Autenticación", description: "Inicia sesión para usar las acciones de IA.", variant: "destructive" });
+      return;
+    }
+    setCurrentActionLead(lead);
+    setIsActionLoading(true);
+    setActionResult(null);
+    setCurrentActionType("Contraoferta");
+
+    try {
+      const userName = user.displayName || user.email?.split('@')[0] || "Tu nombre";
+      const companyName = process.env.NEXT_PUBLIC_COMPANY_NAME || "Nuestra empresa";
+      
+      const input: GenerateCounterOfferMessageInput = {
+        leadId: lead.id,
+        leadName: lead.name,
+        businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
+        leadStage: lead.stage,
+        leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
+        originalOfferValue: 50000,
+        counterOfferValue: 45000,
+        justificationContext: "Ajuste de precio por volumen de compra",
+        senderName: userName,
+        senderCompany: companyName,
+      };
+      const result = await generateCounterOfferMessage(input);
+      setActionResult(result);
+    } catch (error: any) {
+      setActionResult({ error: error.message || "Error al generar contraoferta. Asegúrate de que la API Key de Gemini esté configurada." });
+    } finally {
+      setIsActionLoading(false);
+      setIsActionResultModalOpen(true);
+    }
+  };
+  
+  const renderActionResultModal = () => {
+    if (!isActionResultModalOpen || !currentActionLead) return null;
+
+    let title = `Resultado para ${currentActionLead.name}`;
+    let content: React.ReactNode = <p>Cargando...</p>;
+
+    if (isActionLoading) {
+      content = (
+        <div className="flex justify-center items-center py-10">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <span className="ml-3 text-primary">Generando sugerencia...</span>
+        </div>
+      );
+    } else if (actionResult && 'error' in actionResult && actionResult.error) {
+      title = `Error - ${currentActionType || 'Acción de IA'}`;
+      content = <p className="text-destructive">{actionResult.error}</p>;
+    } else if (actionResult) {
+      title = `${currentActionType || 'Resultado de IA'} para ${currentActionLead.name}`;
+      if (currentActionType === "Mensaje de Bienvenida" && 'message' in actionResult) {
+        content = <p className="whitespace-pre-wrap text-sm text-foreground">{actionResult.message}</p>;
+      } else if (currentActionType === "Evaluación de Negocio" && 'evaluation' in actionResult) {
+        content = <p className="whitespace-pre-wrap text-sm text-foreground">{actionResult.evaluation}</p>;
+      } else if (currentActionType === "Recomendaciones de Venta" && 'recommendations' in actionResult && Array.isArray(actionResult.recommendations)) {
+        content = (
+          <div className="space-y-3 text-sm text-foreground">
+            <p>La IA sugiere los siguientes productos/servicios para <strong>{currentActionLead.name}</strong>:</p>
+            {(actionResult.recommendations as { area: string, suggestion: string }[]).length > 0 ? (
+                <ul className="list-disc pl-5 space-y-2">
+                {(actionResult.recommendations as { area: string, suggestion: string }[]).map((rec, index) => (
+                    <li key={index}>
+                    <strong>{rec.area}:</strong> {rec.suggestion}
+                    </li>
+                ))}
+                </ul>
+            ) : (
+                <p className="text-muted-foreground">La IA no encontró recomendaciones específicas de tu catálogo para este lead. Puedes intentarlo de nuevo o revisar el catálogo de productos.</p>
+            )}
+            {(!userProducts || userProducts.length === 0) && (
+              <p className="text-xs text-muted-foreground mt-2">Nota: Estas son recomendaciones genéricas ya que tu catálogo de productos está vacío o no se pudo cargar.</p>
+            )}
+          </div>
+        );
+      } else if (currentActionType === "Estrategias de Contacto" && 'suggestedChannels' in actionResult) {
+        content = (
+          <div className="space-y-3 text-sm text-foreground">
+            <div>
+              <h4 className="font-semibold mb-2">Canales de Contacto Sugeridos:</h4>
+              <ul className="space-y-2">
+                {(actionResult.suggestedChannels as { channel: string, reasoning: string }[]).map((ch, index) => (
+                  <li key={index} className="flex flex-col space-y-1">
+                    <span className="font-medium">{ch.channel}</span>
+                    <span className="text-muted-foreground text-xs">{ch.reasoning}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold mb-2">Puntos Clave de Conversación:</h4>
+              <ul className="list-disc pl-5 space-y-1">
+                {('keyTalkingPoints' in actionResult && Array.isArray(actionResult.keyTalkingPoints) ? actionResult.keyTalkingPoints as string[] : []).map((point, index) => (
+                  <li key={index}>{point}</li>
+                ))}
+              </ul>
+            </div>
+            
+            {'openingLineSuggestion' in actionResult && actionResult.openingLineSuggestion && (
+              <div>
+                <h4 className="font-semibold mb-2">Sugerencia de Apertura:</h4>
+                <p className="bg-muted/30 p-2 rounded text-xs italic">{actionResult.openingLineSuggestion}</p>
+              </div>
+            )}
+            
+            <div>
+              <h4 className="font-semibold mb-2">Objetivo Principal del Contacto:</h4>
+              <p className="text-primary font-medium">{'primaryGoalOfContact' in actionResult ? actionResult.primaryGoalOfContact : ''}</p>
+            </div>
+          </div>
+        );
+      } else if (currentActionType === "Mejores Momentos" && 'recommendations' in actionResult) {
+        content = (
+          <div className="space-y-3 text-sm text-foreground">
+            <div>
+              <h4 className="font-semibold mb-2">Mejores Momentos para Seguimiento:</h4>
+              <div className="space-y-3">
+                {(actionResult.recommendations as { dayOfWeek: string, timeSlotLocal: string, reasoning: string }[]).map((rec, index) => (
+                  <div key={index} className="bg-muted/20 p-3 rounded-md">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Clock className="h-4 w-4 text-primary" />
+                      <span className="font-medium">{rec.dayOfWeek} - {rec.timeSlotLocal}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground ml-6">{rec.reasoning}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {'generalTips' in actionResult && actionResult.generalTips && Array.isArray(actionResult.generalTips) && actionResult.generalTips.length > 0 && (
+              <div>
+                <h4 className="font-semibold mb-2">Consejos Generales:</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  {(actionResult.generalTips as string[]).map((tip, index) => (
+                    <li key={index} className="text-xs">{tip}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        );
+      } else if (currentActionType === "Email de Seguimiento" && 'subject' in actionResult && 'body' in actionResult) {
+        content = (
+          <div className="space-y-3 text-sm text-foreground">
+            <div>
+              <h4 className="font-semibold mb-2">Asunto del Email:</h4>
+              <p className="bg-muted/20 p-2 rounded-md font-medium">{actionResult.subject}</p>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold mb-2">Cuerpo del Email:</h4>
+              <div className="bg-muted/20 p-3 rounded-md whitespace-pre-wrap text-xs">
+                {actionResult.body}
+              </div>
+            </div>
+            
+            {'customizationPoints' in actionResult && actionResult.customizationPoints && Array.isArray(actionResult.customizationPoints) && actionResult.customizationPoints.length > 0 && (
+              <div>
+                <h4 className="font-semibold mb-2">Sugerencias de Personalización:</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  {(actionResult.customizationPoints as string[]).map((point, index) => (
+                    <li key={index} className="text-xs text-muted-foreground">{point}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        );
+      } else if (currentActionType === "Manejo de Objeciones" && 'objectionCategory' in actionResult) {
+        content = (
+          <div className="space-y-3 text-sm text-foreground">
+            <div className="bg-primary/10 p-3 rounded-md">
+              <p className="font-semibold">Categoría de Objeción: <span className="text-primary">{actionResult.objectionCategory}</span></p>
+            </div>
+            
+            {'empathyStatement' in actionResult && actionResult.empathyStatement && (
+              <div>
+                <h4 className="font-semibold mb-2">Declaración de Empatía:</h4>
+                <p className="bg-muted/20 p-3 rounded-md italic">&ldquo;{actionResult.empathyStatement}&rdquo;</p>
+              </div>
+            )}
+            
+            {'suggestedResponses' in actionResult && Array.isArray(actionResult.suggestedResponses) && (
+              <div>
+                <h4 className="font-semibold mb-2">Estrategias de Respuesta:</h4>
+                <div className="space-y-3">
+                  {(actionResult.suggestedResponses as any[]).map((response, index) => (
+                    <div key={index} className="border border-border/50 rounded-md p-3">
+                      <h5 className="font-semibold text-primary mb-2">{response.strategyName}</h5>
+                      
+                      <div className="space-y-2">
+                        <div>
+                          <p className="text-xs font-medium mb-1">Puntos clave:</p>
+                          <ul className="list-disc pl-5 space-y-1">
+                            {response.responsePoints.map((point: string, idx: number) => (
+                              <li key={idx} className="text-xs">{point}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        
+                        {response.pros && response.pros.length > 0 && (
+                          <div>
+                            <p className="text-xs font-medium text-green-600 mb-1">Ventajas:</p>
+                            <ul className="list-disc pl-5 space-y-1">
+                              {response.pros.map((pro: string, idx: number) => (
+                                <li key={idx} className="text-xs text-green-600">{pro}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {response.consOrWatchouts && response.consOrWatchouts.length > 0 && (
+                          <div>
+                            <p className="text-xs font-medium text-orange-600 mb-1">Consideraciones:</p>
+                            <ul className="list-disc pl-5 space-y-1">
+                              {response.consOrWatchouts.map((con: string, idx: number) => (
+                                <li key={idx} className="text-xs text-orange-600">{con}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {'clarifyingQuestions' in actionResult && actionResult.clarifyingQuestions && Array.isArray(actionResult.clarifyingQuestions) && actionResult.clarifyingQuestions.length > 0 && (
+              <div>
+                <h4 className="font-semibold mb-2">Preguntas de Aclaración:</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  {(actionResult.clarifyingQuestions as string[]).map((question, index) => (
+                    <li key={index} className="text-xs">{question}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        );
+      } else if (currentActionType === "Resumen Propuesta" && 'summaryTitle' in actionResult) {
+        content = (
+          <div className="space-y-3 text-sm text-foreground">
+            <div className="bg-primary/10 p-3 rounded-md">
+              <h3 className="font-bold text-lg text-primary">{actionResult.summaryTitle}</h3>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold mb-2">Resumen Ejecutivo:</h4>
+              <p className="bg-muted/20 p-3 rounded-md leading-relaxed">
+                {actionResult.executiveSummary}
+              </p>
+            </div>
+            
+            {'keyBenefitsAlignedWithNeeds' in actionResult && Array.isArray(actionResult.keyBenefitsAlignedWithNeeds) && (
+              <div>
+                <h4 className="font-semibold mb-2">Beneficios Clave Alineados con Necesidades:</h4>
+                <div className="space-y-2">
+                  {(actionResult.keyBenefitsAlignedWithNeeds as any[]).map((item, index) => (
+                    <div key={index} className="flex gap-2 bg-muted/10 p-2 rounded-md">
+                      <div className="flex-1">
+                        <p className="text-xs font-medium text-muted-foreground">Necesidad:</p>
+                        <p className="text-sm">{item.need}</p>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs font-medium text-primary">Beneficio:</p>
+                        <p className="text-sm">{item.benefit}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {'uniqueSellingPropositionHighlight' in actionResult && actionResult.uniqueSellingPropositionHighlight && (
+              <div>
+                <h4 className="font-semibold mb-2">Propuesta de Valor Única:</h4>
+                <p className="bg-primary/20 p-3 rounded-md border-l-4 border-primary">
+                  {actionResult.uniqueSellingPropositionHighlight}
+                </p>
+              </div>
+            )}
+            
+            {'suggestedNextStepFromProposal' in actionResult && (
+              <div>
+                <h4 className="font-semibold mb-2">Próximo Paso Sugerido:</h4>
+                <div className="bg-primary text-primary-foreground p-3 rounded-md flex items-center gap-2">
+                  <Zap className="h-4 w-4" />
+                  <p className="font-medium">{actionResult.suggestedNextStepFromProposal}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      } else if (currentActionType === "Análisis de Competencia" && 'competitorComparisonMatrix' in actionResult) {
+        content = (
+          <div className="space-y-3 text-sm text-foreground">
+            {'competitorComparisonMatrix' in actionResult && Array.isArray(actionResult.competitorComparisonMatrix) && (
+              <div>
+                <h4 className="font-semibold mb-2">Matriz de Comparación con Competidores:</h4>
+                <div className="space-y-2">
+                  {(actionResult.competitorComparisonMatrix as any[]).map((item, index) => (
+                    <div key={index} className="bg-muted/10 p-3 rounded-md">
+                      <p className="font-medium text-primary">{item.feature}</p>
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Tu Oferta:</p>
+                          <p className="text-sm">{item.yourOffering}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Competidor:</p>
+                          <p className="text-sm">{item.competitorOffering}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {'uniqueDifferentiators' in actionResult && Array.isArray(actionResult.uniqueDifferentiators) && (
+              <div>
+                <h4 className="font-semibold mb-2">Diferenciadores Únicos:</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  {(actionResult.uniqueDifferentiators as string[]).map((diff, index) => (
+                    <li key={index}>{diff}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {'potentialVulnerabilities' in actionResult && Array.isArray(actionResult.potentialVulnerabilities) && (
+              <div>
+                <h4 className="font-semibold mb-2">Áreas de Mejora:</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  {(actionResult.potentialVulnerabilities as string[]).map((vuln, index) => (
+                    <li key={index} className="text-amber-600">{vuln}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {'positioningRecommendation' in actionResult && (
+              <div className="bg-primary/10 p-3 rounded-md">
+                <h4 className="font-semibold mb-1">Recomendación de Posicionamiento:</h4>
+                <p>{actionResult.positioningRecommendation}</p>
+              </div>
+            )}
+          </div>
+        );
+      } else if (currentActionType === "Recordatorio de Seguimiento" && 'reminderSubject' in actionResult) {
+        content = (
+          <div className="space-y-3 text-sm text-foreground">
+            <div className="bg-primary/10 p-3 rounded-md">
+              <p className="font-semibold">Asunto:</p>
+              <p>{actionResult.reminderSubject}</p>
+            </div>
+            
+            <div>
+              <p className="font-semibold mb-2">Mensaje:</p>
+              <div className="bg-muted/20 p-3 rounded-md whitespace-pre-wrap">
+                {actionResult.reminderMessage}
+              </div>
+            </div>
+            
+            {'suggestedCallToAction' in actionResult && (
+              <div className="bg-primary text-primary-foreground p-3 rounded-md">
+                <p className="font-semibold mb-1">Llamada a la Acción:</p>
+                <p>{actionResult.suggestedCallToAction}</p>
+              </div>
+            )}
+            
+            {'followUpTone' in actionResult && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Bell className="h-4 w-4" />
+                <p className="text-xs">Tono: {actionResult.followUpTone}</p>
+              </div>
+            )}
+          </div>
+        );
+      } else if (currentActionType === "Tácticas de Negociación" && 'suggestedTactics' in actionResult) {
+        content = (
+          <div className="space-y-3 text-sm text-foreground">
+            {'suggestedTactics' in actionResult && Array.isArray(actionResult.suggestedTactics) && (
+              <div>
+                <h4 className="font-semibold mb-2">Tácticas Sugeridas:</h4>
+                <div className="space-y-2">
+                  {(actionResult.suggestedTactics as any[]).map((tactic, index) => (
+                    <div key={index} className="bg-muted/10 p-3 rounded-md">
+                      <p className="font-medium text-primary">{tactic.tacticName}</p>
+                      <p className="text-sm mt-1">{tactic.description}</p>
+                      <p className="text-xs text-muted-foreground mt-2">Cuándo usar: {tactic.whenToUse}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {'primaryNegotiationGoal' in actionResult && (
+              <div className="bg-primary/10 p-3 rounded-md">
+                <h4 className="font-semibold mb-1">Objetivo Principal:</h4>
+                <p>{actionResult.primaryNegotiationGoal}</p>
+              </div>
+            )}
+            
+            {'fallbackPositions' in actionResult && Array.isArray(actionResult.fallbackPositions) && (
+              <div>
+                <h4 className="font-semibold mb-2">Posiciones de Respaldo:</h4>
+                <ol className="list-decimal pl-5 space-y-1">
+                  {(actionResult.fallbackPositions as string[]).map((pos, index) => (
+                    <li key={index}>{pos}</li>
+                  ))}
+                </ol>
+              </div>
+            )}
+          </div>
+        );
+      } else if (currentActionType === "Estrategia de Negociación" && 'negotiationApproach' in actionResult) {
+        content = (
+          <div className="space-y-3 text-sm text-foreground">
+            <div className="bg-primary/10 p-3 rounded-md">
+              <h4 className="font-semibold mb-1">Enfoque de Negociación:</h4>
+              <p>{actionResult.negotiationApproach}</p>
+            </div>
+            
+            {'keyNegotiationPoints' in actionResult && Array.isArray(actionResult.keyNegotiationPoints) && (
+              <div>
+                <h4 className="font-semibold mb-2">Puntos Clave de Negociación:</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  {(actionResult.keyNegotiationPoints as string[]).map((point, index) => (
+                    <li key={index}>{point}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {'concessionsHierarchy' in actionResult && Array.isArray(actionResult.concessionsHierarchy) && (
+              <div>
+                <h4 className="font-semibold mb-2">Jerarquía de Concesiones:</h4>
+                <div className="space-y-2">
+                  {(actionResult.concessionsHierarchy as any[]).map((concession, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <span className="bg-primary/20 text-primary px-2 py-1 rounded text-xs font-semibold">
+                        Nivel {concession.level}
+                      </span>
+                      <span className="text-sm">{concession.concession}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {'bestAlternativeToNegotiatedAgreement' in actionResult && (
+              <div className="bg-amber-100 dark:bg-amber-900/20 p-3 rounded-md border-l-4 border-amber-500">
+                <h4 className="font-semibold mb-1">BATNA:</h4>
+                <p>{actionResult.bestAlternativeToNegotiatedAgreement}</p>
+              </div>
+            )}
+            
+            {'emotionalIntelligenceTips' in actionResult && Array.isArray(actionResult.emotionalIntelligenceTips) && (
+              <div>
+                <h4 className="font-semibold mb-2">Tips de Inteligencia Emocional:</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  {(actionResult.emotionalIntelligenceTips as string[]).map((tip, index) => (
+                    <li key={index} className="text-xs">{tip}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        );
+      } else if (currentActionType === "Contraoferta" && 'counterOfferSubject' in actionResult) {
+        content = (
+          <div className="space-y-3 text-sm text-foreground">
+            <div className="bg-primary/10 p-3 rounded-md">
+              <p className="font-semibold">Asunto:</p>
+              <p>{actionResult.counterOfferSubject}</p>
+            </div>
+            
+            <div>
+              <p className="font-semibold mb-2">Mensaje de Contraoferta:</p>
+              <div className="bg-muted/20 p-3 rounded-md whitespace-pre-wrap">
+                {actionResult.counterOfferMessage}
+              </div>
+            </div>
+            
+            {'valueJustificationPoints' in actionResult && Array.isArray(actionResult.valueJustificationPoints) && (
+              <div>
+                <h4 className="font-semibold mb-2">Puntos de Justificación del Valor:</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  {(actionResult.valueJustificationPoints as string[]).map((point, index) => (
+                    <li key={index}>{point}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {'psychologicalFraming' in actionResult && (
+              <div className="bg-primary/20 p-3 rounded-md">
+                <h4 className="font-semibold mb-1">Marco Psicológico:</h4>
+                <p className="text-sm">{actionResult.psychologicalFraming}</p>
+              </div>
+            )}
+          </div>
+        );
+      }
+    }
+
+    return (
+      <Dialog open={isActionResultModalOpen} onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          setActionResult(null);
+          setCurrentActionLead(null);
+          setCurrentActionType(null);
+        }
+        setIsActionResultModalOpen(isOpen);
+      }}>
+        <DialogContent className="sm:max-w-md bg-popover text-popover-foreground border-border rounded-[var(--radius)]">
+          <DialogHeader>
+            <DialogTitle className="text-lg text-foreground">{title}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 max-h-[60vh] overflow-y-auto">
+            {content}
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" className="border-muted-foreground text-muted-foreground hover:bg-muted/30 rounded-[var(--radius)]">Cerrar</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
   };
 
 const renderActionButtons = (lead: Lead) => {
@@ -568,7 +1418,7 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={() => handleGenerateWelcomeMessage(lead)}
+          onClick={(e) => { e.stopPropagation(); handleGenerateWelcomeMessage(lead); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
           {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Mensaje de Bienvenida" ? (
@@ -586,10 +1436,15 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={() => toast({ title: "Próximamente", description: "Estrategias de contacto próximamente." })}
+          onClick={(e) => { e.stopPropagation(); handleGenerateContactStrategy(lead); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
-          <MessageSquareText className="h-3.5 w-3.5 mr-1.5" /> Estrategias de Contacto
+          {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Estrategias de Contacto" ? (
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          ) : (
+            <MessageSquareText className="h-3.5 w-3.5 mr-1.5" />
+          )}{" "}
+          Estrategias de Contacto
         </Button>
       );
       // Recomendar mejores momentos para seguimiento
@@ -599,10 +1454,15 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={() => toast({ title: "Próximamente", description: "Mejores momentos para seguimiento próximamente." })}
+          onClick={(e) => { e.stopPropagation(); handleSuggestBestFollowUpTimes(lead); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
-          <Clock className="h-3.5 w-3.5 mr-1.5" /> Mejores Momentos
+          {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Mejores Momentos" ? (
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          ) : (
+            <Clock className="h-3.5 w-3.5 mr-1.5" />
+          )}{" "}
+          Mejores Momentos
         </Button>
       );
       break;
@@ -614,7 +1474,7 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={() => handleEvaluateBusiness(lead)}
+          onClick={(e) => { e.stopPropagation(); handleEvaluateBusiness(lead); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
           {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Evaluación de Negocio" ? (
@@ -631,7 +1491,7 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={() => handleGenerateSalesRecommendations(lead)}
+          onClick={(e) => { e.stopPropagation(); handleGenerateSalesRecommendations(lead); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
           {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Recomendaciones de Venta" ? (
@@ -649,10 +1509,15 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={() => toast({ title: "Próximamente", description: "Plantillas de seguimiento próximamente." })}
+          onClick={(e) => { e.stopPropagation(); handleGenerateFollowUpEmail(lead); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
-          <MailIconLucide className="h-3.5 w-3.5 mr-1.5" /> Seguimiento
+          {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Email de Seguimiento" ? (
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          ) : (
+            <MailIconLucide className="h-3.5 w-3.5 mr-1.5" />
+          )}{" "}
+          Seguimiento
         </Button>
       );
       // Sugerir consejos para manejar objeciones
@@ -662,10 +1527,15 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={() => toast({ title: "Próximamente", description: "Consejos para objeciones próximamente." })}
+          onClick={(e) => { e.stopPropagation(); handleGenerateObjectionHandlingGuidance(lead); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
-          <AlertCircle className="h-3.5 w-3.5 mr-1.5" /> Manejo de Objeciones
+          {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Manejo de Objeciones" ? (
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          ) : (
+            <AlertCircle className="h-3.5 w-3.5 mr-1.5" />
+          )}{" "}
+          Manejo de Objeciones
         </Button>
       );
       break;
@@ -677,7 +1547,7 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={() => handleEvaluateBusiness(lead)}
+          onClick={(e) => { e.stopPropagation(); handleEvaluateBusiness(lead); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
           {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Evaluación de Negocio" ? (
@@ -694,7 +1564,7 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={() => handleGenerateSalesRecommendations(lead)}
+          onClick={(e) => { e.stopPropagation(); handleGenerateSalesRecommendations(lead); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
           {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Recomendaciones de Venta" ? (
@@ -712,10 +1582,15 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={() => toast({ title: "Próximamente", description: "Resumen de propuesta próximamente." })}
+          onClick={(e) => { e.stopPropagation(); handleGenerateProposalSummary(lead); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
-          <FileText className="h-3.5 w-3.5 mr-1.5" /> Resumen Propuesta
+          {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Resumen Propuesta" ? (
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          ) : (
+            <FileText className="h-3.5 w-3.5 mr-1.5" />
+          )}{" "}
+          Resumen Propuesta
         </Button>
       );
       // Sugerir análisis comparativo con competidores
@@ -725,10 +1600,15 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={() => toast({ title: "Próximamente", description: "Análisis de competidores próximamente." })}
+          onClick={(e) => { e.stopPropagation(); handleGenerateCompetitorAnalysisInsights(lead); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
-          <Users className="h-3.5 w-3.5 mr-1.5" /> Análisis Competidores
+          {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Análisis de Competencia" ? (
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          ) : (
+            <Users className="h-3.5 w-3.5 mr-1.5" />
+          )}{" "}
+          Análisis Competidores
         </Button>
       );
       break;
@@ -740,7 +1620,7 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={() => handleGenerateSalesRecommendations(lead)}
+          onClick={(e) => { e.stopPropagation(); handleGenerateSalesRecommendations(lead); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
           {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Recomendaciones de Venta" ? (
@@ -758,10 +1638,15 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={() => toast({ title: "Próximamente", description: "Recordatorios de seguimiento próximamente." })}
+          onClick={(e) => { e.stopPropagation(); handleGenerateFollowUpReminderMessage(lead); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
-          <Bell className="h-3.5 w-3.5 mr-1.5" /> Recordatorio Seguimiento
+          {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Recordatorio de Seguimiento" ? (
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          ) : (
+            <Bell className="h-3.5 w-3.5 mr-1.5" />
+          )}{" "}
+          Recordatorio Seguimiento
         </Button>
       );
       // Sugerir tácticas de negociación o concesiones
@@ -771,10 +1656,15 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={() => toast({ title: "Próximamente", description: "Tácticas de negociación próximamente." })}
+          onClick={(e) => { e.stopPropagation(); handleSuggestNegotiationTactics(lead); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
-          <Handshake className="h-3.5 w-3.5 mr-1.5" /> Tácticas Negociación
+          {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Tácticas de Negociación" ? (
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          ) : (
+            <Handshake className="h-3.5 w-3.5 mr-1.5" />
+          )}{" "}
+          Tácticas Negociación
         </Button>
       );
       break;
@@ -786,10 +1676,15 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={() => toast({ title: "Próximamente", description: "Estrategias de negociación próximamente." })}
+          onClick={(e) => { e.stopPropagation(); handleDevelopNegotiationStrategy(lead); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
-          <Handshake className="h-3.5 w-3.5 mr-1.5" /> Estrategia Negociación
+          {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Estrategia de Negociación" ? (
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          ) : (
+            <Handshake className="h-3.5 w-3.5 mr-1.5" />
+          )}{" "}
+          Estrategia Negociación
         </Button>
       );
       buttons.push(
@@ -798,10 +1693,15 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={() => toast({ title: "Próximamente", description: "Mensajes para contraofertas próximamente." })}
+          onClick={(e) => { e.stopPropagation(); handleGenerateCounterOfferMessage(lead); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
-          <FileText className="h-3.5 w-3.5 mr-1.5" /> Contraoferta
+          {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Contraoferta" ? (
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          ) : (
+            <FileText className="h-3.5 w-3.5 mr-1.5" />
+          )}{" "}
+          Contraoferta
         </Button>
       );
       buttons.push(
@@ -810,7 +1710,7 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={() => toast({ title: "Próximamente", description: "Evaluación de riesgos próximamente." })}
+          onClick={(e) => { e.stopPropagation(); toast({ title: "Próximamente", description: "Evaluación de riesgos próximamente." }); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
           <AlertCircle className="h-3.5 w-3.5 mr-1.5" /> Evaluación Riesgos
@@ -825,7 +1725,7 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={() => toast({ title: "Próximamente", description: "Mensajes de agradecimiento próximamente." })}
+          onClick={(e) => { e.stopPropagation(); toast({ title: "Próximamente", description: "Mensajes de agradecimiento próximamente." }); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
           <Heart className="h-3.5 w-3.5 mr-1.5" /> Agradecimiento
@@ -837,7 +1737,7 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={() => toast({ title: "Próximamente", description: "Oportunidades de venta cruzada próximamente." })}
+          onClick={(e) => { e.stopPropagation(); toast({ title: "Próximamente", description: "Oportunidades de venta cruzada próximamente." }); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
           <PackageSearch className="h-3.5 w-3.5 mr-1.5" /> Venta Cruzada
@@ -849,7 +1749,7 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={() => toast({ title: "Próximamente", description: "Encuestas de satisfacción próximamente." })}
+          onClick={(e) => { e.stopPropagation(); toast({ title: "Próximamente", description: "Encuestas de satisfacción próximamente." }); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
           <ClipboardList className="h-3.5 w-3.5 mr-1.5" /> Encuesta Cliente
@@ -864,7 +1764,7 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={() => toast({ title: "Próximamente", description: "Campañas de recuperación próximamente." })}
+          onClick={(e) => { e.stopPropagation(); toast({ title: "Próximamente", description: "Campañas de recuperación próximamente." }); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
           <Repeat className="h-3.5 w-3.5 mr-1.5" /> Recuperación
@@ -876,7 +1776,7 @@ const renderActionButtons = (lead: Lead) => {
           variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={() => toast({ title: "Próximamente", description: "Análisis de pérdidas próximamente." })}
+          onClick={(e) => { e.stopPropagation(); toast({ title: "Próximamente", description: "Análisis de pérdidas próximamente." }); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
           <AlertCircle className="h-3.5 w-3.5 mr-1.5" /> Análisis Pérdidas
@@ -888,7 +1788,7 @@ const renderActionButtons = (lead: Lead) => {
           // variant="ghost"
           size="sm"
           className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
-          onClick={() => toast({ title: "Próximamente", description: "Informe de competidores próximamente." })}
+          onClick={(e) => { e.stopPropagation(); toast({ title: "Próximamente", description: "Informe de competidores próximamente." }); }}
           disabled={isActionLoading && currentActionLead?.id === lead.id}
         >
           <Users className="h-3.5 w-3.5 mr-1.5" /> Informe Competidores
@@ -1496,71 +2396,6 @@ const renderActionButtons = (lead: Lead) => {
       </Card>
     </div>
   );
-
-  const renderActionResultModal = () => {
-    if (!isActionResultModalOpen || !currentActionLead) return null;
-
-    let title = `Resultado para ${currentActionLead.name}`;
-    let content: React.ReactNode = <p>Cargando...</p>;
-
-    if (actionResult && 'error' in actionResult && actionResult.error) {
-      title = `Error - ${currentActionType || 'Acción de IA'}`;
-      content = <p className="text-destructive">{actionResult.error}</p>;
-    } else if (actionResult) {
-      title = `${currentActionType || 'Resultado de IA'} para ${currentActionLead.name}`;
-      if (currentActionType === "Mensaje de Bienvenida" && 'message' in actionResult) {
-        content = <p className="whitespace-pre-wrap text-sm text-foreground">{actionResult.message}</p>;
-      } else if (currentActionType === "Evaluación de Negocio" && 'evaluation' in actionResult) {
-        content = <p className="whitespace-pre-wrap text-sm text-foreground">{actionResult.evaluation}</p>;
-      } else if (currentActionType === "Recomendaciones de Venta" && 'recommendations' in actionResult && Array.isArray(actionResult.recommendations)) {
-        content = (
-          <div className="space-y-3 text-sm text-foreground">
-            <p>La IA sugiere los siguientes productos/servicios para <strong>{currentActionLead.name}</strong>:</p>
-            {(actionResult.recommendations as { area: string, suggestion: string }[]).length > 0 ? (
-                <ul className="list-disc pl-5 space-y-2">
-                {(actionResult.recommendations as { area: string, suggestion: string }[]).map((rec, index) => (
-                    <li key={index}>
-                    <strong>{rec.area}:</strong> {rec.suggestion}
-                    </li>
-                ))}
-                </ul>
-            ) : (
-                <p className="text-muted-foreground">La IA no encontró recomendaciones específicas de tu catálogo para este lead. Puedes intentarlo de nuevo o revisar el catálogo de productos.</p>
-            )}
-            {(!userProducts || userProducts.length === 0) && (
-              <p className="text-xs text-muted-foreground mt-2">Nota: Estas son recomendaciones genéricas ya que tu catálogo de productos está vacío o no se pudo cargar.</p>
-            )}
-          </div>
-        );
-      }
-    }
-
-    return (
-      <Dialog open={isActionResultModalOpen} onOpenChange={(isOpen) => {
-        if (!isOpen) {
-          setActionResult(null);
-          setCurrentActionLead(null);
-          setCurrentActionType(null);
-        }
-        setIsActionResultModalOpen(isOpen);
-      }}>
-        <DialogContent className="sm:max-w-md bg-popover text-popover-foreground border-border rounded-[var(--radius)]">
-          <DialogHeader>
-            <DialogTitle className="text-lg text-foreground">{title}</DialogTitle>
-          </DialogHeader>
-          <div className="py-4 max-h-[60vh] overflow-y-auto">
-            {content}
-          </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline" className="border-muted-foreground text-muted-foreground hover:bg-muted/30 rounded-[var(--radius)]">Cerrar</Button>
-            </DialogClose>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    );
-  };
-
 
   const renderImportFileModal = () => (
     <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
