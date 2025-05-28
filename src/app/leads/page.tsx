@@ -557,7 +557,7 @@ export default function LeadsPage() {
     }
   };
 
-  const renderActionButtons = (lead: Lead) => {
+const renderActionButtons = (lead: Lead) => {
   const buttons = [];
 
   switch (lead.stage) {
@@ -908,7 +908,7 @@ export default function LeadsPage() {
       </div>
       <div className="flex flex-wrap gap-1">
         {buttons.map((btn) => (
-          <div key={btn.key} className="flex-grow shadow-sm w-full roudered-sm">
+          <div key={btn.key} className="flex-grow shadow-sm w-full rounded-sm">
             {btn}
           </div>
         ))}
