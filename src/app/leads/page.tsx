@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Alert, AlertTitle, AlertDescription as AlertDescriptionShad } from "@/components/ui/alert";
 import LoadingSpinner from '@/components/LoadingSpinner';
 import NextImage from 'next/image';
-import { LogOut, PlusCircle, ArrowLeft, KanbanSquare, List, Phone, MessageSquareText, Globe, Mail as MailIconLucide, FileText, Lightbulb, Loader2, BrainCircuit, PackageSearch, FileUp, Trash2, ImagePlus, Edit2, Eye, AlertCircle, Zap, MoreVertical, Briefcase, ExternalLink, Search, Dot, Filter, ChevronDown, Users } from 'lucide-react';
+import { LogOut, PlusCircle, ArrowLeft, KanbanSquare, List, Phone, MessageSquareText, Globe, Mail as MailIconLucide, FileText, Lightbulb, Loader2, BrainCircuit, PackageSearch, FileUp, Trash2, ImagePlus, Edit2, Eye, AlertCircle, Zap, MoreVertical, Briefcase, ExternalLink, Search, Dot, Filter, ChevronDown, Users, Clock, Bell, Handshake, Heart, ClipboardList, Repeat } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { type User as FirebaseUser } from 'firebase/auth';
@@ -558,44 +558,364 @@ export default function LeadsPage() {
   };
 
   const renderActionButtons = (lead: Lead) => {
-    const buttons = [];
-    // Welcome message for "Nuevo"
-    if (lead.stage === "Nuevo") {
+  const buttons = [];
+
+  switch (lead.stage) {
+    case "Nuevo":
       buttons.push(
-        <Button key="welcome" variant="ghost" size="sm" className="text-xs h-7 px-2 text-foreground hover:bg-primary/10 hover:text-primary flex-grow" onClick={() => handleGenerateWelcomeMessage(lead)} disabled={isActionLoading && currentActionLead?.id === lead.id}>
-          {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Mensaje de Bienvenida" ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <MailIconLucide className="h-3.5 w-3.5 mr-1.5" />} Bienvenida
+        <Button
+          key="welcome"
+          variant="ghost"
+          size="sm"
+          className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
+          onClick={() => handleGenerateWelcomeMessage(lead)}
+          disabled={isActionLoading && currentActionLead?.id === lead.id}
+        >
+          {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Mensaje de Bienvenida" ? (
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          ) : (
+            <MailIconLucide className="h-3.5 w-3.5 mr-1.5" />
+          )}{" "}
+          Bienvenida
         </Button>
       );
-    }
-    // Evaluate for "Contactado" or "Calificado"
-    if (lead.stage === "Contactado" || lead.stage === "Calificado") {
-        buttons.push(
-            <Button key="evaluate" variant="ghost" size="sm" className="text-xs h-7 px-2 text-foreground hover:bg-primary/10 hover:text-primary flex-grow" onClick={() => handleEvaluateBusiness(lead)} disabled={isActionLoading && currentActionLead?.id === lead.id}>
-            {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Evaluación de Negocio" ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <FileText className="h-3.5 w-3.5 mr-1.5" />} Evaluar
-            </Button>
-        );
-    }
-    // Recommend products for "Contactado", "Calificado", or "Propuesta Enviada"
-    if (lead.stage === "Contactado" || lead.stage === "Calificado" || lead.stage === "Propuesta Enviada") {
-        buttons.push(
-            <Button key="recommend" variant="ghost" size="sm" className="text-xs h-7 px-2 text-foreground hover:bg-primary/10 hover:text-primary flex-grow" onClick={() => handleGenerateSalesRecommendations(lead)} disabled={isActionLoading && currentActionLead?.id === lead.id}>
-            {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Recomendaciones de Venta" ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Lightbulb className="h-3.5 w-3.5 mr-1.5" />} Recomendar Productos
-            </Button>
-        );
-    }
+      // Sugerir estrategias o guiones para el primer contacto
+      buttons.push(
+        <Button
+          key="contactStrategy"
+          variant="ghost"
+          size="sm"
+          className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
+          onClick={() => toast({ title: "Próximamente", description: "Estrategias de contacto próximamente." })}
+          disabled={isActionLoading && currentActionLead?.id === lead.id}
+        >
+          <MessageSquareText className="h-3.5 w-3.5 mr-1.5" /> Estrategias de Contacto
+        </Button>
+      );
+      // Recomendar mejores momentos para seguimiento
+      buttons.push(
+        <Button
+          key="bestFollowUpTimes"
+          variant="ghost"
+          size="sm"
+          className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
+          onClick={() => toast({ title: "Próximamente", description: "Mejores momentos para seguimiento próximamente." })}
+          disabled={isActionLoading && currentActionLead?.id === lead.id}
+        >
+          <Clock className="h-3.5 w-3.5 mr-1.5" /> Mejores Momentos
+        </Button>
+      );
+      break;
 
-    return buttons.length > 0 ? (
-      <div className="mt-3 pt-2 border-t border-border/30">
-        <div className="flex items-center text-xs text-muted-foreground mb-1.5">
-          <BrainCircuit className="h-3.5 w-3.5 mr-1.5 text-primary" />
-          Acciones Sugeridas con IA:
-        </div>
-        <div className="flex flex-col sm:flex-row gap-1.5">
-          {buttons.map(btn => <div key={btn.key} className="flex-grow">{btn}</div>)}
-        </div>
+    case "Contactado":
+      buttons.push(
+        <Button
+          key="evaluate"
+          variant="ghost"
+          size="sm"
+          className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
+          onClick={() => handleEvaluateBusiness(lead)}
+          disabled={isActionLoading && currentActionLead?.id === lead.id}
+        >
+          {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Evaluación de Negocio" ? (
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          ) : (
+            <FileText className="h-3.5 w-3.5 mr-1.5" />
+          )}{" "}
+          Evaluar
+        </Button>
+      );
+      buttons.push(
+        <Button
+          key="recommend"
+          variant="ghost"
+          size="sm"
+          className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
+          onClick={() => handleGenerateSalesRecommendations(lead)}
+          disabled={isActionLoading && currentActionLead?.id === lead.id}
+        >
+          {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Recomendaciones de Venta" ? (
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          ) : (
+            <Lightbulb className="h-3.5 w-3.5 mr-1.5" />
+          )}{" "}
+          Recomendar Productos
+        </Button>
+      );
+      // Generar plantillas personalizadas de correos de seguimiento
+      buttons.push(
+        <Button
+          key="followUpEmail"
+          variant="ghost"
+          size="sm"
+          className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
+          onClick={() => toast({ title: "Próximamente", description: "Plantillas de seguimiento próximamente." })}
+          disabled={isActionLoading && currentActionLead?.id === lead.id}
+        >
+          <MailIconLucide className="h-3.5 w-3.5 mr-1.5" /> Seguimiento
+        </Button>
+      );
+      // Sugerir consejos para manejar objeciones
+      buttons.push(
+        <Button
+          key="objectionHandling"
+          variant="ghost"
+          size="sm"
+          className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
+          onClick={() => toast({ title: "Próximamente", description: "Consejos para objeciones próximamente." })}
+          disabled={isActionLoading && currentActionLead?.id === lead.id}
+        >
+          <AlertCircle className="h-3.5 w-3.5 mr-1.5" /> Manejo de Objeciones
+        </Button>
+      );
+      break;
+
+    case "Calificado":
+      buttons.push(
+        <Button
+          key="evaluate"
+          variant="ghost"
+          size="sm"
+          className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
+          onClick={() => handleEvaluateBusiness(lead)}
+          disabled={isActionLoading && currentActionLead?.id === lead.id}
+        >
+          {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Evaluación de Negocio" ? (
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          ) : (
+            <FileText className="h-3.5 w-3.5 mr-1.5" />
+          )}{" "}
+          Evaluar
+        </Button>
+      );
+      buttons.push(
+        <Button
+          key="recommend"
+          variant="ghost"
+          size="sm"
+          className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
+          onClick={() => handleGenerateSalesRecommendations(lead)}
+          disabled={isActionLoading && currentActionLead?.id === lead.id}
+        >
+          {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Recomendaciones de Venta" ? (
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          ) : (
+            <Lightbulb className="h-3.5 w-3.5 mr-1.5" />
+          )}{" "}
+          Recomendar Productos
+        </Button>
+      );
+      // Generar resumen de propuesta o puntos clave de venta
+      buttons.push(
+        <Button
+          key="proposalSummary"
+          variant="ghost"
+          size="sm"
+          className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
+          onClick={() => toast({ title: "Próximamente", description: "Resumen de propuesta próximamente." })}
+          disabled={isActionLoading && currentActionLead?.id === lead.id}
+        >
+          <FileText className="h-3.5 w-3.5 mr-1.5" /> Resumen Propuesta
+        </Button>
+      );
+      // Sugerir análisis comparativo con competidores
+      buttons.push(
+        <Button
+          key="competitorAnalysis"
+          variant="ghost"
+          size="sm"
+          className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
+          onClick={() => toast({ title: "Próximamente", description: "Análisis de competidores próximamente." })}
+          disabled={isActionLoading && currentActionLead?.id === lead.id}
+        >
+          <Users className="h-3.5 w-3.5 mr-1.5" /> Análisis Competidores
+        </Button>
+      );
+      break;
+
+    case "Propuesta Enviada":
+      buttons.push(
+        <Button
+          key="recommend"
+          variant="ghost"
+          size="sm"
+          className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
+          onClick={() => handleGenerateSalesRecommendations(lead)}
+          disabled={isActionLoading && currentActionLead?.id === lead.id}
+        >
+          {isActionLoading && currentActionLead?.id === lead.id && currentActionType === "Recomendaciones de Venta" ? (
+            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          ) : (
+            <Lightbulb className="h-3.5 w-3.5 mr-1.5" />
+          )}{" "}
+          Recomendar Productos
+        </Button>
+      );
+      // Generar mensajes recordatorios para seguimiento
+      buttons.push(
+        <Button
+          key="followUpReminder"
+          variant="ghost"
+          size="sm"
+          className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
+          onClick={() => toast({ title: "Próximamente", description: "Recordatorios de seguimiento próximamente." })}
+          disabled={isActionLoading && currentActionLead?.id === lead.id}
+        >
+          <Bell className="h-3.5 w-3.5 mr-1.5" /> Recordatorio Seguimiento
+        </Button>
+      );
+      // Sugerir tácticas de negociación o concesiones
+      buttons.push(
+        <Button
+          key="negotiationTactics"
+          variant="ghost"
+          size="sm"
+          className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
+          onClick={() => toast({ title: "Próximamente", description: "Tácticas de negociación próximamente." })}
+          disabled={isActionLoading && currentActionLead?.id === lead.id}
+        >
+          <Handshake className="h-3.5 w-3.5 mr-1.5" /> Tácticas Negociación
+        </Button>
+      );
+      break;
+
+    case "Negociación":
+      buttons.push(
+        <Button
+          key="negotiationStrategy"
+          variant="ghost"
+          size="sm"
+          className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
+          onClick={() => toast({ title: "Próximamente", description: "Estrategias de negociación próximamente." })}
+          disabled={isActionLoading && currentActionLead?.id === lead.id}
+        >
+          <Handshake className="h-3.5 w-3.5 mr-1.5" /> Estrategia Negociación
+        </Button>
+      );
+      buttons.push(
+        <Button
+          key="counterOffer"
+          variant="ghost"
+          size="sm"
+          className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
+          onClick={() => toast({ title: "Próximamente", description: "Mensajes para contraofertas próximamente." })}
+          disabled={isActionLoading && currentActionLead?.id === lead.id}
+        >
+          <FileText className="h-3.5 w-3.5 mr-1.5" /> Contraoferta
+        </Button>
+      );
+      buttons.push(
+        <Button
+          key="riskAssessment"
+          variant="ghost"
+          size="sm"
+          className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
+          onClick={() => toast({ title: "Próximamente", description: "Evaluación de riesgos próximamente." })}
+          disabled={isActionLoading && currentActionLead?.id === lead.id}
+        >
+          <AlertCircle className="h-3.5 w-3.5 mr-1.5" /> Evaluación Riesgos
+        </Button>
+      );
+      break;
+
+    case "Ganado":
+      buttons.push(
+        <Button
+          key="thankYou"
+          variant="ghost"
+          size="sm"
+          className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
+          onClick={() => toast({ title: "Próximamente", description: "Mensajes de agradecimiento próximamente." })}
+          disabled={isActionLoading && currentActionLead?.id === lead.id}
+        >
+          <Heart className="h-3.5 w-3.5 mr-1.5" /> Agradecimiento
+        </Button>
+      );
+      buttons.push(
+        <Button
+          key="crossSell"
+          variant="ghost"
+          size="sm"
+          className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
+          onClick={() => toast({ title: "Próximamente", description: "Oportunidades de venta cruzada próximamente." })}
+          disabled={isActionLoading && currentActionLead?.id === lead.id}
+        >
+          <PackageSearch className="h-3.5 w-3.5 mr-1.5" /> Venta Cruzada
+        </Button>
+      );
+      buttons.push(
+        <Button
+          key="customerSurvey"
+          variant="ghost"
+          size="sm"
+          className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
+          onClick={() => toast({ title: "Próximamente", description: "Encuestas de satisfacción próximamente." })}
+          disabled={isActionLoading && currentActionLead?.id === lead.id}
+        >
+          <ClipboardList className="h-3.5 w-3.5 mr-1.5" /> Encuesta Cliente
+        </Button>
+      );
+      break;
+
+    case "Perdido":
+      buttons.push(
+        <Button
+          key="winBack"
+          variant="ghost"
+          size="sm"
+          className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
+          onClick={() => toast({ title: "Próximamente", description: "Campañas de recuperación próximamente." })}
+          disabled={isActionLoading && currentActionLead?.id === lead.id}
+        >
+          <Repeat className="h-3.5 w-3.5 mr-1.5" /> Recuperación
+        </Button>
+      );
+      buttons.push(
+        <Button
+          key="lossAnalysis"
+          variant="ghost"
+          size="sm"
+          className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
+          onClick={() => toast({ title: "Próximamente", description: "Análisis de pérdidas próximamente." })}
+          disabled={isActionLoading && currentActionLead?.id === lead.id}
+        >
+          <AlertCircle className="h-3.5 w-3.5 mr-1.5" /> Análisis Pérdidas
+        </Button>
+      );
+      buttons.push(
+        <Button
+          key="competitorReport"
+          // variant="ghost"
+          size="sm"
+          className="pointer text-xs h-7 px-2 text-foreground bg-primary/10 text-primary flex-grow bg-gray-800"
+          onClick={() => toast({ title: "Próximamente", description: "Informe de competidores próximamente." })}
+          disabled={isActionLoading && currentActionLead?.id === lead.id}
+        >
+          <Users className="h-3.5 w-3.5 mr-1.5" /> Informe Competidores
+        </Button>
+      );
+      break;
+
+    default:
+      break;
+  }
+
+  return buttons.length > 0 ? (
+    <div className="mt-3 pt-2 border-t border-border/30">
+      <div className="flex items-center text-xs text-muted-foreground mb-1.5">
+        <BrainCircuit className="h-3.5 w-3.5 mr-1.5 text-primary" />
+        Acciones Sugeridas con IA:
       </div>
-    ) : null;
-  };
+      <div className="flex flex-wrap gap-1">
+        {buttons.map((btn) => (
+          <div key={btn.key} className="flex-grow shadow-sm w-full roudered-sm">
+            {btn}
+          </div>
+        ))}
+      </div>
+    </div>
+  ) : null;
+};
 
   const handleFileSelectedForImport = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
