@@ -38,23 +38,8 @@ import type { Product as AIProduct } from '@/ai/flows/salesRecommendationsFlow';
 import { generateWelcomeMessage, type WelcomeMessageInput } from '@/ai/flows/welcomeMessageFlow';
 import { evaluateBusinessFeatures, type EvaluateBusinessInput } from '@/ai/flows/evaluateBusinessFlow';
 import { generateSalesRecommendations, type SalesRecommendationsInput } from '@/ai/flows/salesRecommendationsFlow';
-import { generateContactStrategy, type GenerateContactStrategyInput } from '@/ai/flows/generateContactStrategyFlow';
-import { suggestBestFollowUpTimes, type SuggestBestFollowUpTimesInput } from '@/ai/flows/suggestBestFollowUpTimesFlow';
-import { generateFollowUpEmail, type GenerateFollowUpEmailInput } from '@/ai/flows/generateFollowUpEmailFlow';
-import { generateObjectionHandlingGuidance, type GenerateObjectionHandlingGuidanceInput } from '@/ai/flows/generateObjectionHandlingGuidanceFlow';
-import { generateProposalSummary, type GenerateProposalSummaryInput } from '@/ai/flows/generateProposalSummaryFlow';
-import { generateCompetitorAnalysisInsights, type GenerateCompetitorAnalysisInsightsInput } from '@/ai/flows/generateCompetitorAnalysisInsightsFlow';
-import { generateFollowUpReminderMessage, type GenerateFollowUpReminderMessageInput } from '@/ai/flows/generateFollowUpReminderMessageFlow';
-import { suggestNegotiationTactics, type SuggestNegotiationTacticsInput } from '@/ai/flows/suggestNegotiationTacticsFlow';
-import { developNegotiationStrategy, type DevelopNegotiationStrategyInput } from '@/ai/flows/developNegotiationStrategyFlow';
-import { generateCounterOfferMessage, type GenerateCounterOfferMessageInput } from '@/ai/flows/generateCounterOfferMessageFlow';
-import { generateRecoveryStrategy, type GenerateRecoveryStrategyInput } from '@/ai/flows/generateRecoveryStrategyFlow';
-import { analyzeLossReasons, type AnalyzeLossReasonsInput } from '@/ai/flows/analyzeLossReasonsFlow';
-import { generateCompetitorReport, type GenerateCompetitorReportInput } from '@/ai/flows/generateCompetitorReportFlow';
-import { generateThankYouMessage, type GenerateThankYouMessageInput } from '@/ai/flows/generateThankYouMessageFlow';
-import { generateCrossSellOpportunities, type GenerateCrossSellOpportunitiesInput } from '@/ai/flows/generateCrossSellOpportunitiesFlow';
-import { generateCustomerSurvey, type GenerateCustomerSurveyInput } from '@/ai/flows/generateCustomerSurveyFlow';
-import { assessRiskFactors, type AssessRiskFactorsInput } from '@/ai/flows/assessRiskFactorsFlow';
+// AI API Client for new flows
+import { aiApiClient } from '@/lib/ai-api-client';
 
 import { formatXmlLeads, type FormatXmlLeadsInput, type FormatXmlLeadsOutput, type FormattedLead as XmlFormattedLead } from '@/ai/flows/formatXmlLeadsFlow';
 import { formatCsvLeads, type FormatCsvLeadsInput, type FormatCsvLeadsOutput, type FormattedLead as CsvFormattedLead } from '@/ai/flows/formatCsvLeadsFlow';
@@ -194,7 +179,7 @@ export default function LeadsPage() {
         return {
           name: data.name,
           category: data.category,
-          description: data.description || undefined,
+          description: data.description ?? "",  // Ensure description is always a string
           price_usd: data.price_usd,
           original_price_usd: data.original_price_usd || undefined,
         };
@@ -593,15 +578,7 @@ export default function LeadsPage() {
     setCurrentActionType("Estrategias de Contacto");
     setIsActionResultModalOpen(true);
     try {
-      const input: GenerateContactStrategyInput = {
-        leadId: lead.id,
-        leadName: lead.name,
-        businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
-        leadStage: lead.stage,
-        leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
-        userProducts: userProducts.length > 0 ? userProducts : undefined,
-      };
-      const result = await generateContactStrategy(input);
+      const result = await aiApiClient.generateContactStrategy({ user, lead, userProducts });
       setActionResult(result);
     } catch (error: any) {
       setActionResult({ error: error.message || "Error al generar estrategias de contacto. Asegúrate de que la API Key de Gemini esté configurada." });
@@ -622,15 +599,7 @@ export default function LeadsPage() {
     setCurrentActionType("Mejores Momentos");
 
     try {
-      const input: SuggestBestFollowUpTimesInput = {
-        leadId: lead.id,
-        leadName: lead.name,
-        businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
-        leadStage: lead.stage,
-        leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
-        // TODO: Add lastInteraction, leadTimeZone, countryCode when available in the lead data
-      };
-      const result = await suggestBestFollowUpTimes(input);
+      const result = await aiApiClient.suggestBestFollowUpTimes({ user, lead, userProducts });
       setActionResult(result);
     } catch (error: any) {
       setActionResult({ error: error.message || "Error al sugerir mejores momentos. Asegúrate de que la API Key de Gemini esté configurada." });
@@ -651,24 +620,7 @@ export default function LeadsPage() {
     setCurrentActionType("Email de Seguimiento");
 
     try {
-      // Usar el nombre del usuario actual de Firebase
-      const userName = user.displayName || user.email?.split('@')[0] || "Tu nombre";
-      
-      // Usar variable de entorno para la empresa si existe, sino valor por defecto
-      const companyName = process.env.NEXT_PUBLIC_COMPANY_NAME || "Nuestra empresa";
-      
-      const input: GenerateFollowUpEmailInput = {
-        leadId: lead.id,
-        leadName: lead.name,
-        businessType: isFieldMissing(lead.businessType) ? undefined : lead.businessType!,
-        leadStage: lead.stage,
-        leadNotes: isFieldMissing(lead.notes) ? undefined : lead.notes!,
-        previousContextSummary: "Primera conversación sobre sus necesidades", // TODO: Get from actual interaction history
-        senderName: userName,
-        senderCompany: companyName,
-        userProducts: userProducts.length > 0 ? userProducts : undefined,
-      };
-      const result = await generateFollowUpEmail(input);
+      const result = await aiApiClient.generateFollowUpEmail({ user, lead, userProducts });
       setActionResult(result);
     } catch (error: any) {
       setActionResult({ error: error.message || "Error al generar email de seguimiento. Asegúrate de que la API Key de Gemini esté configurada." });
