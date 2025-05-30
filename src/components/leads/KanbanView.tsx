@@ -3,8 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from "@/components/ui/button";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"; // Import ScrollArea
-import { MoreVertical, AlertCircle, Dot, Phone, MessageSquareText, Mail as MailIconLucide, ExternalLink as ExternalLinkIcon } from 'lucide-react';
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MoreVertical, AlertCircle, Dot, Phone, MessageSquareText, Mail as MailIconLucide, ExternalLink as ExternalLinkIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useDragAndDrop } from '@/hooks/useDragAndDrop';
+import { useState } from 'react';
 import type { Lead } from '@/types';
 
 // Define LeadStage type based on LEAD_STAGES if not exported from '@/types'
@@ -41,12 +45,242 @@ export default function KanbanView({
   currentActionType,
   selectedLeadForDetails,
 }: KanbanViewProps) {
+  const isMobile = useIsMobile();
+  const [currentStageIndex, setCurrentStageIndex] = useState(0);
+  
+  const {
+    draggedItem,
+    dropTarget,
+    handleDragStart,
+    handleDragEnd,
+    handleDragOver,
+    handleDragEnter,
+    handleDragLeave,
+    handleDrop,
+  } = useDragAndDrop();
+
+  // Mobile swipe navigation
+  const nextStage = () => {
+    setCurrentStageIndex(prev => (prev + 1) % LEAD_STAGES.length);
+  };
+
+  const prevStage = () => {
+    setCurrentStageIndex(prev => (prev - 1 + LEAD_STAGES.length) % LEAD_STAGES.length);
+  };
+
+  // Handle lead drop on stage
+  const handleLeadDrop = (leadData: any, targetStage: string) => {
+    if (leadData.id && leadData.id !== targetStage) {
+      onStageChange(leadData.id, targetStage as LeadStage);
+    }
+  };
+
+  // Render lead card (shared between mobile and desktop)
+  const renderLeadCard = (lead: Lead) => {
+    const featuredImage = lead.images?.find(img => img.is_featured)?.secure_url;
+    const isImported = lead.source === 'xml_import_ia' || lead.source === 'csv_import_ia';
+    const isImportedIncomplete = isImported && (
+        isFieldMissing(lead.address) || isFieldMissing(lead.businessType) ||
+        isFieldMissing(lead.company) || isFieldMissing(lead.website)
+    );
+    const isLocal = lead.source === LOCAL_FALLBACK_SOURCE || (lead.source.includes('_import_ia') && !lead.placeId && !lead.id.startsWith('local_firebase_id_'));
+    const isSelected = selectedLeadForDetails?.id === lead.id;
+
+    return (
+      <Card
+        key={lead.id}
+        draggable={!isMobile}
+        onDragStart={(e) => !isMobile && handleDragStart(e, {
+          id: lead.id,
+          type: 'lead',
+          data: lead
+        })}
+        onDragEnd={handleDragEnd}
+        className={`
+          ${isSelected ? 'bg-secondary' : 'bg-muted'} 
+          text-foreground border 
+          ${isImportedIncomplete ? 'border-dashed border-orange-500/50' : (isSelected ? 'border-primary/70' : 'border-border/20')}
+          rounded-[var(--radius)] transition-all duration-150 cursor-pointer shadow-sm hover:shadow-md
+          ${currentActionLead?.id === lead.id ? 'ring-1 ring-primary/70' : ''}
+          ${isMobile ? 'mb-3' : ''}
+          ${draggedItem?.id === lead.id ? 'opacity-50 scale-95' : ''}
+          ${!isMobile ? 'cursor-grab active:cursor-grabbing' : ''}
+        `}
+        onClick={() => onOpenLeadDetails(lead)}
+      >
+        <CardHeader className={`${isMobile ? 'p-4' : 'p-3'} space-y-3`}>
+          {/* Stage Selector at Top */}
+          <div className="flex items-center justify-between">
+            <Select value={lead.stage} onValueChange={(newStage) => onStageChange(lead.id, newStage as LeadStage)}>
+              <SelectTrigger 
+                className={`w-auto min-w-[120px] ${isMobile ? 'h-8' : 'h-7'} ${isMobile ? 'text-sm' : 'text-xs'} bg-gradient-to-r ${stageColors[lead.stage as LeadStage]} text-white border-none shadow-sm font-medium`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-white/80 rounded-full"></div>
+                  <SelectValue placeholder="Etapa" />
+                </div>
+              </SelectTrigger>
+              <SelectContent className="bg-popover text-popover-foreground">
+                {LEAD_STAGES.map(s => (
+                  <SelectItem key={s} value={s} className={`${isMobile ? 'text-sm' : 'text-xs'}`}>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${stageColors[s].split(' ')[0]}`}></div>
+                      {s}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            <Button variant="ghost" size="icon" className={`${isMobile ? 'h-8 w-8' : 'h-7 w-7'} text-muted-foreground hover:text-primary`} onClick={(e: React.MouseEvent) => { e.stopPropagation(); /* TODO: Open three-dot menu */ }}>
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Lead Info */}
+          <div className="flex items-start justify-between space-x-2">
+            <div className="flex-grow space-y-0.5 min-w-0">
+                <h3 className={`font-semibold ${isMobile ? 'text-base' : 'text-sm'} text-foreground leading-tight flex items-center truncate`} title={lead.name}>
+                  <span className="truncate">{lead.name}</span>
+                  {isLocal && <Dot className="h-5 w-5 text-yellow-400 flex-shrink-0"  />}
+                  {isImportedIncomplete && <AlertCircle className="h-3.5 w-3.5 text-orange-400 ml-1 flex-shrink-0" />}
+                </h3>
+                {!isFieldMissing(lead.company) && <p className={`${isMobile ? 'text-sm' : 'text-xs'} text-muted-foreground truncate`} title={lead.company!}>{lead.company}</p>}
+                {!isFieldMissing(lead.address) && <p className={`${isMobile ? 'text-sm' : 'text-xs'} text-muted-foreground truncate`} title={lead.address!}>{lead.address}</p>}
+                
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  {isLocal && <span className={`text-[${isMobile ? '11px' : '10px'}] px-1.5 py-0.5 bg-background text-muted-foreground rounded-full`}>Local</span>}
+                  {isImported && <span className={`text-[${isMobile ? '11px' : '10px'}] px-1.5 py-0.5 bg-background text-muted-foreground rounded-full`}>Importado</span>}
+                </div>
+            </div>
+            <div className="flex-shrink-0">
+                <Avatar className={`${isMobile ? 'h-10 w-10' : 'h-8 w-8'} border border-border/30`}>
+                  <AvatarImage src={featuredImage} alt={lead.name} data-ai-hint="business logo" />
+                  <AvatarFallback className="bg-background text-muted-foreground text-xs">
+                    {lead.name.substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className={`${isMobile ? 'p-4 pt-1' : 'p-3 pt-1'}`}>
+          <div className={`flex items-center justify-start space-x-1 ${isMobile ? 'text-sm' : 'text-xs'} text-muted-foreground mb-2.5`}>
+              {!isFieldMissing(lead.phone) && (
+                  <a href={`tel:${lead.phone}`} onClick={(e: React.MouseEvent) => e.stopPropagation()} title={`Llamar a ${lead.name}`} className={`${isMobile ? 'p-2' : 'p-1'} hover:text-primary rounded-full hover:bg-primary/10`}>
+                      <Phone className={`${isMobile ? 'h-4 w-4' : 'h-3.5 w-3.5'}`} />
+                  </a>
+              )}
+              {generateWhatsAppLink(lead) && ( 
+                  <a href={generateWhatsAppLink(lead)!} target="_blank" rel="noopener noreferrer" onClick={(e: React.MouseEvent) => e.stopPropagation()} title="Enviar WhatsApp" className={`${isMobile ? 'p-2' : 'p-1'} hover:text-primary rounded-full hover:bg-primary/10`}>
+                      <MessageSquareText className={`${isMobile ? 'h-4 w-4' : 'h-3.5 w-3.5'}`} />
+                  </a>
+              )}
+              {!isFieldMissing(lead.email) && (
+                  <a href={`mailto:${lead.email}`} onClick={(e: React.MouseEvent) => e.stopPropagation()} title={`Enviar email a ${lead.name}`} className={`${isMobile ? 'p-2' : 'p-1'} hover:text-primary rounded-full hover:bg-primary/10`}>
+                      <MailIconLucide className={`${isMobile ? 'h-4 w-4' : 'h-3.5 w-3.5'}`} />
+                  </a>
+              )}
+              {!isFieldMissing(lead.website) && (
+                  <a href={lead.website!} target="_blank" rel="noopener noreferrer" onClick={(e: React.MouseEvent) => e.stopPropagation()} title={`Visitar sitio web de ${lead.name}`} className={`${isMobile ? 'p-2' : 'p-1'} hover:text-primary rounded-full hover:bg-primary/10`}>
+                      <ExternalLinkIcon className={`${isMobile ? 'h-4 w-4' : 'h-3.5 w-3.5'}`} />
+                  </a>
+              )}
+              {(isFieldMissing(lead.phone) && isFieldMissing(lead.website) && isFieldMissing(lead.email) && !generateWhatsAppLink(lead)) && <span className={`${isMobile ? 'text-sm' : 'text-xs'} text-muted-foreground/70 italic pl-1`}>Sin contacto directo</span>}
+            </div>
+            <LeadActionButtons
+                lead={lead}
+                onGenerateWelcomeMessage={onGenerateWelcomeMessage}
+                onEvaluateBusiness={onEvaluateBusiness}
+                onGenerateSalesRecommendations={onGenerateSalesRecommendations}
+                onGenerateSolutionEmail={onGenerateSolutionEmail}
+                currentActionLead={currentActionLead}
+                isActionLoading={isActionLoading}
+                currentActionType={currentActionType}
+            />
+          </CardContent>
+      </Card>
+    );
+  };
+
+  // Mobile view with tabs/swipe
+  if (isMobile) {
+    return (
+      <div className="w-full">
+        {/* Mobile navigation with swipe indicators */}
+        <div className="flex items-center justify-between mb-4 bg-card rounded-lg p-3 border">
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={prevStage}
+            disabled={currentStageIndex === 0}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          
+          <div className="flex-1 text-center">
+            <h3 className="font-semibold text-foreground">{LEAD_STAGES[currentStageIndex]}</h3>
+            <p className="text-sm text-muted-foreground">
+              {leads.filter(lead => lead.stage === LEAD_STAGES[currentStageIndex]).length} leads
+            </p>
+          </div>
+          
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={nextStage}
+            disabled={currentStageIndex === LEAD_STAGES.length - 1}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Stage indicators */}
+        <div className="flex justify-center space-x-2 mb-4">
+          {LEAD_STAGES.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => setCurrentStageIndex(index)}
+              className={`w-2 h-2 rounded-full transition-colors ${
+                index === currentStageIndex ? 'bg-primary' : 'bg-gray-300'
+              }`}
+            />
+          ))}
+        </div>
+
+        {/* Current stage content */}
+        <div className="space-y-3">
+          {leads.filter(lead => lead.stage === LEAD_STAGES[currentStageIndex]).length === 0 ? (
+            <div className="flex items-center justify-center h-32 bg-card rounded-lg border border-dashed">
+              <p className="text-sm text-muted-foreground text-center">No hay leads en esta etapa.</p>
+            </div>
+          ) : (
+            leads.filter(lead => lead.stage === LEAD_STAGES[currentStageIndex]).map(renderLeadCard)
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop view (original)
   return (
-    <ScrollArea className="w-full whitespace-nowrap"> {/* Added ScrollArea and whitespace-nowrap */}
+    <ScrollArea className="w-full whitespace-nowrap">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6 gap-x-5 gap-y-5 px-1 pb-4">
         {LEAD_STAGES.map(stage => (
-          <div key={stage} className="flex-shrink-0 w-full inline-block align-top"> {/* Ensure columns are laid out horizontally for scroll */}
-            <Card className="bg-card border-border/30 shadow-none min-h-[300px] max-h-[80vh] flex flex-col rounded-[var(--radius)]">
+          <div 
+            key={stage} 
+            className="flex-shrink-0 w-full inline-block align-top"
+            onDragOver={handleDragOver}
+            onDragEnter={(e) => handleDragEnter(e, stage)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, stage, handleLeadDrop)}
+          >
+            <Card className={`
+              bg-card border-border/30 shadow-none min-h-[300px] max-h-[80vh] flex flex-col rounded-[var(--radius)]
+              ${dropTarget === stage ? 'ring-2 ring-primary/50 bg-primary/5' : ''}
+              transition-all duration-200
+            `}>
               <CardHeader className="pb-3 pt-4 px-4 sticky top-0 bg-card z-10 border-b border-border/20 rounded-t-[var(--radius)]">
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center">
@@ -65,105 +299,7 @@ export default function KanbanView({
                     <p className="text-sm text-muted-foreground text-center">No hay leads en esta etapa.</p>
                   </div>
                 )}
-                {leads.filter(lead => lead.stage === stage).map(lead => {
-                  const featuredImage = lead.images?.find(img => img.is_featured)?.secure_url;
-                  const isImported = lead.source === 'xml_import_ia' || lead.source === 'csv_import_ia';
-                  const isImportedIncomplete = isImported && (
-                      isFieldMissing(lead.address) || isFieldMissing(lead.businessType) ||
-                      isFieldMissing(lead.company) || isFieldMissing(lead.website)
-                  );
-                  const isLocal = lead.source === LOCAL_FALLBACK_SOURCE || (lead.source.includes('_import_ia') && !lead.placeId && !lead.id.startsWith('local_firebase_id_'));
-                  const isSelected = selectedLeadForDetails?.id === lead.id;
-
-                  return (
-                    <Card
-                      key={lead.id}
-                      className={`
-                        ${isSelected ? 'bg-secondary' : 'bg-muted'} 
-                        text-foreground border 
-                        ${isImportedIncomplete ? 'border-dashed border-orange-500/50' : (isSelected ? 'border-primary/70' : 'border-border/20')}
-                        rounded-[var(--radius)] transition-all duration-150 cursor-pointer shadow-sm hover:shadow-md
-                        ${currentActionLead?.id === lead.id ? 'ring-1 ring-primary/70' : ''}
-                      `}
-                      onClick={() => onOpenLeadDetails(lead)}
-                    >
-                      <CardHeader className="p-3 flex flex-row items-start justify-between space-x-2">
-                        <div className="flex-grow space-y-0.5 min-w-0">
-                            <h3 className="font-semibold text-sm text-foreground leading-tight flex items-center truncate" title={lead.name}>
-                              <span className="truncate">{lead.name}</span>
-                              {isLocal && <Dot className="h-5 w-5 text-yellow-400 flex-shrink-0"  />}
-                              {isImportedIncomplete && <AlertCircle className="h-3.5 w-3.5 text-orange-400 ml-1 flex-shrink-0" />}
-                            </h3>
-                            {!isFieldMissing(lead.company) && <p className="text-xs text-muted-foreground truncate" title={lead.company!}>{lead.company}</p>}
-                            {!isFieldMissing(lead.address) && <p className="text-xs text-muted-foreground truncate" title={lead.address!}>{lead.address}</p>}
-                            
-                            <div className="flex flex-wrap gap-1 mt-1.5">
-                              {isLocal && <span className="text-[10px] px-1.5 py-0.5 bg-background text-muted-foreground rounded-full">Local</span>}
-                              {isImported && <span className="text-[10px] px-1.5 py-0.5 bg-background text-muted-foreground rounded-full">Importado</span>}
-                            </div>
-                        </div>
-                        <div className="flex flex-col items-end space-y-1">
-                            <Avatar className="h-8 w-8 border border-border/30">
-                              <AvatarImage src={featuredImage} alt={lead.name} data-ai-hint="business logo" />
-                              <AvatarFallback className="bg-background text-muted-foreground text-xs">
-                                {lead.name.substring(0, 2).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary mt-auto" onClick={(e: React.MouseEvent) => { e.stopPropagation(); /* TODO: Open three-dot menu */ }}>
-                                <MoreVertical className="h-4 w-4" />
-                            </Button>
-                        </div>
-                      </CardHeader>
-
-                      <CardContent className="p-3 pt-1">
-                        <div className="flex items-center justify-start space-x-1 text-xs text-muted-foreground mb-2.5">
-                            {!isFieldMissing(lead.phone) && (
-                                <a href={`tel:${lead.phone}`} onClick={(e: React.MouseEvent) => e.stopPropagation()} title={`Llamar a ${lead.name}`} className="p-1 hover:text-primary rounded-full hover:bg-primary/10">
-                                    <Phone className="h-3.5 w-3.5" />
-                                </a>
-                            )}
-                            {generateWhatsAppLink(lead) && ( 
-                                <a href={generateWhatsAppLink(lead)!} target="_blank" rel="noopener noreferrer" onClick={(e: React.MouseEvent) => e.stopPropagation()} title="Enviar WhatsApp" className="p-1 hover:text-primary rounded-full hover:bg-primary/10">
-                                    <MessageSquareText className="h-3.5 w-3.5" />
-                                </a>
-                            )}
-                            {!isFieldMissing(lead.email) && (
-                                <a href={`mailto:${lead.email}`} onClick={(e: React.MouseEvent) => e.stopPropagation()} title={`Enviar email a ${lead.name}`} className="p-1 hover:text-primary rounded-full hover:bg-primary/10">
-                                    <MailIconLucide className="h-3.5 w-3.5" />
-                                </a>
-                            )}
-                            {!isFieldMissing(lead.website) && (
-                                <a href={lead.website!} target="_blank" rel="noopener noreferrer" onClick={(e: React.MouseEvent) => e.stopPropagation()} title={`Visitar sitio web de ${lead.name}`} className="p-1 hover:text-primary rounded-full hover:bg-primary/10">
-                                    <ExternalLinkIcon className="h-3.5 w-3.5" />
-                                </a>
-                            )}
-                            {(isFieldMissing(lead.phone) && isFieldMissing(lead.website) && isFieldMissing(lead.email) && !generateWhatsAppLink(lead)) && <span className="text-xs text-muted-foreground/70 italic pl-1">Sin contacto directo</span>}
-                          </div>
-                          <LeadActionButtons
-                              lead={lead}
-                              onGenerateWelcomeMessage={onGenerateWelcomeMessage}
-                              onEvaluateBusiness={onEvaluateBusiness}
-                              onGenerateSalesRecommendations={onGenerateSalesRecommendations}
-                              onGenerateSolutionEmail={onGenerateSolutionEmail}
-                              currentActionLead={currentActionLead}
-                              isActionLoading={isActionLoading}
-                              currentActionType={currentActionType}
-                          />
-                        </CardContent>
-                      <CardFooter className="p-3 border-t border-border/20 mt-auto"> {/* Added mt-auto to push footer down */}
-                        <Select value={lead.stage} onValueChange={(newStage) => onStageChange(lead.id, newStage as LeadStage)}>
-                            <SelectTrigger className="w-full h-8 text-xs bg-input text-foreground focus:ring-primary rounded-[var(--radius)]">
-                                <SelectValue placeholder="Cambiar etapa" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-popover text-popover-foreground">
-                                {LEAD_STAGES.map(s => (
-                                <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
-                                ))}
-                            </SelectContent>
-                            </Select>
-                      </CardFooter>
-                    </Card>
-                  )})}
+                {leads.filter(lead => lead.stage === stage).map(renderLeadCard)}
               </CardContent>
             </Card>
           </div>

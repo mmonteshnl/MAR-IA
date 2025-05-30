@@ -19,8 +19,9 @@ import {
   SidebarGroupLabel,
 } from '@/components/ui/sidebar';
 import { Toaster } from "@/components/ui/toaster";
-import { ListChecks, Search, LogOut, PackageSearch, FileUp, Send, Cable, Zap, UserCircle, LayoutDashboard, Bell, TrendingUp, Settings, MessageSquare, Phone, Tags, FileText, Users, Briefcase, ShieldCheck, Palette, ConciergeBell } from 'lucide-react';
+import { ListChecks, Search, LogOut, PackageSearch, FileUp, Send, Cable, Zap, UserCircle, LayoutDashboard, Bell, TrendingUp, Settings, MessageSquare, Phone, Tags, FileText, Users, Briefcase, ShieldCheck, Palette, ConciergeBell, Calculator } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { useFirebaseInit } from '@/hooks/useFirebaseInit';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -38,6 +39,7 @@ const LogoIcon = () => (
 const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
   const pathname = usePathname();
   const { user, authInstance, loading: authLoading, initialLoadDone } = useAuth();
+  const { isInitialized, isInitializing } = useFirebaseInit();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -62,6 +64,23 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
      }
      return ( 
       <div className="flex items-center justify-center min-h-screen bg-sidebar-background">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="text-sm text-muted-foreground">Cargando aplicación...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Mostrar loading mientras se inicializan las colecciones de Firebase
+  if (user && isInitializing && !noSidebarPaths.includes(pathname)) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-sidebar-background">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="text-sm text-muted-foreground">Inicializando configuraciones...</p>
+          <p className="text-xs text-muted-foreground/60">Configurando tu espacio de trabajo por primera vez</p>
+        </div>
       </div>
     );
   }
@@ -110,6 +129,8 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
       title: 'HERRAMIENTAS Y AUTOMATIZACIÓN',
       items: [
         { href: '/leads?action=import-xml', label: 'Importar Leads (IA)', icon: FileUp, currentPathMatcher: (p: string, sp: URLSearchParams) => p === '/leads' && sp.get('action') === 'import-xml' },
+        { href: '/valuation', label: 'Configurar Valoración', icon: Calculator, currentPathMatcher: (p: string) => p === '/valuation' },
+        { href: '/config', label: 'Configuración General', icon: Settings, currentPathMatcher: (p: string) => p === '/config' },
         { href: '/automations', label: 'Automatizaciones', icon: Zap, currentPathMatcher: (p: string) => p === '/automations' },
       ]
     }

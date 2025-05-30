@@ -627,6 +627,7 @@ export default function LeadsPage() {
         actionResult={actionResult}
         currentActionType={currentActionType}
         onClose={handleActionResultModalClose}
+        isActionLoading={isActionLoading}
         currentLead={currentActionLead ? {
           name: currentActionLead.name,
           phone: currentActionLead.phone

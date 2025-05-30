@@ -34,51 +34,7 @@ export const WhatsAppSection = ({
 }: WhatsAppSectionProps) => {
   if (!hasPhoneNumber) return null;
 
-  if (isEditing) {
-    return (
-      <div className="p-4 bg-white border border-blue-200 rounded-lg">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Edit3 className="h-5 w-5 text-blue-600" />
-            <div>
-              <h4 className="font-medium text-gray-900">Contenido Editado</h4>
-              <p className="text-sm text-gray-600">Guarda y envía tu versión personalizada</p>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              onClick={() => onCopy(editedContent)}
-              variant="outline"
-              aria-label="Copiar contenido editado"
-            >
-              <Copy className="h-4 w-4 mr-1" />
-              Copiar
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => onSend(editedContent)}
-              disabled={isSending || justSent}
-              className="bg-[#25D366] hover:bg-[#128C7E] text-white"
-              aria-label="Enviar por WhatsApp"
-            >
-              {isSending ? (
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-xs">Enviando</span>
-                </div>
-              ) : (
-                <>
-                  <WhatsAppIcon className="h-4 w-4 mr-1" />
-                  WhatsApp
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (isEditing) return null;
 
   return (
     <div className="p-4 bg-white border-2 border-[#25D366] rounded-lg">

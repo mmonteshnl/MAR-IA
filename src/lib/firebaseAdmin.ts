@@ -1,28 +1,50 @@
 import * as admin from 'firebase-admin';
 
-const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
+const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
+const privateKeyBase64 = process.env.FIREBASE_ADMIN_PRIVATE_KEY_BASE64;
 
 if (!admin.apps.length) {
-  if (!serviceAccountString) {
-    console.warn('FIREBASE_SERVICE_ACCOUNT_JSON is not set. Firebase Admin SDK might not be initialized correctly for API routes needing admin privileges.');
-    // Potentially throw error if admin features are critical and always needed
-    // throw new Error('The FIREBASE_SERVICE_ACCOUNT_JSON environment variable is not set.');
+  if (!projectId || !clientEmail || !privateKeyBase64) {
+    console.error('Firebase Admin environment variables are not set. Required: FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, FIREBASE_ADMIN_PRIVATE_KEY_BASE64');
+    throw new Error('Firebase Admin environment variables are not set.');
   } else {
     try {
-      const serviceAccount = JSON.parse(serviceAccountString);
+      console.log('🔥 Attempting to initialize Firebase Admin SDK...');
+      
+      // Decode the base64 private key
+      const privateKey = Buffer.from(privateKeyBase64, 'base64').toString('utf-8');
+      
+      // Create service account object with only required fields
+      const serviceAccount: admin.ServiceAccount = {
+        projectId: projectId,
+        privateKey: privateKey,
+        clientEmail: clientEmail,
+      };
+      
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
+        projectId: projectId,
       });
+      console.log('✅ Firebase Admin SDK initialized successfully');
     } catch (error) {
-      console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON or initialize Firebase Admin:", error);
-      // Potentially throw error
-      // throw new Error("FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON or Firebase Admin failed to initialize.");
+      console.error("❌ Failed to initialize Firebase Admin:", error);
+      console.error("Project ID:", projectId);
+      console.error("Client Email:", clientEmail);
+      console.error("Private Key Base64 length:", privateKeyBase64?.length);
+      if (error instanceof Error) {
+        throw new Error(`Firebase Admin failed to initialize: ${error.message}`);
+      } else {
+        throw new Error('Firebase Admin failed to initialize: Unknown error');
+      }
     }
   }
 }
 
+const firestoreDbAdmin = admin.firestore();
+const authAdmin = admin.auth();
 
-const firestoreDbAdmin = admin.apps.length ? admin.firestore() : null;
-const authAdmin = admin.apps.length ? admin.auth() : null;
+const firebaseAdmin = { firestoreDbAdmin, authAdmin };
+export default firebaseAdmin;
 
 export { firestoreDbAdmin, authAdmin };
