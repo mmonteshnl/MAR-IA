@@ -64,11 +64,30 @@ const evaluateBusinessFlow = ai.defineFlow(
     inputSchema: EvaluateBusinessInputSchema,
     outputSchema: EvaluateBusinessOutputSchema,
   },
-  async (input) => {
-    const {output} = await prompt(input);
-    if (!output) {
-      throw new Error('No se pudo generar la evaluación del negocio.');
+  async (input: EvaluateBusinessInput) => {
+    try {
+      console.log('evaluateBusinessFlow started with input:', input);
+      
+      const {output} = await prompt(input);
+      
+      console.log('evaluateBusinessFlow prompt result:', output);
+      
+      if (!output) {
+        throw new Error('No se pudo generar la evaluación del negocio - respuesta vacía del modelo de IA.');
+      }
+      
+      if (!output.evaluation || typeof output.evaluation !== 'string') {
+        throw new Error('La respuesta del modelo de IA no contiene una evaluación válida.');
+      }
+      
+      console.log('evaluateBusinessFlow completed successfully');
+      return output;
+    } catch (error) {
+      console.error('Error in evaluateBusinessFlow:', error);
+      console.error('Flow error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      
+      // Re-throw with more context
+      throw new Error(`Error en el flujo de evaluación: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
-    return output;
   }
 );

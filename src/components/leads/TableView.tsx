@@ -5,12 +5,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Dot, Phone, MessageSquareText, Mail, ExternalLink as ExternalLinkIcon } from 'lucide-react';
-import type { Lead, LeadStage } from '@/types';
-import { LEAD_STAGES, stageColors } from '@/config/leadConstants';
+import type { Lead } from '@/types';
+
+// Define LeadStage type based on your LEAD_STAGES if not exported from '@/types'
+type LeadStage = (typeof LEAD_STAGES)[number];
+import { LEAD_STAGES, stageColors, LOCAL_FALLBACK_SOURCE } from '@/lib/leads-utils';
 import LeadActionButtons from './LeadActionButtons';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { isFieldMissing, generateWhatsAppLink } from '@/lib/utils';
+import { isFieldMissing, generateWhatsAppLink } from '@/lib/leads-utils';
 
 
 interface TableViewProps {
@@ -21,6 +24,7 @@ interface TableViewProps {
   onGenerateWelcomeMessage: (lead: Lead) => void;
   onEvaluateBusiness: (lead: Lead) => void;
   onGenerateSalesRecommendations: (lead: Lead) => void;
+  onGenerateSolutionEmail: (lead: Lead) => void;
   currentActionLead: Lead | null;
   isActionLoading: boolean;
   currentActionType: string | null;
@@ -33,6 +37,7 @@ export default function TableView({
   onGenerateWelcomeMessage,
   onEvaluateBusiness,
   onGenerateSalesRecommendations,
+  onGenerateSolutionEmail,
   currentActionLead,
   isActionLoading,
   currentActionType,
@@ -69,7 +74,7 @@ export default function TableView({
                       isFieldMissing(lead.address) || isFieldMissing(lead.businessType) ||
                       isFieldMissing(lead.company) || isFieldMissing(lead.website)
                   );
-                  const isLocal = lead.source === 'google_places_search_local_fallback' || (lead.source.includes('_import_ia') && !lead.placeId && !lead.id.startsWith('local_firebase_id_'));
+                  const isLocal = lead.source === LOCAL_FALLBACK_SOURCE || (lead.source.includes('_import_ia') && !lead.placeId && !lead.id.startsWith('local_firebase_id_'));
                   
                   return (
                   <TableRow key={lead.id} className={`${isLocal ? 'bg-yellow-900/10 hover:bg-yellow-900/20' : 'hover:bg-muted/5'} ${isImportedIncomplete ? 'border-l-2 border-orange-600/70' : ''} border-b-border/20`}>
@@ -84,18 +89,26 @@ export default function TableView({
                     <TableCell className="font-medium text-foreground py-2">
                       <div className="flex items-center">
                         <span className="hover:text-primary hover:underline cursor-pointer truncate" title={lead.name} onClick={() => onOpenLeadDetails(lead)}>{lead.name}</span>
-                        {isLocal && <Dot className="h-5 w-5 text-yellow-400 flex-shrink-0" title="Lead Local" />}
-                        {isImportedIncomplete && <AlertCircle className="h-4 w-4 text-orange-400 ml-1.5 flex-shrink-0" title="Datos incompletos" />}
+                        {isLocal && <Dot className="h-5 w-5 text-yellow-400 flex-shrink-0"  />}
+                        {isImportedIncomplete && <AlertCircle className="h-4 w-4 text-orange-400 ml-1.5 flex-shrink-0" />}
                       </div>
                     </TableCell>
                     <TableCell className="hidden md:table-cell text-xs max-w-xs truncate text-muted-foreground py-2" title={isFieldMissing(lead.address) ? undefined : lead.address!}>{isFieldMissing(lead.address) ? 'N/A' : lead.address}</TableCell>
                     <TableCell className="py-2">
-                      <span className={`px-2 py-1 text-xs rounded-md font-medium whitespace-nowrap ${stageColors[lead.stage as LeadStage] ? `${stageColors[lead.stage as LeadStage]}` : 'bg-muted text-muted-foreground'}`}>
+                      <span className={`px-2 py-1 text-xs rounded-md font-medium whitespace-nowrap ${stageColors[lead.stage as keyof typeof stageColors] || 'bg-muted text-muted-foreground'}`}>
                         {lead.stage}
                       </span>
                     </TableCell>
                     <TableCell className="hidden sm:table-cell text-xs text-muted-foreground py-2 whitespace-nowrap">
-                      {format(new Date(lead.updatedAt), "dd MMM yyyy, HH:mm", { locale: es })}
+                      {format(
+                        lead.updatedAt instanceof Date
+                          ? lead.updatedAt
+                          : (typeof lead.updatedAt === 'object' && 'toDate' in lead.updatedAt)
+                            ? lead.updatedAt.toDate()
+                            : new Date(lead.updatedAt),
+                        "dd MMM yyyy, HH:mm",
+                        { locale: es }
+                      )}
                     </TableCell>
                     <TableCell className="py-2">
                       <div className="flex items-center space-x-1">
@@ -104,9 +117,9 @@ export default function TableView({
                             <a href={`tel:${lead.phone}`} title={`Llamar a ${lead.name}`}><Phone className="h-4 w-4" /></a>
                           </Button>
                         )}
-                        {generateWhatsAppLink(lead.phone, lead.name) && (
+                        {generateWhatsAppLink(lead) && (
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" asChild>
-                            <a href={generateWhatsAppLink(lead.phone, lead.name)!} target="_blank" rel="noopener noreferrer" title="Enviar WhatsApp"><MessageSquareText className="h-4 w-4" /></a>
+                            <a href={generateWhatsAppLink(lead)!} target="_blank" rel="noopener noreferrer" title="Enviar WhatsApp"><MessageSquareText className="h-4 w-4" /></a>
                           </Button>
                         )}
                         {!isFieldMissing(lead.email) && (
@@ -119,7 +132,7 @@ export default function TableView({
                             <a href={lead.website!} target="_blank" rel="noopener noreferrer" title={`Visitar sitio web de ${lead.name}`}><ExternalLinkIcon className="h-4 w-4" /></a>
                           </Button>
                         )}
-                        {(isFieldMissing(lead.phone) && isFieldMissing(lead.website) && isFieldMissing(lead.email) && !generateWhatsAppLink(lead.phone, lead.name)) && <span className="text-xs text-muted-foreground">N/D</span>}
+                        {(isFieldMissing(lead.phone) && isFieldMissing(lead.website) && isFieldMissing(lead.email) && !generateWhatsAppLink(lead)) && <span className="text-xs text-muted-foreground">N/D</span>}
                       </div>
                     </TableCell>
                     <TableCell className="text-right pr-4 py-2 space-y-1">
@@ -141,6 +154,7 @@ export default function TableView({
                             onGenerateWelcomeMessage={onGenerateWelcomeMessage}
                             onEvaluateBusiness={onEvaluateBusiness}
                             onGenerateSalesRecommendations={onGenerateSalesRecommendations}
+                            onGenerateSolutionEmail={onGenerateSolutionEmail}
                             currentActionLead={currentActionLead}
                             isActionLoading={isActionLoading}
                             currentActionType={currentActionType}

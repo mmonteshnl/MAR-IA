@@ -2,12 +2,30 @@
 import {genkit} from 'genkit';
 import {googleAI} from '@genkit-ai/googleai';
 
-// WARNING: Hardcoding API keys in source code is a security risk.
-// It's strongly recommended to use environment variables (e.g., GOOGLE_API_KEY) instead.
-const apiKey = "AIzaSyDt6BjWvj63ZB5VO1jyjzUcqXEvLN1Ex7s";
+// Use environment variable for API key
+const apiKey = process.env.GOOGLE_API_KEY;
 
-export const ai = genkit({
-  plugins: [googleAI(apiKey ? { apiKey } : undefined)],
-  model: 'googleai/gemini-2.0-flash',
-});
+console.log('Genkit initialization - API Key present:', !!apiKey);
+console.log('Genkit initialization - Environment:', process.env.NODE_ENV);
+
+if (!apiKey) {
+  console.error('GOOGLE_API_KEY environment variable is not set');
+  throw new Error('GOOGLE_API_KEY environment variable is required. Please set it in your .env.local file');
+}
+
+let ai: any;
+
+try {
+  ai = genkit({
+    plugins: [googleAI({ apiKey })],
+    model: 'googleai/gemini-1.5-flash', // Using more stable model
+  });
+  
+  console.log('Genkit initialized successfully with model: googleai/gemini-1.5-flash');
+} catch (error) {
+  console.error('Failed to initialize Genkit:', error);
+  throw new Error(`Failed to initialize AI system: ${error instanceof Error ? error.message : 'Unknown error'}`);
+}
+
+export { ai };
 
