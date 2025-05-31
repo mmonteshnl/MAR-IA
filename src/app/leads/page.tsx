@@ -28,6 +28,7 @@ import LeadImportDialog from '@/components/leads/LeadImportDialog';
 import LeadFilters from '@/components/leads/LeadFilters';
 import LeadStats from '@/components/leads/LeadStats';
 import { LeadInsights } from '@/components/leads/LeadInsights';
+import { InsightsSkeleton, KanbanSkeleton, TableSkeleton, StatsSkeleton, FiltersSkeleton } from '@/components/leads/LeadsSkeleton';
 import LeadActionResultModal from '@/components/leads/LeadActionResultModal';
 
 // Import utilities
@@ -495,8 +496,29 @@ export default function LeadsPage() {
 
   if (loadingLeads) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <LoadingSpinner size="lg" />
+      <div className="min-h-screen flex flex-col bg-background">
+        <div className="p-4 sm:p-6 lg:p-6 bg-background border-b border-border flex-shrink-0">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Mis Leads</h1>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+              <div className="h-10 w-full sm:w-32 bg-muted animate-pulse rounded" />
+              <div className="h-10 w-full sm:w-28 bg-muted animate-pulse rounded" />
+            </div>
+          </div>
+
+          <div className="grid w-full max-w-[600px] grid-cols-3 mx-auto mb-6 bg-muted rounded-lg p-1">
+            <div className="h-9 bg-muted-foreground/20 animate-pulse rounded" />
+            <div className="h-9 bg-muted-foreground/20 animate-pulse rounded mx-1" />
+            <div className="h-9 bg-muted-foreground/20 animate-pulse rounded" />
+          </div>
+
+          <StatsSkeleton />
+          <FiltersSkeleton />
+        </div>
+
+        <div className="flex-1 overflow-auto p-4">
+          <KanbanSkeleton />
+        </div>
       </div>
     );
   }
@@ -544,6 +566,20 @@ export default function LeadsPage() {
             </div>
           </div>
 
+          <TabsList className="grid w-full max-w-[600px] grid-cols-3 mx-auto mb-6 bg-muted">
+            <TabsTrigger value="insights" className="data-[state=active]:bg-background data-[state=active]:text-foreground">
+              📊 Resumen
+            </TabsTrigger>
+            <TabsTrigger value="kanban" className="data-[state=active]:bg-background data-[state=active]:text-foreground">
+              <KanbanSquare className="h-4 w-4 mr-2" />
+              Kanban
+            </TabsTrigger>
+            <TabsTrigger value="table" className="data-[state=active]:bg-background data-[state=active]:text-foreground">
+              <List className="h-4 w-4 mr-2" />
+              Tabla
+            </TabsTrigger>
+          </TabsList>
+
           {viewMode !== 'insights' && <LeadStats leads={leads} />}
 
           {viewMode !== 'insights' && (
@@ -558,55 +594,49 @@ export default function LeadsPage() {
               onClearFilters={handleClearFilters}
             />
           )}
-
-          <TabsList className="grid w-full max-w-[600px] grid-cols-3 mx-auto mb-6 bg-muted">
-            <TabsTrigger value="insights" className="data-[state=active]:bg-background data-[state=active]:text-foreground">
-              📊 Resumen
-            </TabsTrigger>
-            <TabsTrigger value="kanban" className="data-[state=active]:bg-background data-[state=active]:text-foreground">
-              <KanbanSquare className="h-4 w-4 mr-2" />
-              Kanban
-            </TabsTrigger>
-            <TabsTrigger value="table" className="data-[state=active]:bg-background data-[state=active]:text-foreground">
-              <List className="h-4 w-4 mr-2" />
-              Tabla
-            </TabsTrigger>
-          </TabsList>
         </header>
 
         <TabsContent value="insights" className="flex-1 overflow-auto p-4">
-          <LeadInsights leads={leads} />
+          {loadingLeads ? <InsightsSkeleton /> : <LeadInsights leads={leads} />}
         </TabsContent>
 
         <TabsContent value="kanban" className="flex-1 overflow-hidden">
-          <KanbanView
-            leads={filteredLeads}
-            onStageChange={handleStageChange}
-            onOpenLeadDetails={handleOpenLeadDetailsModal}
-            onGenerateWelcomeMessage={handleGenerateWelcomeMessage}
-            onEvaluateBusiness={handleEvaluateBusiness}
-            onGenerateSalesRecommendations={handleGenerateSalesRecommendations}
-            onGenerateSolutionEmail={handleGenerateSolutionEmail}
-            currentActionLead={currentActionLead}
-            isActionLoading={isActionLoading}
-            currentActionType={currentActionType}
-            selectedLeadForDetails={selectedLeadForDetails}
-          />
+          {loadingLeads ? (
+            <div className="p-4">
+              <KanbanSkeleton />
+            </div>
+          ) : (
+            <KanbanView
+              leads={filteredLeads}
+              onStageChange={handleStageChange}
+              onOpenLeadDetails={handleOpenLeadDetailsModal}
+              onGenerateWelcomeMessage={handleGenerateWelcomeMessage}
+              onEvaluateBusiness={handleEvaluateBusiness}
+              onGenerateSalesRecommendations={handleGenerateSalesRecommendations}
+              onGenerateSolutionEmail={handleGenerateSolutionEmail}
+              currentActionLead={currentActionLead}
+              isActionLoading={isActionLoading}
+              currentActionType={currentActionType}
+              selectedLeadForDetails={selectedLeadForDetails}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="table" className="flex-1 overflow-hidden p-4">
-          <TableView
-            leads={filteredLeads}
-            onStageChange={handleStageChange}
-            onOpenLeadDetails={handleOpenLeadDetailsModal}
-            onGenerateWelcomeMessage={handleGenerateWelcomeMessage}
-            onEvaluateBusiness={handleEvaluateBusiness}
-            onGenerateSalesRecommendations={handleGenerateSalesRecommendations}
-            onGenerateSolutionEmail={handleGenerateSolutionEmail}
-            currentActionLead={currentActionLead}
-            isActionLoading={isActionLoading}
-            currentActionType={currentActionType}
-          />
+          {loadingLeads ? <TableSkeleton /> : (
+            <TableView
+              leads={filteredLeads}
+              onStageChange={handleStageChange}
+              onOpenLeadDetails={handleOpenLeadDetailsModal}
+              onGenerateWelcomeMessage={handleGenerateWelcomeMessage}
+              onEvaluateBusiness={handleEvaluateBusiness}
+              onGenerateSalesRecommendations={handleGenerateSalesRecommendations}
+              onGenerateSolutionEmail={handleGenerateSolutionEmail}
+              currentActionLead={currentActionLead}
+              isActionLoading={isActionLoading}
+              currentActionType={currentActionType}
+            />
+          )}
         </TabsContent>
       </Tabs>
 
