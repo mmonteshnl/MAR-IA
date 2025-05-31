@@ -290,7 +290,32 @@ export default function LeadActionResultModal({
                 <Button variant="outline" className="px-6 hover:bg-gray-50">
                   Cerrar
                 </Button>
-              </DialogClose>
+                </DialogClose>
+                <Button
+                  onClick={async () => {
+                    // Call the API to generate a new evaluation
+                    const response = await fetch('/api/ai/evaluate-business', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({ leadName: currentLead?.name }), // Pass necessary data
+                    });
+
+                    if (response.ok) {
+                      const newEvaluation = await response.json();
+                      console.log('New evaluation generated:', newEvaluation);
+                      // Optionally update the modal state or display the new evaluation
+                    } else {
+                      const errorData = await response.json();
+                      console.error('Error generating new evaluation:', errorData.error);
+                      alert('Error generating new evaluation: ' + errorData.error);
+                    }
+                  }}
+                  className="bg-blue-500 text-white px-4 py-2 rounded"
+                >
+                  Generar Nueva Evaluación
+                </Button>
             </div>
           </div>
         </DialogFooter>

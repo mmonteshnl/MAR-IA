@@ -115,17 +115,7 @@ export const ContentView = ({
         </div>
       ) : (
         <div className="space-y-4">
-          <div className={AI_HEADER_STYLES}>
-            <Bot className="h-5 w-5 text-blue-600" />
-            <div className="flex-1">
-              <h3 className="font-semibold text-gray-900">Contenido Generado por IA</h3>
-              <p className="text-sm text-gray-600">Resultado impulsado por inteligencia artificial</p>
-            </div>
-            <div className={AI_BADGE_STYLES}>
-              <Sparkles className="h-3 w-3" />
-              IA
-            </div>
-          </div>
+      
 
           {'message' in actionResult && actionResult.message && (
             <div className={CONTENT_SECTION_STYLES}>

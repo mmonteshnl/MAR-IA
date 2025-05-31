@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview Flujo para formatear leads desde un archivo CSV usando IA,
@@ -14,8 +13,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import type { FormattedLead as BaseFormattedLead } from './formatXmlLeadsFlow'; // Reutilizar el tipo FormattedLead base
 
-// Extender FormattedLead para CSV si es necesario, o usarla directamente si los campos son los mismos.
-// Por ahora, asumimos que los campos extraíbles son los mismos, incluyendo suggestedStage.
+// Asegúrate de que los campos coincidan con los requeridos para CSV y maneja la lógica de contingencia.
 export type FormattedLead = BaseFormattedLead;
 
 const FormatCsvLeadsInputSchema = z.object({
@@ -25,23 +23,41 @@ export type FormatCsvLeadsInput = z.infer<typeof FormatCsvLeadsInputSchema>;
 
 const FormatCsvLeadsOutputSchema = z.object({
   leads: z.array(
-    z.object({ // Replicamos la estructura de FormattedLeadSchema de XML incluyendo suggestedStage
-      name: z.string().describe('Nombre completo del lead.'),
-      email: z.string().optional().describe('Correo electrónico del lead.'),
-      phone: z.string().optional().describe('Número de teléfono del lead.'),
-      company: z.string().optional().describe('Nombre de la empresa del lead.'),
-      address: z.string().optional().describe('Dirección del lead.'),
-      businessType: z.string().optional().describe('Tipo de negocio del lead.'),
-      website: z.string().optional().describe('Sitio web del lead.'),
-      notes: z.string().optional().describe('Notas adicionales sobre el lead.'),
-      suggestedStage: z.string().optional().describe('La etapa sugerida para el lead (ej: Nuevo, Contactado, Calificado, etc.) basada en la información del CSV. Si no se puede determinar, se puede omitir o establecer como "Nuevo".'),
+    z.object({
+      name: z.string().describe('Nombre completo del lead.').refine((val) => val !== '', {
+        message: 'El nombre del lead es obligatorio. Por favor, ingresa esta información para continuar.',
+      }),
+      email: z.string().optional().describe('Correo electrónico del lead. Si no está disponible, debe ser la cadena "null".').refine((val) => val === undefined || val === 'null' || val !== '', {
+        message: 'El correo electrónico del lead es opcional, pero si no está disponible debe ser la cadena "null".',
+      }),
+      phone: z.string().optional().describe('Número de teléfono del lead. Si no está disponible, debe ser la cadena "null".').refine((val) => val === undefined || val === 'null' || val !== '', {
+        message: 'El número de teléfono del lead es opcional, pero si no está disponible debe ser la cadena "null".',
+      }),
+      company: z.string().optional().describe('Nombre de la empresa del lead. Si no está disponible, debe ser la cadena "null".').refine((val) => val === undefined || val === 'null' || val !== '', {
+        message: 'El nombre de la empresa del lead es opcional, pero si no está disponible debe ser la cadena "null".',
+      }),
+      address: z.string().optional().describe('Dirección del lead. Si no está disponible, debe ser la cadena "null".').refine((val) => val === undefined || val === 'null' || val !== '', {
+        message: 'La dirección del lead es opcional, pero si no está disponible debe ser la cadena "null".',
+      }),
+      businessType: z.string().optional().describe('Tipo de negocio del lead. Si no está disponible, debe ser la cadena "null".').refine((val) => val === undefined || val === 'null' || val !== '', {
+        message: 'El tipo de negocio del lead es opcional, pero si no está disponible debe ser la cadena "null".',
+      }),
+      website: z.string().optional().describe('Sitio web del lead. Si no está disponible, debe ser la cadena "null".').refine((val) => val === undefined || val === 'null' || val !== '', {
+        message: 'El sitio web del lead es opcional, pero si no está disponible debe ser la cadena "null".',
+      }),
+      notes: z.string().optional().describe('Notas adicionales sobre el lead. Si no está disponible, debe ser la cadena "null".').refine((val) => val === undefined || val === 'null' || val !== '', {
+        message: 'Las notas sobre el lead son opcionales, pero si no están disponibles debe ser la cadena "null".',
+      }),
+      suggestedStage: z.string().optional().describe('La etapa sugerida para el lead (ej: Nuevo, Contactado, Calificado, etc.) basada en la información del CSV. Si no se puede determinar, se puede omitir o establecer como "Nuevo".').refine((val) => val === undefined || val === 'null' || val !== '', {
+        message: 'La etapa sugerida para el lead es opcional, pero si no está disponible debe ser la cadena "null" o "Nuevo".',
+      }),
     })
   ).describe('Una lista de leads formateados extraídos del CSV.'),
 });
 export type FormatCsvLeadsOutput = z.infer<typeof FormatCsvLeadsOutputSchema>;
 
 export async function formatCsvLeads(input: FormatCsvLeadsInput): Promise<FormatCsvLeadsOutput> {
-  return formatCsvLeadsFlow(input);
+  return await ai.run(prompt, input);
 }
 
 const prompt = ai.definePrompt({
@@ -64,7 +80,7 @@ Instrucciones para procesar el CSV:
 3.  Si no hay una cabecera clara, intenta inferir el tipo de dato en cada columna (ej. si una columna tiene muchos emails, es probable que sea la columna de email).
 4.  Los delimitadores comunes en CSV son comas (,), punto y coma (;), o tabuladores (\t). Intenta detectar el delimitador correcto, aunque la coma es el más común.
 5.  El campo "name" (Nombre completo del lead) es obligatorio. Busca columnas como "full name", "nombre completo", "nombre y apellido". Si no puedes extraer un nombre para un lead, omite ese lead por completo.
-6.  Para cada uno de los siguientes campos (email, phone, company, address, businessType, website, notes): si el valor correspondiente en el archivo CSV está vacío, ausente, o es interpretado como nulo, el valor de este campo en el objeto JSON del lead debe ser la cadena de texto literal "null". En caso contrario, usa el valor encontrado tal cual.
+6.  Para cada uno de los siguientes campos (email, phone, company, address, businessType, website, notes): si el valor correspondiente en el archivo CSV está vacío, ausente, o es interpretado como nulo, el valor de este campo en el objeto JSON del lead debe ser la cadena de texto literal "null" (no null real, sino el string "null"). En caso contrario, usa el valor encontrado tal cual.
     - Para 'phone': Si el número tiene prefijos como "p:" o cualquier otro texto no numérico al inicio, extráelo sin ese prefijo, conservando el signo + si es parte del código de país. Ej: "p:+50760434060" debe ser "+50760434060". Si después de esto el valor es vacío, usa "null".
     - Para 'notes': Considera incluir aquí información de columnas como 'campaign_name', 'ad_name', 'adset_name', 'form_name', 'platform', 'created_time', 'id' (del lead en la plataforma de origen) si están presentes y no se mapean a otros campos directos. Puedes formatearlo como "Campaña: [campaign_name], Anuncio: [ad_name], Plataforma: [platform], Creado: [created_time], ID Origen: [id_origen]". Si todos estos campos están vacíos o ausentes, establece 'notes' a "null".
 
@@ -75,7 +91,7 @@ Instrucciones para procesar el CSV:
     - Si se habla de propuestas o negociaciones en el estado o notas, usa esas etapas.
     - Si se indica cierre exitoso ("won", "ganado"), "Ganado". Si se indica cierre fallido ("lost", "perdido"), "Perdido".
     - Si no hay suficiente información para una sugerencia clara para "suggestedStage" desde una columna de estado o si esta no existe, puedes omitir "suggestedStage" del objeto JSON del lead o asignarle "Nuevo" por defecto.
-    - También puedes considerar la información en el campo 'notes' (que podría incluir el \\\`created_time\\\`) para refinar esta sugerencia.
+    - También puedes considerar la información en el campo 'notes' (que podría incluir el \`created_time\`) para refinar esta sugerencia.
 
 Formato de Salida Esperado:
 Devuelve un objeto JSON que contenga una única clave "leads". El valor de "leads" debe ser un array de objetos, donde cada objeto representa un lead formateado.
@@ -94,22 +110,5 @@ Ejemplo de un objeto lead dentro del array "leads":
 }
 
 Si el CSV no contiene leads válidos (con nombre) o no puedes extraer información, devuelve un array "leads" vacío.
-Extrae la información de manera precisa y estructurada. Si hay filas vacías o malformadas, intenta omitirlas.`,
+Extrae la información de manera precisa y estructurada. Si hay filas vacías o malformadas, intenta omitirlas.`
 });
-
-const formatCsvLeadsFlow = ai.defineFlow(
-  {
-    name: 'formatCsvLeadsFlow',
-    inputSchema: FormatCsvLeadsInputSchema,
-    outputSchema: FormatCsvLeadsOutputSchema,
-  },
-  async (input) => {
-    const {output} = await prompt(input);
-    if (!output || !output.leads) {
-      // Ensure an empty array is returned if AI gives nothing or malformed output
-      return { leads: [] };
-    }
-    return output;
-  }
-);
-

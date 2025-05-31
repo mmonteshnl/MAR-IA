@@ -3,7 +3,7 @@ import { evaluateBusinessFeatures, type EvaluateBusinessInput } from '@/ai/flows
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('=== Evaluate Business API Start ===');
+    console.log('=== Evaluación del Negocio API Iniciada ===');
     
     let body: EvaluateBusinessInput;
     try {
@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     } catch (parseError) {
       console.error('Failed to parse request body:', parseError);
       return NextResponse.json(
-        { error: 'Invalid JSON in request body' },
+        { error: 'JSON inválido en el cuerpo de la solicitud' },
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -20,14 +20,26 @@ export async function POST(request: NextRequest) {
     if (!body.leadName || typeof body.leadName !== 'string' || body.leadName.trim() === '') {
       console.log('Missing or invalid leadName:', body.leadName);
       return NextResponse.json(
-        { error: 'leadName es requerido y debe ser una cadena no vacía' },
+        { error: 'leadName es obligatorio y debe ser una cadena no vacía' },
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
     
     console.log('Calling evaluateBusinessFeatures with:', body);
     
-    let result;
+    let result; 
+const { firestoreDbAdmin } = require('@/lib/firebaseAdmin'); // Import Firestore
+
+async function saveEvaluationToDatabase(evaluationData: any) {
+  try {
+    const evaluationsRef = firestoreDbAdmin.collection('evaluations'); // Reference to the evaluations collection
+    await evaluationsRef.add(evaluationData); // Save the evaluation data
+    console.log('Evaluation saved to database successfully');
+  } catch (error) {
+    console.error('Error saving evaluation to database:', error);
+    throw new Error('Error saving evaluation to database');
+  }
+}
     try {
       result = await evaluateBusinessFeatures(body);
       console.log('evaluateBusinessFeatures completed successfully:', result);
@@ -44,11 +56,13 @@ export async function POST(request: NextRequest) {
     if (!result || typeof result !== 'object') {
       console.error('Invalid result from AI:', result);
       return NextResponse.json(
-        { error: 'Respuesta inválida del sistema de IA' },
+        { error: 'Respuesta no válida del sistema de IA' },
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
     
+    // Save the evaluation result to the database
+    await saveEvaluationToDatabase(result); 
     console.log('=== Evaluate Business API Success ===');
     return NextResponse.json(result, {
       headers: { 'Content-Type': 'application/json' }
