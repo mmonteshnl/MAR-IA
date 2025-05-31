@@ -14,6 +14,8 @@ import LeadActionButtons from './LeadActionButtons';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { isFieldMissing, generateWhatsAppLink } from '@/lib/leads-utils';
+import { useValuationConfig } from '@/hooks/useValuationConfig';
+import { calculateLeadValuation, formatCurrency, getValueColor } from '@/lib/valuation-calculator';
 
 
 interface TableViewProps {
@@ -42,6 +44,7 @@ export default function TableView({
   isActionLoading,
   currentActionType,
 }: TableViewProps) {
+  const { activeConfig } = useValuationConfig();
   return (
     <div className="p-0">
       <Card className="border-border/30 bg-card text-card-foreground rounded-[var(--radius)] overflow-hidden">
@@ -54,6 +57,7 @@ export default function TableView({
                   <TableHead className="text-muted-foreground">Nombre</TableHead>
                   <TableHead className="hidden md:table-cell text-muted-foreground">Dirección</TableHead>
                   <TableHead className="text-muted-foreground">Etapa</TableHead>
+                  <TableHead className="text-muted-foreground">Valor</TableHead>
                   <TableHead className="hidden sm:table-cell text-muted-foreground">Actualizado</TableHead>
                   <TableHead className="text-muted-foreground">Contacto</TableHead>
                   <TableHead className="text-muted-foreground text-right pr-4 whitespace-nowrap">Acciones y Etapa</TableHead>
@@ -62,7 +66,7 @@ export default function TableView({
               <TableBody>
                 {leads.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center h-24 text-muted-foreground">
                       No has guardado ningún lead todavía o no coinciden con la búsqueda.
                     </TableCell>
                   </TableRow>
@@ -98,6 +102,15 @@ export default function TableView({
                       <span className={`px-2 py-1 text-xs rounded-md font-medium whitespace-nowrap ${stageColors[lead.stage as keyof typeof stageColors] || 'bg-muted text-muted-foreground'}`}>
                         {lead.stage}
                       </span>
+                    </TableCell>
+                    <TableCell className="py-2">
+                      {activeConfig ? (
+                        <span className={`font-semibold text-sm ${getValueColor(calculateLeadValuation(lead, activeConfig).totalValue, lead.stage)}`}>
+                          {formatCurrency(calculateLeadValuation(lead, activeConfig).totalValue)}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">$0.00</span>
+                      )}
                     </TableCell>
                     <TableCell className="hidden sm:table-cell text-xs text-muted-foreground py-2 whitespace-nowrap">
                       {format(

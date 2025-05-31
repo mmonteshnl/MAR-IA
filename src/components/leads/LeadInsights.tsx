@@ -4,10 +4,12 @@ import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Users, Target, Phone, Mail, Globe, Calendar } from 'lucide-react';
+import { TrendingUp, TrendingDown, Users, Target, Phone, Mail, Globe, Calendar, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Lead } from '@/types';
 import { LEAD_STAGES } from '@/lib/leads-utils';
+import { useValuationConfig } from '@/hooks/useValuationConfig';
+import { calculateLeadValuation, calculateStageTotal, formatCurrency } from '@/lib/valuation-calculator';
 
 interface LeadInsightsProps {
   leads: Lead[];
@@ -15,15 +17,23 @@ interface LeadInsightsProps {
 }
 
 export const LeadInsights = ({ leads, className }: LeadInsightsProps) => {
+  const { activeConfig } = useValuationConfig();
+  
   const insights = useMemo(() => {
     const total = leads.length;
     
-    // Stage distribution
-    const stageDistribution = LEAD_STAGES.map(stage => ({
-      stage,
-      count: leads.filter(lead => lead.stage === stage).length,
-      percentage: total ? (leads.filter(lead => lead.stage === stage).length / total) * 100 : 0
-    }));
+    // Stage distribution with valuation
+    const stageDistribution = LEAD_STAGES.map(stage => {
+      const stageLeads = leads.filter(lead => lead.stage === stage);
+      const stageValue = activeConfig ? calculateStageTotal(leads, stage, activeConfig) : 0;
+      return {
+        stage,
+        count: stageLeads.length,
+        percentage: total ? (stageLeads.length / total) * 100 : 0,
+        value: stageValue,
+        formattedValue: formatCurrency(stageValue)
+      };
+    });
 
     // Contact info completeness
     const contactStats = {
@@ -47,9 +57,29 @@ export const LeadInsights = ({ leads, className }: LeadInsightsProps) => {
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
     
     const recentLeads = leads.filter(lead => {
-      const createdAt = lead.createdAt?.toDate?.() || new Date(lead.createdAt || 0);
+      let createdAt: Date;
+      if (
+        typeof lead.createdAt === 'object' &&
+        lead.createdAt !== null &&
+        typeof (lead.createdAt as { toDate?: () => Date }).toDate === 'function'
+      ) {
+        createdAt = (lead.createdAt as { toDate: () => Date }).toDate();
+      } else if (typeof lead.createdAt === 'string' || typeof lead.createdAt === 'number') {
+        createdAt = new Date(lead.createdAt);
+      } else {
+        createdAt = new Date(0);
+      }
       return createdAt > oneWeekAgo;
     }).length;
+
+    // Financial projections
+    const totalProjectedValue = activeConfig ? leads.reduce((sum, lead) => {
+      return sum + calculateLeadValuation(lead, activeConfig).totalValue;
+    }, 0) : 0;
+
+    const wonValue = activeConfig ? calculateStageTotal(leads, 'Ganado', activeConfig) : 0;
+    const lostValue = activeConfig ? calculateStageTotal(leads, 'Perdido', activeConfig) : 0;
+    const pipelineValue = totalProjectedValue - wonValue - lostValue;
 
     return {
       total,
@@ -57,9 +87,15 @@ export const LeadInsights = ({ leads, className }: LeadInsightsProps) => {
       contactStats,
       sourceDistribution,
       recentLeads,
-      conversionRate: total ? (leads.filter(lead => lead.stage === 'Vendido').length / total) * 100 : 0
+      conversionRate: total ? (leads.filter(lead => lead.stage === 'Ganado').length / total) * 100 : 0,
+      financials: {
+        totalProjected: totalProjectedValue,
+        won: wonValue,
+        lost: lostValue,
+        pipeline: pipelineValue
+      }
     };
-  }, [leads]);
+  }, [leads, activeConfig]);
 
   const MiniChart = ({ data, color = "bg-primary" }: { data: number; color?: string }) => (
     <div className="flex items-center gap-2">
@@ -72,7 +108,7 @@ export const LeadInsights = ({ leads, className }: LeadInsightsProps) => {
   return (
     <div className={cn("space-y-4", className)}>
       {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Leads</CardTitle>
@@ -89,42 +125,60 @@ export const LeadInsights = ({ leads, className }: LeadInsightsProps) => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tasa Conversión</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Proyección Total</CardTitle>
+            <DollarSign className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{insights.conversionRate.toFixed(1)}%</div>
-            <Progress value={insights.conversionRate} className="mt-2" />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Contacto Completo</CardTitle>
-            <Phone className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{insights.contactStats.complete}</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {formatCurrency(insights.financials.totalProjected)}
+            </div>
             <div className="text-xs text-muted-foreground">
-              {insights.total ? ((insights.contactStats.complete / insights.total) * 100).toFixed(1) : 0}% del total
+              Valor total pipeline
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Nuevos Esta Semana</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Ganados</CardTitle>
+            <TrendingUp className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{insights.recentLeads}</div>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              {insights.recentLeads > 0 ? (
-                <TrendingUp className="h-3 w-3 text-green-500" />
-              ) : (
-                <TrendingDown className="h-3 w-3 text-red-500" />
-              )}
-              Últimos 7 días
+            <div className="text-2xl font-bold text-green-600">
+              {formatCurrency(insights.financials.won)}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {insights.conversionRate.toFixed(1)}% conversión
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">En Proceso</CardTitle>
+            <Target className="h-4 w-4 text-cyan-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-cyan-600">
+              {formatCurrency(insights.financials.pipeline)}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Pipeline activo
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Perdidos</CardTitle>
+            <TrendingDown className="h-4 w-4 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">
+              {formatCurrency(insights.financials.lost)}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Costo oportunidad
             </div>
           </CardContent>
         </Card>
@@ -137,23 +191,38 @@ export const LeadInsights = ({ leads, className }: LeadInsightsProps) => {
             <CardTitle className="text-lg">Distribución por Etapa</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {insights.stageDistribution.map((stage, index) => (
-              <div key={stage.stage} className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">{stage.stage}</span>
-                  <span className="text-sm text-muted-foreground">
-                    {stage.count} ({stage.percentage.toFixed(1)}%)
-                  </span>
+            {insights.stageDistribution.map((stage, index) => {
+              const getStageColor = (stageName: string) => {
+                if (stageName === 'Ganado') return 'text-green-600';
+                if (stageName === 'Perdido') return 'text-red-600';
+                return 'text-blue-600';
+              };
+              
+              return (
+                <div key={stage.stage} className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">{stage.stage}</span>
+                    <div className="text-right">
+                      <div className="text-sm text-muted-foreground">
+                        {stage.count} ({stage.percentage.toFixed(1)}%)
+                      </div>
+                      <div className={`text-sm font-semibold ${getStageColor(stage.stage)}`}>
+                        {stage.formattedValue}
+                      </div>
+                    </div>
+                  </div>
+                  <Progress 
+                    value={stage.percentage} 
+                    className="h-2"
+                    style={{
+                      '--progress-background': stage.stage === 'Ganado' ? 'rgb(34, 197, 94)' : 
+                                             stage.stage === 'Perdido' ? 'rgb(239, 68, 68)' : 
+                                             `hsl(${(index * 60) % 360}, 70%, 50%)`
+                    } as React.CSSProperties}
+                  />
                 </div>
-                <Progress 
-                  value={stage.percentage} 
-                  className="h-2"
-                  style={{
-                    '--progress-background': `hsl(${(index * 60) % 360}, 70%, 50%)`
-                  } as React.CSSProperties}
-                />
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
 

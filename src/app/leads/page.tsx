@@ -27,6 +27,7 @@ import LeadDetailsDialog from '@/components/leads/LeadDetailsDialog';
 import LeadImportDialog from '@/components/leads/LeadImportDialog';
 import LeadFilters from '@/components/leads/LeadFilters';
 import LeadStats from '@/components/leads/LeadStats';
+import { LeadInsights } from '@/components/leads/LeadInsights';
 import LeadActionResultModal from '@/components/leads/LeadActionResultModal';
 
 // Import utilities
@@ -44,7 +45,7 @@ export default function LeadsPage() {
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(true);
-  const [viewMode, setViewMode] = useState<"kanban" | "table">("kanban");
+  const [viewMode, setViewMode] = useState<"kanban" | "table" | "insights">("kanban");
 
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [currentActionLead, setCurrentActionLead] = useState<Lead | null>(null);
@@ -521,7 +522,7 @@ export default function LeadsPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "kanban" | "table")} className="flex flex-col h-full">
+      <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "kanban" | "table" | "insights")} className="flex flex-col h-full">
         <header className="p-4 sm:p-6 lg:p-6 bg-background border-b border-border flex-shrink-0">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <h1 className="text-2xl md:text-3xl font-bold text-foreground">Mis Leads</h1>
@@ -543,20 +544,25 @@ export default function LeadsPage() {
             </div>
           </div>
 
-          <LeadStats leads={leads} />
+          {viewMode !== 'insights' && <LeadStats leads={leads} />}
 
-          <LeadFilters
-            searchTerm={searchTerm}
-            selectedSource={selectedSource}
-            selectedStage={selectedStage}
-            sources={sources}
-            onSearchChange={setSearchTerm}
-            onSourceChange={setSelectedSource}
-            onStageChange={setSelectedStage}
-            onClearFilters={handleClearFilters}
-          />
+          {viewMode !== 'insights' && (
+            <LeadFilters
+              searchTerm={searchTerm}
+              selectedSource={selectedSource}
+              selectedStage={selectedStage}
+              sources={sources}
+              onSearchChange={setSearchTerm}
+              onSourceChange={setSelectedSource}
+              onStageChange={setSelectedStage}
+              onClearFilters={handleClearFilters}
+            />
+          )}
 
-          <TabsList className="grid w-full max-w-[400px] grid-cols-2 mx-auto mb-6 bg-muted">
+          <TabsList className="grid w-full max-w-[600px] grid-cols-3 mx-auto mb-6 bg-muted">
+            <TabsTrigger value="insights" className="data-[state=active]:bg-background data-[state=active]:text-foreground">
+              📊 Resumen
+            </TabsTrigger>
             <TabsTrigger value="kanban" className="data-[state=active]:bg-background data-[state=active]:text-foreground">
               <KanbanSquare className="h-4 w-4 mr-2" />
               Kanban
@@ -567,6 +573,10 @@ export default function LeadsPage() {
             </TabsTrigger>
           </TabsList>
         </header>
+
+        <TabsContent value="insights" className="flex-1 overflow-auto p-4">
+          <LeadInsights leads={leads} />
+        </TabsContent>
 
         <TabsContent value="kanban" className="flex-1 overflow-hidden">
           <KanbanView

@@ -16,6 +16,8 @@ type LeadStage = (typeof LEAD_STAGES)[number];
 import { LEAD_STAGES, stageColors, LOCAL_FALLBACK_SOURCE } from '@/lib/leads-utils';
 import LeadActionButtons from './LeadActionButtons'; 
 import { isFieldMissing, generateWhatsAppLink } from '@/lib/leads-utils';
+import { useValuationConfig } from '@/hooks/useValuationConfig';
+import { calculateLeadValuation, calculateStageTotal, formatCurrency } from '@/lib/valuation-calculator';
 
 interface KanbanViewProps {
   leads: Lead[];
@@ -47,6 +49,7 @@ export default function KanbanView({
 }: KanbanViewProps) {
   const isMobile = useIsMobile();
   const [currentStageIndex, setCurrentStageIndex] = useState(0);
+  const { activeConfig } = useValuationConfig();
   
   const {
     draggedItem,
@@ -291,7 +294,9 @@ export default function KanbanView({
                     ({leads.filter(lead => lead.stage === stage).length})
                   </span>
                 </div>
-                <p className="text-lg font-semibold text-foreground">$0.00</p> {/* Changed from text-primary to text-foreground */}
+                <p className="text-lg font-semibold text-foreground">
+                  {activeConfig ? formatCurrency(calculateStageTotal(leads, stage, activeConfig)) : '$0.00'}
+                </p>
               </CardHeader>
               <CardContent className="space-y-3 flex-1 overflow-y-auto p-3 pt-3 max-h-[calc(80vh-140px)]">
                 {leads.filter(lead => lead.stage === stage).length === 0 && (

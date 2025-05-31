@@ -152,28 +152,14 @@ export default function LeadActionResultModal({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-gradient-to-br from-gray-50 to-white">
-        <DialogHeader className="space-y-3">
-          <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-100">
-            <div className="p-3 rounded-full bg-white shadow-sm border border-gray-200">
-              {modalIcon}
-            </div>
-            <div className="flex-1">
+        {actionResult && actionResult.error ? (
+          <>
+            <DialogHeader className="space-y-3">
               <DialogTitle className="text-xl font-semibold text-gray-900">
-                {modalTitle}
+                Error al generar contenido
               </DialogTitle>
-              <p className="text-sm text-gray-600 mt-1">Resultado impulsado por inteligencia artificial</p>
-            </div>
-            <div className="inline-flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm rounded-full font-medium shadow-sm">
-              <Sparkles className="h-3 w-3" />
-              IA
-            </div>
-          </div>
-        </DialogHeader>
-        
-        <Separator className="my-4" />
-        
-        <div className="space-y-4">
-          {actionResult && actionResult.error ? (
+            </DialogHeader>
+            <Separator className="my-4" />
             <div className="space-y-4">
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
@@ -206,7 +192,27 @@ export default function LeadActionResultModal({
                 </AlertDescription>
               </Alert>
             </div>
-          ) : (
+          </>
+        ) : (
+          <>
+            <DialogHeader className="space-y-3">
+              <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-100">
+                <div className="p-3 rounded-full bg-white shadow-sm border border-gray-200">
+                  {modalIcon}
+                </div>
+                <div className="flex-1">
+                  <DialogTitle className="text-xl font-semibold text-gray-900">
+                    {modalTitle}
+                  </DialogTitle>
+                  <p className="text-sm text-gray-600 mt-1">Resultado impulsado por inteligencia artificial</p>
+                </div>
+                <div className="inline-flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm rounded-full font-medium shadow-sm">
+                  <Sparkles className="h-3 w-3" />
+                  IA
+                </div>
+              </div>
+            </DialogHeader>
+            <Separator className="my-4" />
             <div className="space-y-4">
               {!state.isEditing && (
                 <QuickActions
@@ -276,9 +282,8 @@ export default function LeadActionResultModal({
                 </div>
               )}
             </div>
-          )}
-        </div>
-        
+          </>
+        )}
         <DialogFooter className="mt-6 pt-4 border-t border-gray-200">
           <div className="flex justify-between items-center w-full">
             <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -290,32 +295,32 @@ export default function LeadActionResultModal({
                 <Button variant="outline" className="px-6 hover:bg-gray-50">
                   Cerrar
                 </Button>
-                </DialogClose>
-                <Button
-                  onClick={async () => {
-                    // Call the API to generate a new evaluation
-                    const response = await fetch('/api/ai/evaluate-business', {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({ leadName: currentLead?.name }), // Pass necessary data
-                    });
+              </DialogClose>
+              <Button
+                onClick={async () => {
+                  // Call the API to generate a new evaluation
+                  const response = await fetch('/api/ai/evaluate-business', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ leadName: currentLead?.name }), // Pass necessary data
+                  });
 
-                    if (response.ok) {
-                      const newEvaluation = await response.json();
-                      console.log('New evaluation generated:', newEvaluation);
-                      // Optionally update the modal state or display the new evaluation
-                    } else {
-                      const errorData = await response.json();
-                      console.error('Error generating new evaluation:', errorData.error);
-                      alert('Error generating new evaluation: ' + errorData.error);
-                    }
-                  }}
-                  className="bg-blue-500 text-white px-4 py-2 rounded"
-                >
-                  Generar Nueva Evaluación
-                </Button>
+                  if (response.ok) {
+                    const newEvaluation = await response.json();
+                    console.log('New evaluation generated:', newEvaluation);
+                    // Optionally update the modal state or display the new evaluation
+                  } else {
+                    const errorData = await response.json();
+                    console.error('Error generating new evaluation:', errorData.error);
+                    alert('Error generating new evaluation: ' + errorData.error);
+                  }
+                }}
+                className="bg-blue-500 text-white px-4 py-2 rounded"
+              >
+                Generar Nueva Evaluación
+              </Button>
             </div>
           </div>
         </DialogFooter>
