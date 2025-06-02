@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
+import { useOrganization } from '@/hooks/useOrganization';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -39,6 +40,7 @@ type ActionResult = WelcomeMessageOutput | EvaluateBusinessOutput | SalesRecomme
 
 export default function LeadsPage() {
   const { user, loading: authLoading, initialLoadDone } = useAuth();
+  const { currentOrganization, loading: orgLoading } = useOrganization();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -107,17 +109,29 @@ export default function LeadsPage() {
 
   // Load leads
   const loadLeads = useCallback(async () => {
-    if (!user?.uid) return;
+    if (!user?.uid || !currentOrganization) return;
     
     setLoadingLeads(true);
     try {
-      const leadsQuery = query(
+      // First try with organizationId filter
+      let leadsQuery = query(
         collection(db, 'leads'),
-        // where('userId', '==', user.uid),
+        where('organizationId', '==', currentOrganization.id),
         orderBy('updatedAt', 'desc')
       );
       
-      const snapshot = await getDocs(leadsQuery);
+      let snapshot = await getDocs(leadsQuery);
+      
+      // If no results, try fallback to user-based filter for backward compatibility
+      if (snapshot.size === 0) {
+        leadsQuery = query(
+          collection(db, 'leads'),
+          where('uid', '==', user.uid),
+          orderBy('updatedAt', 'desc')
+        );
+        snapshot = await getDocs(leadsQuery);
+      }
+      
       const fetchedLeads = snapshot.docs.map(doc => {
         const data = doc.data();
         return {
@@ -150,7 +164,7 @@ export default function LeadsPage() {
     } finally {
       setLoadingLeads(false);
     }
-  }, [user?.uid, getLocalStorageKey, toast]);
+  }, [user?.uid, currentOrganization, getLocalStorageKey, toast]);
 
   // Stage change handler
   const handleStageChange = async (leadId: string, newStage: LeadStage) => {
@@ -477,7 +491,7 @@ export default function LeadsPage() {
   }, [user, initialLoadDone, authLoading, router, loadLeads, fetchUserProducts]);
 
   // Loading states
-  if (!initialLoadDone || authLoading) {
+  if (!initialLoadDone || authLoading || orgLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <LoadingSpinner size="lg" />
@@ -485,7 +499,7 @@ export default function LeadsPage() {
     );
   }
 
-  if (!user) {
+  if (!user || !currentOrganization) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <p className="text-foreground mr-2">Redirigiendo al inicio de sesión...</p>

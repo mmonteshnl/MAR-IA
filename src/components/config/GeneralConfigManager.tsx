@@ -10,9 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Settings, Euro, Palette, Globe, Bell, Database, RotateCcw, Save, Building2 } from 'lucide-react';
+import { Settings, Euro, Palette, Globe, Bell, Database, RotateCcw, Save, Building2, Users } from 'lucide-react';
 import { useGeneralConfig } from '@/hooks/useGeneralConfig';
 import { GeneralConfig, CURRENCY_OPTIONS, LANGUAGE_OPTIONS, TIMEZONE_OPTIONS } from '@/types/general-config';
+import OrganizationManager from './OrganizationManager';
 
 export const GeneralConfigManager = () => {
   const { config, loading, updateConfig, resetConfig } = useGeneralConfig();
@@ -48,9 +49,10 @@ export const GeneralConfigManager = () => {
     setEditedConfig(prev => {
       const current = prev || config || {};
       const keys = field.split('.');
-      const updated = { ...current };
+      // Add index signature to allow dynamic property access
+      const updated: { [key: string]: any } = { ...current };
       
-      let target = updated;
+      let target: { [key: string]: any } = updated;
       for (let i = 0; i < keys.length - 1; i++) {
         if (!target[keys[i]]) target[keys[i]] = {};
         target = target[keys[i]];
@@ -124,8 +126,12 @@ export const GeneralConfigManager = () => {
         </Card>
       )}
 
-      <Tabs defaultValue="currency" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+      <Tabs defaultValue="organization" className="w-full">
+        <TabsList className="grid w-full grid-cols-7">
+          <TabsTrigger value="organization" className="flex items-center gap-1">
+            <Users className="h-3 w-3" />
+            Organización
+          </TabsTrigger>
           <TabsTrigger value="currency" className="flex items-center gap-1">
             <Euro className="h-3 w-3" />
             Moneda
@@ -151,6 +157,10 @@ export const GeneralConfigManager = () => {
             Datos
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="organization" className="space-y-4">
+          <OrganizationManager />
+        </TabsContent>
 
         <TabsContent value="currency" className="space-y-4">
           <Card>
@@ -392,7 +402,7 @@ export const GeneralConfigManager = () => {
                       <p className="text-sm text-muted-foreground">{item.description}</p>
                     </div>
                     <Switch
-                      checked={currentConfig?.notifications?.[item.key] || false}
+                      checked={currentConfig?.notifications?.[item.key as keyof typeof currentConfig.notifications] || false}
                       onCheckedChange={(checked) => updateField(`notifications.${item.key}`, checked)}
                     />
                   </div>

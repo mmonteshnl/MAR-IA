@@ -49,11 +49,34 @@ export async function GET(request: NextRequest) {
       .orderBy('updatedAt', 'desc')
       .get();
 
-    const leads: LeadDocument[] = leadsSnapshot.docs.map(doc => {
-      const data = doc.data();
-      // Convert Firestore Timestamps to ISO strings
-      const createdAt = (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString();
-      const updatedAt = (data.updatedAt as Timestamp)?.toDate().toISOString() || new Date().toISOString();
+    interface FirestoreLeadData {
+      uid: string;
+      placeId: string;
+      name: string;
+      address?: string;
+      phone?: string;
+      website?: string;
+      businessType?: string;
+      source: string;
+      stage: string;
+      createdAt: Timestamp;
+      updatedAt: Timestamp;
+    }
+
+    interface FirestoreLeadDoc {
+      id: string;
+      data: FirestoreLeadData;
+    }
+
+    const leads: LeadDocument[] = leadsSnapshot.docs.map((doc: FirebaseFirestore.QueryDocumentSnapshot<FirestoreLeadData>): LeadDocument => {
+      const data: FirestoreLeadData = doc.data();
+      const createdAt: string = data.createdAt instanceof Date
+        ? data.createdAt.toISOString()
+        : (data.createdAt?.toDate?.() || new Date()).toISOString();
+      const updatedAt: string = data.updatedAt instanceof Date
+        ? data.updatedAt.toISOString()
+        : (data.updatedAt?.toDate?.() || new Date()).toISOString();
+
       return {
         id: doc.id,
         uid: data.uid,

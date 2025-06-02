@@ -28,6 +28,7 @@ export interface LeadImage {
 export interface Lead {
   id: string;
   uid: string;
+  organizationId?: string; // New field for organization-based filtering
   placeId?: string | null; // Made optional for imported leads
   name: string;
   address: string | null;

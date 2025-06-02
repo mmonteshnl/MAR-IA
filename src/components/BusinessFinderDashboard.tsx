@@ -3,13 +3,14 @@
 import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
+import { useOrganization } from '@/hooks/useOrganization';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { Search, LineChart, Users, Target } from 'lucide-react';
+import { Search, LineChart, Users, Target, Clock, TrendingUp } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, Timestamp as FirestoreTimestamp, query, where, getDocs } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, Timestamp as FirestoreTimestamp, query, where, getDocs, orderBy } from 'firebase/firestore';
 
 import { BusinessDetailsModal } from "@/components/BusinessDetailsModal";
 import SearchForm from '@/components/SearchForm';
@@ -70,6 +71,7 @@ const LOCAL_FALLBACK_SOURCE = 'google_places_search_local_fallback';
 
 export default function BusinessFinderDashboard() {
   const { user, loading: authLoading, initialLoadDone } = useAuth();
+  const { currentOrganization, loading: orgLoading } = useOrganization();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -86,12 +88,85 @@ export default function BusinessFinderDashboard() {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [modalDetailsLoading, setModalDetailsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [leadsStats, setLeadsStats] = useState({
+    total: 0,
+    byStage: {} as Record<string, number>,
+    conversionRate: 0,
+    recentLeads: [] as LeadClient[]
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
     if (initialLoadDone && !user) {
       router.replace('/login');
     }
   }, [user, initialLoadDone, router]);
+
+  const fetchLeadsStats = useCallback(async () => {
+    if (!user || !currentOrganization) return;
+    
+    setStatsLoading(true);
+    try {
+      // Try direct Firestore query first - filter by organization OR by user (backward compatibility)
+      let leadsQuery = query(
+        collection(db, 'leads'),
+        where('organizationId', '==', currentOrganization.id),
+        orderBy('updatedAt', 'desc')
+      );
+      
+      let snapshot = await getDocs(leadsQuery);
+      
+      // If no results, try fallback to user-based filter for backward compatibility
+      if (snapshot.size === 0) {
+        leadsQuery = query(
+          collection(db, 'leads'),
+          where('uid', '==', user.uid),
+          orderBy('updatedAt', 'desc')
+        );
+        snapshot = await getDocs(leadsQuery);
+      }
+      
+      if (snapshot.size > 0) {
+        const leads = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+            updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
+          } as LeadClient;
+        });
+        
+        // Calculate statistics
+        const total = leads.length;
+        const byStage = leads.reduce((acc: Record<string, number>, lead: LeadClient) => {
+          acc[lead.stage] = (acc[lead.stage] || 0) + 1;
+          return acc;
+        }, {});
+        
+        const wonLeads = byStage['Ganado'] || 0;
+        const conversionRate = total > 0 ? (wonLeads / total) * 100 : 0;
+        
+        // Get recent leads (last 5)
+        const recentLeads = leads.slice(0, 5);
+        
+        setLeadsStats({
+          total,
+          byStage,
+          conversionRate: Math.round(conversionRate * 10) / 10,
+          recentLeads
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching leads stats:', error);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, [user, currentOrganization]);
+
+  useEffect(() => {
+    fetchLeadsStats();
+  }, [fetchLeadsStats]);
 
   const getLocalStorageKey = useCallback(() => {
     return user ? `${LOCAL_STORAGE_LEADS_KEY_PREFIX}${user.uid}` : null;
@@ -173,7 +248,7 @@ export default function BusinessFinderDashboard() {
   };
 
   const handleAddToLeads = async () => {
-    if (!user) {
+    if (!user || !currentOrganization) {
       toast({ title: "Error de Autenticación", description: "Por favor, inicia sesión para guardar leads.", variant: "destructive" });
       return;
     }
@@ -187,6 +262,7 @@ export default function BusinessFinderDashboard() {
       .filter(business => selectedLeads.has(business.place_id))
       .map(b => ({
         uid: user.uid,
+        organizationId: currentOrganization.id,
         placeId: b.place_id,
         name: b.name,
         address: b.formatted_address || b.vicinity || null,
@@ -208,7 +284,7 @@ export default function BusinessFinderDashboard() {
     for (const leadData of leadsDataToSave) {
       try {
         const leadsCollectionRef = collection(db, 'leads');
-        const q = query(leadsCollectionRef, where("uid", "==", user.uid), where("placeId", "==", leadData.placeId));
+        const q = query(leadsCollectionRef, where("organizationId", "==", currentOrganization.id), where("placeId", "==", leadData.placeId));
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
@@ -273,7 +349,7 @@ export default function BusinessFinderDashboard() {
     setSaveLoading(false);
   };
 
-  if (authLoading || !initialLoadDone) {
+  if (authLoading || orgLoading || !initialLoadDone) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <LoadingSpinner size="lg" />
@@ -290,7 +366,7 @@ export default function BusinessFinderDashboard() {
     );
   }
   
-  if (!user) {
+  if (!user || !currentOrganization) {
      return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <LoadingSpinner size="lg" />
@@ -320,9 +396,11 @@ export default function BusinessFinderDashboard() {
             <Users className="h-5 w-5 text-indigo-600" />
           </div>
           <div className="mt-4">
-            <div className="text-3xl font-extrabold text-indigo-700">--</div>
-            <p className="mt-1 text-sm text-gray-500 italic">
-              (Próximamente: Conteo real)
+            <div className="text-3xl font-extrabold text-indigo-700">
+              {statsLoading ? '--' : leadsStats.total.toLocaleString()}
+            </div>
+            <p className="mt-1 text-sm text-gray-500">
+              {statsLoading ? 'Cargando...' : 'Total de leads en tu base de datos'}
             </p>
           </div>
         </div>
@@ -332,9 +410,20 @@ export default function BusinessFinderDashboard() {
             <LineChart className="h-5 w-5 text-indigo-600" />
           </div>
           <div className="mt-4">
-            <div className="text-3xl font-extrabold text-indigo-700">Gráfica</div>
-            <p className="mt-1 text-sm text-gray-500 italic">
-              (Próximamente: Distribución)
+            <div className="text-sm space-y-2">
+              {statsLoading ? (
+                <div className="text-3xl font-extrabold text-indigo-700">--</div>
+              ) : (
+                Object.entries(leadsStats.byStage).map(([stage, count]) => (
+                  <div key={stage} className="flex justify-between items-center">
+                    <span className="text-gray-600 text-xs">{stage}:</span>
+                    <span className="font-semibold text-indigo-700">{count}</span>
+                  </div>
+                ))
+              )}
+            </div>
+            <p className="mt-1 text-sm text-gray-500">
+              {statsLoading ? 'Cargando...' : 'Distribución por etapa'}
             </p>
           </div>
         </div>
@@ -344,12 +433,75 @@ export default function BusinessFinderDashboard() {
             <Target className="h-5 w-5 text-indigo-600" />
           </div>
           <div className="mt-4">
-            <div className="text-3xl font-extrabold text-indigo-700">--%</div>
-            <p className="mt-1 text-sm text-gray-500 italic">
-              (Próximamente)
+            <div className="text-3xl font-extrabold text-indigo-700">
+              {statsLoading ? '--' : `${leadsStats.conversionRate}%`}
+            </div>
+            <p className="mt-1 text-sm text-gray-500">
+              {statsLoading ? 'Cargando...' : 'Leads ganados vs total'}
             </p>
           </div>
         </div>
+      </div>
+
+      {/* Recent Activity Section */}
+      <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-6 mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+            <Clock className="mr-2 h-5 w-5 text-indigo-600" />
+            Actividad Reciente
+          </h2>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => router.push('/leads')}
+            className="text-indigo-600 border-indigo-600 hover:bg-indigo-50"
+          >
+            Ver Todos los Leads
+          </Button>
+        </div>
+        {statsLoading ? (
+          <div className="space-y-3">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+              </div>
+            ))}
+          </div>
+        ) : leadsStats.recentLeads.length > 0 ? (
+          <div className="space-y-3">
+            {leadsStats.recentLeads.map((lead) => (
+              <div key={lead.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div>
+                  <h3 className="font-medium text-gray-900">{lead.name}</h3>
+                  <p className="text-sm text-gray-500">{lead.address || 'Sin dirección'}</p>
+                </div>
+                <div className="text-right">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    lead.stage === 'Ganado' ? 'bg-green-100 text-green-800' :
+                    lead.stage === 'Perdido' ? 'bg-red-100 text-red-800' :
+                    lead.stage === 'Negociación' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-blue-100 text-blue-800'
+                  }`}>
+                    {lead.stage}
+                  </span>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {typeof lead.createdAt === 'string' 
+                      ? new Date(lead.createdAt).toLocaleDateString('es-ES') 
+                      : 'Fecha no disponible'
+                    }
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-500">
+            <Users className="mx-auto h-12 w-12 text-gray-300 mb-4" />
+            <p>No hay leads recientes</p>
+            <p className="text-sm mt-1">¡Comienza buscando nuevos leads!</p>
+          </div>
+        )}
       </div>
     
       <Dialog open={isSearchModalOpen} onOpenChange={setIsSearchModalOpen}>

@@ -163,7 +163,7 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
     <SidebarProvider 
       defaultOpen={getInitialSidebarState()}
     > 
-      <div className="flex min-h-screen bg-background">
+      <div className="flex min-h-screen w-full bg-background">
         <Sidebar 
           collapsible="icon" 
           side="left" 
@@ -233,7 +233,7 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
           </SidebarFooter>
         </Sidebar>
 
-        <SidebarInset className="flex-1 flex flex-col overflow-auto bg-background">
+        <SidebarInset className="flex-1 flex flex-col min-h-screen bg-background">
           <header className="flex h-16 shrink-0 items-center gap-2 px-4 border-b border-sidebar-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <SidebarTrigger className="sidebar-trigger -ml-1 hover:bg-accent hover:text-accent-foreground transition-all duration-200" />
             <Separator orientation="vertical" className="mr-2 h-4" />
@@ -257,7 +257,7 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
               </BreadcrumbList>
             </Breadcrumb>
           </header>
-          <main className="flex-1 p-4 sm:p-6 md:p-8">
+          <main className="flex-1 p-4 sm:p-6 md:p-8  overflow-y-auto">
             {children}
           </main>
         </SidebarInset>
