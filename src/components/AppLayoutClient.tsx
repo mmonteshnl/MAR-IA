@@ -141,8 +141,7 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
      {
       title: 'HERRAMIENTAS Y AUTOMATIZACIÓN',
       items: [
-        { href: '/leads?action=import-xml', label: 'Importar Leads (IA)', icon: FileUp, currentPathMatcher: (p: string, sp: URLSearchParams) => p === '/leads' && sp.get('action') === 'import-xml' },
-        { href: '/ai-prompts', label: 'Configuración de IA', icon: Brain, currentPathMatcher: (p: string) => p === '/ai-prompts' },
+                { href: '/ai-prompts', label: 'Configuración de IA', icon: Brain, currentPathMatcher: (p: string) => p === '/ai-prompts' },
         { href: '/valuation', label: 'Configurar Valoración', icon: Calculator, currentPathMatcher: (p: string) => p === '/valuation' },
         { href: '/config', label: 'Configuración General', icon: Settings, currentPathMatcher: (p: string) => p === '/config' },
         { href: '/automations', label: 'Automatizaciones', icon: Zap, currentPathMatcher: (p: string) => p === '/automations' },

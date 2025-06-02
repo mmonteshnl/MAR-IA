@@ -17,6 +17,9 @@ interface BusinessDetailsModalProps {
 export const BusinessDetailsModal: React.FC<BusinessDetailsModalProps> = ({ business, open, loading, onOpenChange }) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogHeader>
+        <DialogTitle>Detalles del Negocio</DialogTitle>
+      </DialogHeader>
       <DialogContent className="sm:max-w-[425px]">
         {loading && <LoadingSpinner />}
         {!loading && business && (
@@ -63,7 +66,7 @@ export const BusinessDetailsModal: React.FC<BusinessDetailsModalProps> = ({ busi
               {business.opening_hours && (
                 <div className="grid gap-2">
                   <div className="font-semibold">Opening Hours:</div>
-                  {business.opening_hours.weekday_text.map((day, index) => (
+                  {business.opening_hours && business.opening_hours.weekday_text && business.opening_hours.weekday_text.map((day, index) => (
                     <div key={index}>{day}</div>
                   ))}
                 </div>
