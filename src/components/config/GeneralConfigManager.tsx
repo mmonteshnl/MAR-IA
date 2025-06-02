@@ -10,10 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Settings, Euro, Palette, Globe, Bell, Database, RotateCcw, Save, Building2, Users } from 'lucide-react';
+import { Settings, Euro, Palette, Globe, Bell, Database, RotateCcw, Save, Building2, Users, User } from 'lucide-react';
 import { useGeneralConfig } from '@/hooks/useGeneralConfig';
 import { GeneralConfig, CURRENCY_OPTIONS, LANGUAGE_OPTIONS, TIMEZONE_OPTIONS } from '@/types/general-config';
 import OrganizationManager from './OrganizationManager';
+import UserProfileManager from '@/components/UserProfileManager';
 
 export const GeneralConfigManager = () => {
   const { config, loading, updateConfig, resetConfig } = useGeneralConfig();
@@ -126,8 +127,12 @@ export const GeneralConfigManager = () => {
         </Card>
       )}
 
-      <Tabs defaultValue="organization" className="w-full">
-        <TabsList className="grid w-full grid-cols-7">
+      <Tabs defaultValue="profile" className="w-full">
+        <TabsList className="grid w-full grid-cols-8">
+          <TabsTrigger value="profile" className="flex items-center gap-1">
+            <User className="h-3 w-3" />
+            Perfil
+          </TabsTrigger>
           <TabsTrigger value="organization" className="flex items-center gap-1">
             <Users className="h-3 w-3" />
             Organización
@@ -157,6 +162,10 @@ export const GeneralConfigManager = () => {
             Datos
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="profile" className="space-y-4">
+          <UserProfileManager />
+        </TabsContent>
 
         <TabsContent value="organization" className="space-y-4">
           <OrganizationManager />

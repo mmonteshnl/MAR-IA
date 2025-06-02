@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useOrganization } from '@/hooks/useOrganization';
+import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,10 +13,13 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building2, Users, Plus, Mail, Crown, Settings, UserPlus } from 'lucide-react';
+import { Building2, Users, Plus, Mail, Crown, Settings, UserPlus, Copy, Share, Link } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import PendingInvites from './PendingInvites';
+import OrganizationDebug from './OrganizationDebug';
 
 export default function OrganizationManager() {
+  const { user } = useAuth();
   const { 
     organizations, 
     currentOrganization, 
@@ -39,6 +43,10 @@ export default function OrganizationManager() {
   // Invite member form
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'admin' | 'member'>('member');
+  
+  // Invitation link result
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
 
   const handleCreateOrganization = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +54,7 @@ export default function OrganizationManager() {
 
     setCreating(true);
     try {
-      await createOrganization();
+      await createOrganization(newOrgName.trim(), newOrgDescription.trim());
       toast({
         title: "Organización creada",
         description: `La organización "${newOrgName}" ha sido creada exitosamente.`
@@ -71,22 +79,40 @@ export default function OrganizationManager() {
 
     setInviting(true);
     try {
-      await addMember();
-      toast({
-        title: "Invitación enviada",
-        description: `Se ha enviado una invitación a ${inviteEmail}.`
-      });
-      setIsInviteDialogOpen(false);
-      setInviteEmail('');
-      setInviteRole('member');
+      const result = await addMember(currentOrganization.id, inviteEmail.trim(), inviteRole);
+      if (result.inviteLink) {
+        setInviteLink(result.inviteLink);
+        setShowLinkDialog(true);
+        setIsInviteDialogOpen(false);
+        setInviteEmail('');
+        setInviteRole('member');
+      }
     } catch (err) {
       toast({
         title: "Error",
-        description: "No se pudo enviar la invitación. Inténtalo de nuevo.",
+        description: "No se pudo crear la invitación. Inténtalo de nuevo.",
         variant: "destructive"
       });
     } finally {
       setInviting(false);
+    }
+  };
+
+  const copyInviteLink = async () => {
+    if (inviteLink) {
+      try {
+        await navigator.clipboard.writeText(inviteLink);
+        toast({
+          title: "Enlace copiado",
+          description: "El enlace de invitación ha sido copiado al portapapeles."
+        });
+      } catch (err) {
+        toast({
+          title: "Error",
+          description: "No se pudo copiar el enlace.",
+          variant: "destructive"
+        });
+      }
     }
   };
 
@@ -109,6 +135,9 @@ export default function OrganizationManager() {
 
   return (
     <div className="space-y-6">
+      {/* Pending Invites */}
+      <PendingInvites />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -273,30 +302,110 @@ export default function OrganizationManager() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+            <div className="space-y-4">
               {organizations.map((org) => (
                 <div
                   key={org.id}
-                  className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                  className={`group relative overflow-hidden rounded-xl border-2 cursor-pointer transition-all duration-300 ease-in-out transform hover:scale-[1.02] ${
                     currentOrganization?.id === org.id
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-indigo-500 bg-gradient-to-br from-indigo-900/20 to-purple-900/20 shadow-lg shadow-indigo-500/20 backdrop-blur-sm'
+                      : 'border-gray-700 bg-gradient-to-br from-gray-800 to-gray-900 hover:border-indigo-400 hover:shadow-lg hover:shadow-indigo-500/10'
                   }`}
-                  onClick={switchOrganization}
+                  onClick={() => switchOrganization(org)}
                 >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium">{org.name}</h4>
-                      <p className="text-sm text-gray-600">{org.description}</p>
+                  {/* Background pattern for selected */}
+                  {currentOrganization?.id === org.id && (
+                    <div className="absolute inset-0 bg-indigo-500/10">
+                      <div className="absolute top-0 right-0 w-32 h-32 transform translate-x-16 -translate-y-16 rotate-45 bg-indigo-500/20"></div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Badge variant="secondary">
-                        {org.memberIds.length} miembro(s)
-                      </Badge>
-                      {currentOrganization?.id === org.id && (
-                        <Badge>Actual</Badge>
-                      )}
+                  )}
+                  
+                  <div className="relative p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start space-x-4 flex-1">
+                        {/* Organization Icon */}
+                        <div className={`flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center ${
+                          currentOrganization?.id === org.id 
+                            ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/30' 
+                            : 'bg-gray-700 text-gray-300 group-hover:bg-gradient-to-br group-hover:from-indigo-600 group-hover:to-purple-600 group-hover:text-white'
+                        } transition-all duration-200`}>
+                          <Building2 className="w-6 h-6" />
+                        </div>
+                        
+                        {/* Organization Details */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-3 mb-2">
+                            <h4 className={`font-semibold text-lg truncate ${
+                              currentOrganization?.id === org.id ? 'text-indigo-100' : 'text-gray-100'
+                            }`}>
+                              {org.name}
+                            </h4>
+                            {currentOrganization?.id === org.id && (
+                              <div className="flex items-center space-x-1">
+                                <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                                <span className="text-xs font-medium text-emerald-300 bg-emerald-900/30 px-2 py-1 rounded-full border border-emerald-500/30">
+                                  ACTIVA
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          
+                          <p className={`text-sm leading-relaxed ${
+                            currentOrganization?.id === org.id ? 'text-indigo-200' : 'text-gray-400'
+                          }`}>
+                            {org.description || 'Sin descripción'}
+                          </p>
+                          
+                          {/* Organization Metadata */}
+                          <div className="flex items-center space-x-4 mt-3 flex-wrap gap-y-1">
+                            <div className="flex items-center space-x-1">
+                              <Users className={`w-4 h-4 ${currentOrganization?.id === org.id ? 'text-indigo-300' : 'text-gray-500'}`} />
+                              <span className={`text-xs font-medium ${currentOrganization?.id === org.id ? 'text-indigo-200' : 'text-gray-400'}`}>
+                                {org.memberIds.length} {org.memberIds.length === 1 ? 'miembro' : 'miembros'}
+                              </span>
+                            </div>
+                            
+                            <div className="flex items-center space-x-1">
+                              <Crown className="w-4 h-4 text-yellow-400" />
+                              <span className={`text-xs font-medium ${currentOrganization?.id === org.id ? 'text-indigo-200' : 'text-gray-400'}`}>
+                                {org.ownerId === user?.uid ? 'Propietario' : 'Miembro'}
+                              </span>
+                            </div>
+                            
+                            <div className="flex items-center space-x-1">
+                              <Settings className={`w-4 h-4 ${currentOrganization?.id === org.id ? 'text-indigo-300' : 'text-gray-500'}`} />
+                              <span className={`text-xs font-medium ${currentOrganization?.id === org.id ? 'text-indigo-200' : 'text-gray-400'}`}>
+                                {org.settings.allowMemberInvites ? 'Invitaciones habilitadas' : 'Invitaciones deshabilitadas'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Action Indicator */}
+                      <div className="flex-shrink-0 ml-4">
+                        {currentOrganization?.id === org.id ? (
+                          <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        ) : (
+                          <div className="w-8 h-8 border-2 border-gray-600 rounded-full flex items-center justify-center group-hover:border-indigo-400 group-hover:bg-indigo-500/10 transition-all duration-200">
+                            <svg className="w-5 h-5 text-gray-500 group-hover:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
                     </div>
+                    
+                    {/* Bottom border accent */}
+                    <div className={`absolute bottom-0 left-0 right-0 h-1 ${
+                      currentOrganization?.id === org.id 
+                        ? 'bg-gradient-to-r from-indigo-500 to-purple-500' 
+                        : 'bg-gray-700 group-hover:bg-gradient-to-r group-hover:from-indigo-400 group-hover:to-purple-400'
+                    } transition-all duration-300`}></div>
                   </div>
                 </div>
               ))}
@@ -311,12 +420,64 @@ export default function OrganizationManager() {
           <CardTitle className="text-lg">¿Cómo funcionan las organizaciones?</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-gray-600">
-          <p>• <strong>Organización personal:</strong> Por ahora tienes una organización personal que gestiona todos tus leads.</p>
-          <p>• <strong>Datos privados:</strong> Tus leads son privados y solo tú puedes acceder a ellos.</p>
-          <p>• <strong>Próximamente:</strong> Funciones colaborativas para equipos están en desarrollo.</p>
-          <p>• <strong>Migración automática:</strong> Cuando estén listas, tus datos se migrarán automáticamente.</p>
+          <p>• <strong>Colaboración:</strong> Todos los miembros pueden ver y gestionar los leads de la organización.</p>
+          <p>• <strong>Roles:</strong> Los propietarios pueden invitar miembros y cambiar configuraciones.</p>
+          <p>• <strong>Datos compartidos:</strong> Los leads, productos y configuraciones se comparten entre miembros.</p>
+          <p>• <strong>Cambio de organización:</strong> Puedes cambiar entre organizaciones desde esta configuración.</p>
+          <p>• <strong>Invitaciones:</strong> Se genera un enlace único que puedes compartir manualmente.</p>
         </CardContent>
       </Card>
+
+      {/* Debug Component */}
+      <OrganizationDebug />
+
+      {/* Invitation Link Dialog */}
+      <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Share className="mr-2 h-5 w-5" />
+              Enlace de Invitación Creado
+            </DialogTitle>
+            <DialogDescription>
+              Comparte este enlace con la persona que quieres invitar. El enlace expira en 7 días.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Link Display */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center space-x-2">
+                <Link className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                <code className="text-sm text-gray-700 break-all flex-1">
+                  {inviteLink}
+                </code>
+              </div>
+            </div>
+            
+            {/* Instructions */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h4 className="font-medium text-blue-900 mb-2">Cómo funciona:</h4>
+              <ul className="text-sm text-blue-700 space-y-1">
+                <li>• Copia y comparte este enlace con la persona invitada</li>
+                <li>• Al hacer clic, podrá unirse directamente a la organización</li>
+                <li>• Si no tiene cuenta, se le guiará para crear una</li>
+                <li>• El enlace expira automáticamente en 7 días</li>
+              </ul>
+            </div>
+          </div>
+          
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowLinkDialog(false)}>
+              Cerrar
+            </Button>
+            <Button onClick={copyInviteLink} className="flex-1">
+              <Copy className="mr-2 h-4 w-4" />
+              Copiar Enlace
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

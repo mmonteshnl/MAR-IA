@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -28,23 +27,16 @@ import {
   BreadcrumbList,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
-import { ListChecks, Search, LogOut, PackageSearch, FileUp, Send, Cable, Zap, UserCircle, LayoutDashboard, Bell, TrendingUp, Settings, MessageSquare, Phone, Tags, FileText, Users, Briefcase, ShieldCheck, Palette, ConciergeBell, Calculator, Brain } from 'lucide-react';
+import { ListChecks, Search, LogOut, PackageSearch, FileUp, Send, Cable, Zap, UserCircle, LayoutDashboard, Bell, TrendingUp, Settings, MessageSquare, Phone, Tags, FileText, Users, Briefcase, ShieldCheck, Palette, ConciergeBell, Calculator, Brain, User } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useFirebaseInit } from '@/hooks/useFirebaseInit';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { User as FirebaseUser } from 'firebase/auth';
+import Image from 'next/image';
 
-// Placeholder for a 'C' like logo icon
-const LogoIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="14" cy="14" r="12" stroke="hsl(var(--primary))" strokeWidth="2.5"/>
-    <path d="M17.2002 9.19995C16.2954 8.71354 15.1897 8.44458 14.0002 8.44458C10.9356 8.44458 8.44464 10.9355 8.44464 14C8.44464 17.0645 10.9356 19.5555 14.0002 19.5555C15.1897 19.5555 16.2954 19.2865 17.2002 18.8" stroke="hsl(var(--primary))" strokeWidth="2.5" strokeLinecap="round"/>
-  </svg>
-);
-
-
+// Replace LogoIcon with logo.png in SidebarHeader
 const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
   const pathname = usePathname();
   const { user, authInstance, loading: authLoading, initialLoadDone } = useAuth();
@@ -155,6 +147,12 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
         { href: '/config', label: 'Configuración General', icon: Settings, currentPathMatcher: (p: string) => p === '/config' },
         { href: '/automations', label: 'Automatizaciones', icon: Zap, currentPathMatcher: (p: string) => p === '/automations' },
       ]
+    },
+    {
+      title: 'CUENTA',
+      items: [
+        { href: '/profile', label: 'Mi Perfil', icon: User, currentPathMatcher: (p: string) => p === '/profile' },
+      ]
     }
   ];
 
@@ -172,7 +170,7 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
         >
           <SidebarHeader className="p-4 flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
             <Link href="/business-finder" className="flex items-center gap-2.5">
-              <LogoIcon />
+              <Image src="/logo.png" alt="Logo" width={32} height={32} className="rounded" priority />
               <h1 className="font-semibold text-xl text-sidebar-primary group-data-[collapsible=icon]:hidden">MAR-IA</h1>
             </Link>
           </SidebarHeader>
@@ -240,7 +238,8 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
             <Breadcrumb>
               <BreadcrumbList>
                 <BreadcrumbItem>
-                  <BreadcrumbLink href="/business-finder" className="font-medium">
+                  <BreadcrumbLink href="/business-finder" className="font-medium flex items-center gap-2">
+                    <Image src="/logo.png" alt="Logo" width={20} height={20} className="rounded" priority />
                     MAR-IA
                   </BreadcrumbLink>
                 </BreadcrumbItem>

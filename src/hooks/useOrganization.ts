@@ -224,7 +224,7 @@ export function useOrganization() {
     try {
       console.log('👥 Adding member to organization:', { orgId, email, role });
       
-      // Create invite (simplified - in production you'd send email)
+      // Create invite with unique ID for link generation
       const inviteData = {
         organizationId: orgId,
         email: email.trim().toLowerCase(),
@@ -239,10 +239,17 @@ export function useOrganization() {
       const inviteRef = await addDoc(collection(db, 'organizationInvites'), inviteData);
       console.log('✅ Invite created with ID:', inviteRef.id);
       
-      // In a real app, you would send an email here
-      console.log('📧 Email would be sent to:', email);
+      // Generate invitation link
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+      const inviteLink = `${baseUrl}/invite/${inviteRef.id}`;
       
-      return { inviteId: inviteRef.id, success: true };
+      console.log('🔗 Invitation link generated:', inviteLink);
+      
+      return { 
+        inviteId: inviteRef.id, 
+        inviteLink,
+        success: true 
+      };
     } catch (err) {
       console.error('💥 Error adding member:', err);
       throw new Error('Error al invitar miembro');
