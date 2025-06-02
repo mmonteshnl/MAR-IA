@@ -16,8 +16,8 @@ import {z} from 'genkit';
 const ProductSchema = z.object({
   name: z.string().describe('El nombre del producto o servicio.'),
   category: z.string().describe('La categoría del producto (ej: software, hardware).'),
-  price_usd: z.string().describe('El precio del producto en USD.'),
-  original_price_usd: z.string().optional().describe('El precio original en USD, si aplica (ej: para descuentos).'),
+  price: z.string().describe('El precio del producto.'),
+  original_price: z.string().optional().describe('El precio original, si aplica (ej: para descuentos).'),
   description: z.string().optional().describe('La descripción detallada del producto o servicio.'),
 });
 export type Product = z.infer<typeof ProductSchema>;

@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MoreVertical, AlertCircle, Dot, Phone, MessageSquareText, Mail as MailIconLucide, ExternalLink as ExternalLinkIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MoreVertical, AlertCircle, Dot, Phone, MessageSquareText, Mail as MailIconLucide, ExternalLink as ExternalLinkIcon, ChevronLeft, ChevronRight, DollarSign } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useDragAndDrop } from '@/hooks/useDragAndDrop';
 import { useState } from 'react';
@@ -50,6 +50,8 @@ export default function KanbanView({
   const isMobile = useIsMobile();
   const [currentStageIndex, setCurrentStageIndex] = useState(0);
   const { activeConfig } = useValuationConfig();
+  const [showFullLabel, setShowFullLabel] = useState<{[key: string]: boolean}>({});
+  const [showFullStageLabel, setShowFullStageLabel] = useState<{[key: string]: boolean}>({});
   
   const {
     draggedItem,
@@ -76,6 +78,24 @@ export default function KanbanView({
     if (leadData.id && leadData.id !== targetStage) {
       onStageChange(leadData.id, targetStage as LeadStage);
     }
+  };
+
+  // Handle toggle for value label
+  const toggleValueLabel = (leadId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowFullLabel(prev => ({
+      ...prev,
+      [leadId]: !prev[leadId]
+    }));
+  };
+
+  // Handle toggle for stage label
+  const toggleStageLabel = (stage: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowFullStageLabel(prev => ({
+      ...prev,
+      [stage]: !prev[stage]
+    }));
   };
 
   // Render lead card (shared between mobile and desktop)
@@ -192,6 +212,25 @@ export default function KanbanView({
               )}
               {(isFieldMissing(lead.phone) && isFieldMissing(lead.website) && isFieldMissing(lead.email) && !generateWhatsAppLink(lead)) && <span className={`${isMobile ? 'text-sm' : 'text-xs'} text-muted-foreground/70 italic pl-1`}>Sin contacto directo</span>}
             </div>
+            
+            {/* Valor unitario del lead */}
+            {activeConfig && (
+              <div className="mb-2.5 p-2 bg-gradient-to-r from-primary/5 to-accent/10 rounded-md border border-primary/20 backdrop-blur-sm">
+                <div className="flex items-center gap-1">
+                  <button 
+                    onClick={(e) => toggleValueLabel(lead.id, e)}
+                    className={`${isMobile ? 'text-xs' : 'text-[10px]'} font-medium text-muted-foreground hover:text-primary transition-colors cursor-pointer`}
+                    title={showFullLabel[lead.id] ? "Clic para mostrar acrónimo" : "Clic para mostrar nombre completo"}
+                  >
+                    {showFullLabel[lead.id] ? "Valor Unitario:" : "VU:"}
+                  </button>
+                  <span className={`${isMobile ? 'text-xs' : 'text-[10px]'} font-semibold text-primary`}>
+                    {calculateLeadValuation(lead, activeConfig).formattedValue}
+                  </span>
+                </div>
+              </div>
+            )}
+            
             <LeadActionButtons
                 lead={lead}
                 onGenerateWelcomeMessage={onGenerateWelcomeMessage}
@@ -294,9 +333,20 @@ export default function KanbanView({
                     ({leads.filter(lead => lead.stage === stage).length})
                   </span>
                 </div>
-                <p className="text-lg font-semibold text-foreground">
-                  {activeConfig ? formatCurrency(calculateStageTotal(leads, stage, activeConfig)) : '$0.00'}
-                </p>
+                <div className="bg-gradient-to-br from-primary/5 to-accent/10 p-3 rounded-lg border border-primary/20 backdrop-blur-sm">
+                  <div className="flex items-center gap-1">
+                    <button 
+                      onClick={(e) => toggleStageLabel(stage, e)}
+                      className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                      title={showFullStageLabel[stage] ? "Clic para mostrar acrónimo" : "Clic para mostrar nombre completo"}
+                    >
+                      {showFullStageLabel[stage] ? "Valor Proyectado:" : "VP:"}
+                    </button>
+                    <p className="text-sm font-bold text-primary">
+                      {activeConfig ? formatCurrency(calculateStageTotal(leads, stage, activeConfig)) : '$0'}
+                    </p>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-3 flex-1 overflow-y-auto p-3 pt-3 max-h-[calc(80vh-140px)]">
                 {leads.filter(lead => lead.stage === stage).length === 0 && (

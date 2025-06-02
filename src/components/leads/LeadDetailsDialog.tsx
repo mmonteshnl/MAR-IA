@@ -24,6 +24,8 @@ import type { Lead, LeadImage } from '@/types';
 import ImageUploader from '@/components/ImageUploader';
 import { useToast } from '@/hooks/use-toast';
 import { LEAD_STAGES, type LeadStage, stageColors, isFieldMissing, LOCAL_FALLBACK_SOURCE } from '@/lib/leads-utils';
+import { useValuationConfig } from '@/hooks/useValuationConfig';
+import { calculateLeadValuation, formatCurrency } from '@/lib/valuation-calculator';
 
 interface LeadDetailsDialogProps {
   lead: Lead | null;
@@ -107,6 +109,7 @@ export default function LeadDetailsDialog({
   isSettingFeaturedImage = null
 }: LeadDetailsDialogProps) {
   const { toast } = useToast();
+  const { activeConfig } = useValuationConfig();
   const [isEditing, setIsEditing] = useState(false);
   const [editedLead, setEditedLead] = useState<Partial<Lead>>({});
   const [activeTab, setActiveTab] = useState("overview");
@@ -355,6 +358,57 @@ export default function LeadDetailsDialog({
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Valor Unitario Card */}
+              {activeConfig && (
+                <Card className="border shadow-sm bg-gradient-to-br from-primary/5 to-accent/10 border-primary/20 backdrop-blur-sm">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                      <div className="p-1 rounded-md bg-primary/10">
+                        <Sparkles className="h-4 w-4 text-primary" />
+                      </div>
+                      Valoración del Lead
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {(() => {
+                      const valuation = calculateLeadValuation(lead, activeConfig);
+                      return (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between p-3 bg-card/50 rounded-lg border border-border/30 backdrop-blur-sm">
+                            <div>
+                              <p className="text-sm font-medium text-muted-foreground">Valor Unitario (VU)</p>
+                              <p className="text-xs text-muted-foreground/70">Proyección basada en etapa actual</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-2xl font-bold text-primary">{valuation.formattedValue}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-3 text-xs">
+                            <div className="space-y-1 p-2 bg-muted/30 rounded border border-border/20">
+                              <p className="font-medium text-muted-foreground">Valor Base</p>
+                              <p className="font-semibold text-foreground">{formatCurrency(valuation.baseValue)}</p>
+                            </div>
+                            <div className="space-y-1 p-2 bg-muted/30 rounded border border-border/20">
+                              <p className="font-medium text-muted-foreground">Multiplicador Etapa</p>
+                              <p className="font-semibold text-accent">{Math.round(valuation.stageMultiplier * 100)}%</p>
+                            </div>
+                            <div className="space-y-1 p-2 bg-muted/30 rounded border border-border/20">
+                              <p className="font-medium text-muted-foreground">Bonus Datos</p>
+                              <p className="font-semibold text-green-400">+{formatCurrency(valuation.completenessBonus)}</p>
+                            </div>
+                            <div className="space-y-1 p-2 bg-muted/30 rounded border border-border/20">
+                              <p className="font-medium text-muted-foreground">Bonus IA</p>
+                              <p className="font-semibold text-purple-400">+{formatCurrency(valuation.aiBonus)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             <TabsContent value="business" className="space-y-4 mt-4">

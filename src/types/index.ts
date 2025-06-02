@@ -51,8 +51,8 @@ export interface Product {
   name: string;
   category: string;
   description?: string;
-  price_usd: string;
-  original_price_usd?: string;
+  price: string;
+  original_price?: string;
   createdAt: Timestamp | string;
   updatedAt: Timestamp | string;
   images?: LeadImage[];
@@ -64,8 +64,8 @@ export interface Service {
   name: string;
   category: string;
   description?: string;
-  price_usd: string;
-  original_price_usd?: string;
+  price: string;
+  original_price?: string;
   createdAt: Timestamp | string;
   updatedAt: Timestamp | string;
   // No images for services for now, can be added later if needed

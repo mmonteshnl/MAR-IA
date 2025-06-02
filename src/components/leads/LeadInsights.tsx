@@ -19,46 +19,6 @@ interface LeadInsightsProps {
 export const LeadInsights = ({ leads, className }: LeadInsightsProps) => {
   const { activeConfig, loading } = useValuationConfig();
   
-  // Show skeleton while loading valuation config
-  if (loading) {
-    return (
-      <div className={cn("space-y-4", className)}>
-        {/* Skeleton for loading state */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="bg-card border rounded-lg p-6">
-              <div className="flex items-center justify-between mb-2">
-                <div className="h-4 w-24 bg-muted animate-pulse rounded" />
-                <div className="h-4 w-4 bg-muted animate-pulse rounded" />
-              </div>
-              <div className="h-8 w-20 bg-muted animate-pulse rounded mb-2" />
-              <div className="h-3 w-16 bg-muted animate-pulse rounded" />
-            </div>
-          ))}
-        </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className="bg-card border rounded-lg p-6">
-              <div className="h-6 w-40 bg-muted animate-pulse rounded mb-4" />
-              <div className="space-y-3">
-                {Array.from({ length: 4 }).map((_, j) => (
-                  <div key={j} className="space-y-2">
-                    <div className="flex justify-between">
-                      <div className="h-4 w-20 bg-muted animate-pulse rounded" />
-                      <div className="h-4 w-16 bg-muted animate-pulse rounded" />
-                    </div>
-                    <div className="h-2 w-full bg-muted animate-pulse rounded" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-  
   const insights = useMemo(() => {
     const total = leads.length;
     
@@ -144,6 +104,46 @@ export const LeadInsights = ({ leads, className }: LeadInsightsProps) => {
       <span className="text-sm font-medium">{data}%</span>
     </div>
   );
+
+  // Show skeleton while loading valuation config
+  if (loading) {
+    return (
+      <div className={cn("space-y-4", className)}>
+        {/* Skeleton for loading state */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="bg-card border rounded-lg p-6">
+              <div className="flex items-center justify-between mb-2">
+                <div className="h-4 w-24 bg-muted animate-pulse rounded" />
+                <div className="h-4 w-4 bg-muted animate-pulse rounded" />
+              </div>
+              <div className="h-8 w-20 bg-muted animate-pulse rounded mb-2" />
+              <div className="h-3 w-16 bg-muted animate-pulse rounded" />
+            </div>
+          ))}
+        </div>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="bg-card border rounded-lg p-6">
+              <div className="h-6 w-40 bg-muted animate-pulse rounded mb-4" />
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, j) => (
+                  <div key={j} className="space-y-2">
+                    <div className="flex justify-between">
+                      <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                      <div className="h-4 w-16 bg-muted animate-pulse rounded" />
+                    </div>
+                    <div className="h-2 w-full bg-muted animate-pulse rounded" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("space-y-4", className)}>
