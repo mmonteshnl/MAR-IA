@@ -20,6 +20,7 @@ import {
   getAuth
 } from 'firebase/auth';
 import { doc, setDoc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
+import { toast } from 'react-toastify';
 import { app } from '@/lib/firebase';
 
 const firebaseAuth = getAuth(app);
@@ -43,29 +44,15 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
-  // Load user profile from Firestore
-  const loadUserProfile = useCallback(async (uid: string) => {
-    try {
-      const userDoc = await getDoc(doc(db, 'users', uid));
-      if (userDoc.exists()) {
-        setUserProfile(userDoc.data() as UserProfile);
-      }
-    } catch (error) {
-      console.error('Error loading user profile:', error);
-    }
-  }, []);
-
-  // Sign in with email and password
   const signIn = useCallback(async (email: string, password: string) => {
     try {
       const result = await signInWithEmailAndPassword(firebaseAuth, email, password);
       return { success: true, user: result.user };
     } catch (error: any) {
-      return { success: false, error: error.message };
+      return { success: false, error: error.message || 'Error signing in' };
     }
   }, []);
 
-  // Sign up with email and password
   const signUp = useCallback(async (email: string, password: string, displayName?: string) => {
     try {
       const result = await createUserWithEmailAndPassword(firebaseAuth, email, password);
@@ -96,11 +83,10 @@ export function useAuth() {
       
       return { success: true, user: result.user };
     } catch (error: any) {
-      return { success: false, error: error.message };
+      return { success: false, error: error.message || 'Error signing up' };
     }
   }, []);
 
-  // Sign in with Google
   const signInWithGoogle = useCallback(async () => {
     try {
       const provider = new GoogleAuthProvider();
@@ -127,32 +113,29 @@ export function useAuth() {
       
       return { success: true, user: result.user };
     } catch (error: any) {
-      return { success: false, error: error.message };
+      return { success: false, error: error.message || 'Error signing in with Google' };
     }
   }, []);
 
-  // Sign out
   const logout = useCallback(async () => {
     try {
       await signOut(firebaseAuth);
       setUserProfile(null);
       return { success: true };
     } catch (error: any) {
-      return { success: false, error: error.message };
+      return { success: false, error: error.message || 'Error logging out' };
     }
   }, []);
 
-  // Reset password
   const resetPassword = useCallback(async (email: string) => {
     try {
       await sendPasswordResetEmail(firebaseAuth, email);
       return { success: true };
     } catch (error: any) {
-      return { success: false, error: error.message };
+      return { success: false, error: error.message || 'Error resetting password' };
     }
   }, []);
 
-  // Update user profile
   const updateUserProfile = useCallback(async (updates: Partial<UserProfile>) => {
     if (!user) return { success: false, error: 'No user logged in' };
     
@@ -177,16 +160,18 @@ export function useAuth() {
         updatedAt: new Date().toISOString()
       });
       
-      // Reload profile
-      await loadUserProfile(user.uid);
+      // Reload profile directly
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists()) {
+        setUserProfile(userDoc.data() as UserProfile);
+      }
       
       return { success: true };
     } catch (error: any) {
-      return { success: false, error: error.message };
+      return { success: false, error: error.message || 'Error updating profile' };
     }
-  }, [user, loadUserProfile]);
+  }, [user]);
 
-  // Change password
   const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
     if (!user || !user.email) return { success: false, error: 'No user logged in' };
     
@@ -200,11 +185,10 @@ export function useAuth() {
       
       return { success: true };
     } catch (error: any) {
-      return { success: false, error: error.message };
+      return { success: false, error: error.message || 'Error changing password' };
     }
   }, [user]);
 
-  // Delete user account
   const deleteAccount = useCallback(async (password: string) => {
     if (!user || !user.email) return { success: false, error: 'No user logged in' };
     
@@ -223,11 +207,10 @@ export function useAuth() {
       
       return { success: true };
     } catch (error: any) {
-      return { success: false, error: error.message };
+      return { success: false, error: error.message || 'Error deleting account' };
     }
   }, [user]);
 
-  // Send email verification
   const sendVerificationEmail = useCallback(async () => {
     if (!user) return { success: false, error: 'No user logged in' };
     
@@ -235,7 +218,7 @@ export function useAuth() {
       await sendEmailVerification(user);
       return { success: true };
     } catch (error: any) {
-      return { success: false, error: error.message };
+      return { success: false, error: error.message || 'Error sending verification email' };
     }
   }, [user]);
 
@@ -244,7 +227,14 @@ export function useAuth() {
       setUser(currentUser);
       
       if (currentUser) {
-        await loadUserProfile(currentUser.uid);
+        try {
+          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+          if (userDoc.exists()) {
+            setUserProfile(userDoc.data() as UserProfile);
+          }
+        } catch (error) {
+          console.error('Error loading user profile:', error);
+        }
       } else {
         setUserProfile(null);
       }
@@ -254,7 +244,7 @@ export function useAuth() {
     });
 
     return () => unsubscribe();
-  }, [loadUserProfile]);
+  }, []);
 
   return {
     user,

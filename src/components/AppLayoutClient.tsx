@@ -147,12 +147,6 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
         { href: '/config', label: 'Configuración General', icon: Settings, currentPathMatcher: (p: string) => p === '/config' },
         { href: '/automations', label: 'Automatizaciones', icon: Zap, currentPathMatcher: (p: string) => p === '/automations' },
       ]
-    },
-    {
-      title: 'CUENTA',
-      items: [
-        { href: '/profile', label: 'Mi Perfil', icon: User, currentPathMatcher: (p: string) => p === '/profile' },
-      ]
     }
   ];
 
@@ -201,33 +195,45 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
             ))}
           </SidebarContent>
           <SidebarFooter className="p-3 mt-auto border-t border-sidebar-border">
-             {user && (
-              <div className="flex items-center gap-2 p-2 group-data-[collapsible=icon]:justify-center">
-                <Avatar className="h-8 w-8 group-data-[collapsible=icon]:h-7 group-data-[collapsible=icon]:w-7">
-                  <AvatarImage src={user.photoURL || undefined} alt={user.displayName || user.email || 'Usuario'} />
-                  <AvatarFallback className="text-xs bg-accent text-accent-foreground">
-                    {user.email ? user.email[0].toUpperCase() : <UserCircle size={16}/>}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="text-xs group-data-[collapsible=icon]:hidden">
-                  <p className="font-medium text-sidebar-foreground truncate max-w-[120px]">{user.displayName || user.email}</p>
-                  <p className="text-muted-foreground">Admin</p> 
-                  <p className="text-muted-foreground/50 break-all text-[10px] max-w-[120px] truncate" title={user.uid}>{user.uid}</p>
-                </div>
-              </div>
+            {user && (
+              <SidebarMenu>
+                {/* User Profile Link */}
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === '/profile'}
+                    tooltip={{ children: "Mi Perfil", side: "right", align:"center" }}
+                    className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
+                  >
+                    <Link href="/profile" className="flex items-center gap-2">
+                      <Avatar className="h-8 w-8 group-data-[collapsible=icon]:h-7 group-data-[collapsible=icon]:w-7">
+                        <AvatarImage src={user.photoURL || undefined} alt={user.displayName || user.email || 'Usuario'} />
+                        <AvatarFallback className="text-xs bg-accent text-accent-foreground">
+                          {user.email ? user.email[0].toUpperCase() : <UserCircle size={16}/>}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="text-xs group-data-[collapsible=icon]:hidden flex-1">
+                        <p className="font-medium text-sidebar-foreground truncate max-w-[120px]">{user.displayName || user.email}</p>
+                        <p className="text-muted-foreground text-[10px]">Ver perfil</p>
+                      </div>
+                      <User className="h-4 w-4 group-data-[collapsible=icon]:hidden" />
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                
+                {/* Logout Button */}
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={handleLogout}
+                    tooltip={{ children: "Cerrar Sesión", side: "right", align:"center" }}
+                    className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  >
+                    <LogOut className="h-5 w-5"/>
+                    <span className="group-data-[collapsible=icon]:hidden">Cerrar Sesión</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
             )}
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  onClick={handleLogout}
-                  tooltip={{ children: "Cerrar Sesión", side: "right", align:"center" }}
-                   className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                >
-                  <LogOut className="h-5 w-5"/>
-                  <span className="group-data-[collapsible=icon]:hidden">Cerrar Sesión</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
           </SidebarFooter>
         </Sidebar>
 

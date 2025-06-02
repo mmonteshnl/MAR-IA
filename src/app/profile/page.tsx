@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -41,17 +41,20 @@ export default function ProfilePage() {
     updateUserProfile, 
     changePassword, 
     sendVerificationEmail,
-    logout
+    logout,
+    loading,
+    initialLoadDone
   } = useAuth();
+  
   const { toast } = useToast();
   const router = useRouter();
 
   // Profile edit state
   const [isEditing, setIsEditing] = useState(false);
   const [editedProfile, setEditedProfile] = useState({
-    displayName: user?.displayName || '',
-    email: user?.email || '',
-    photoURL: user?.photoURL || ''
+    displayName: '',
+    email: '',
+    photoURL: ''
   });
   const [isUpdating, setIsUpdating] = useState(false);
 
@@ -72,7 +75,19 @@ export default function ProfilePage() {
   // Email verification state
   const [isSendingVerification, setIsSendingVerification] = useState(false);
 
-  if (!user || !userProfile) {
+  // Initialize edit form when user data is available
+  React.useEffect(() => {
+    if (user) {
+      setEditedProfile({
+        displayName: user.displayName || '',
+        email: user.email || '',
+        photoURL: user.photoURL || ''
+      });
+    }
+  }, [user]);
+
+  // Show loading if auth is still loading
+  if (loading || !initialLoadDone) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <LoadingSpinner size="lg" />
@@ -80,7 +95,23 @@ export default function ProfilePage() {
     );
   }
 
+  // Redirect to login if no user
+  if (!user) {
+    router.push('/login');
+    return null;
+  }
+
   const handleUpdateProfile = async () => {
+    console.log('Updating profile with:', editedProfile);
+    if (!updateUserProfile) {
+      toast({
+        title: "Error",
+        description: "Función de actualización no disponible.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsUpdating(true);
     try {
       const result = await updateUserProfile({
@@ -116,6 +147,15 @@ export default function ProfilePage() {
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!changePassword) {
+      toast({
+        title: "Error",
+        description: "Función de cambio de contraseña no disponible.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (passwordForm.new !== passwordForm.confirm) {
       toast({
         title: "Error",
@@ -164,6 +204,15 @@ export default function ProfilePage() {
   };
 
   const handleSendVerification = async () => {
+    if (!sendVerificationEmail) {
+      toast({
+        title: "Error",
+        description: "Función de verificación no disponible.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsSendingVerification(true);
     try {
       const result = await sendVerificationEmail();
@@ -223,8 +272,8 @@ export default function ProfilePage() {
                 </Button>
               </Link>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Mi Perfil</h1>
-                <p className="text-gray-600">Administra tu información personal y configuración de cuenta</p>
+                <h1 className="text-4xl font-bold text-black">Mi Perfil</h1>
+                <p className="text-gray-700">Administra tu información personal y configuración de cuenta</p>
               </div>
             </div>
             
@@ -279,7 +328,6 @@ export default function ProfilePage() {
 
             {/* General Information Tab */}
             <TabsContent value="general" className="space-y-6">
-              {/* Profile Header Card */}
               <Card>
                 <CardContent className="pt-6">
                   <div className="flex items-start space-x-6">
@@ -287,8 +335,8 @@ export default function ProfilePage() {
                     <div className="flex flex-col items-center space-y-4">
                       <Avatar className="w-24 h-24">
                         <AvatarImage 
-                          src={isEditing ? editedProfile.photoURL : user.photoURL} 
-                          alt={user.displayName || user.email} 
+                          src={isEditing ? editedProfile.photoURL || undefined : user.photoURL || undefined} 
+                          alt={user.displayName ?? user.email ?? undefined} 
                         />
                         <AvatarFallback className="text-lg">
                           {getInitials(user.displayName || user.email || 'U')}
@@ -303,7 +351,7 @@ export default function ProfilePage() {
                         <div className="space-y-4">
                           <div className="flex items-center justify-between">
                             <div>
-                              <h2 className="text-2xl font-bold text-gray-900">
+                              <h2 className="text-2xl font-bold text-gray-100">
                                 {user.displayName || 'Sin nombre'}
                               </h2>
                               <p className="text-gray-600">{user.email}</p>
@@ -326,39 +374,45 @@ export default function ProfilePage() {
                               )}
                             </Badge>
                             
-                            <Badge variant={userProfile.role === 'admin' ? "default" : "secondary"}>
-                              <Shield className="mr-1 h-3 w-3" />
-                              {userProfile.role === 'admin' ? 'Administrador' : 'Usuario'}
-                            </Badge>
+                            {userProfile && (
+                              <>
+                                <Badge variant={userProfile.role === 'admin' ? "default" : "secondary"}>
+                                  <Shield className="mr-1 h-3 w-3" />
+                                  {userProfile.role === 'admin' ? 'Administrador' : 'Usuario'}
+                                </Badge>
 
-                            <Badge variant={userProfile.isActive ? "default" : "destructive"}>
-                              <Activity className="mr-1 h-3 w-3" />
-                              {userProfile.isActive ? 'Activo' : 'Inactivo'}
-                            </Badge>
+                                <Badge variant={userProfile.isActive ? "default" : "destructive"}>
+                                  <Activity className="mr-1 h-3 w-3" />
+                                  {userProfile.isActive ? 'Activo' : 'Inactivo'}
+                                </Badge>
+                              </>
+                            )}
                           </div>
 
-                          <div className="grid grid-cols-2 gap-4 pt-4">
-                            <div>
-                              <Label className="text-sm font-medium text-gray-500">Miembro desde</Label>
-                              <p className="text-sm text-gray-900">
-                                {new Date(userProfile.createdAt).toLocaleDateString('es-ES', {
-                                  year: 'numeric',
-                                  month: 'long',
-                                  day: 'numeric'
-                                })}
-                              </p>
+                          {userProfile && (
+                            <div className="grid grid-cols-2 gap-4 pt-4">
+                              <div>
+                                <Label className="text-sm font-medium text-gray-500">Miembro desde</Label>
+                                <p className="text-sm text-gray-900">
+                                  {new Date(userProfile.createdAt).toLocaleDateString('es-ES', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                  })}
+                                </p>
+                              </div>
+                              <div>
+                                <Label className="text-sm font-medium text-gray-500">Última actualización</Label>
+                                <p className="text-sm text-gray-900">
+                                  {new Date(userProfile.updatedAt).toLocaleDateString('es-ES', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                  })}
+                                </p>
+                              </div>
                             </div>
-                            <div>
-                              <Label className="text-sm font-medium text-gray-500">Última actualización</Label>
-                              <p className="text-sm text-gray-900">
-                                {new Date(userProfile.updatedAt).toLocaleDateString('es-ES', {
-                                  year: 'numeric',
-                                  month: 'long',
-                                  day: 'numeric'
-                                })}
-                              </p>
-                            </div>
-                          </div>
+                          )}
                         </div>
                       ) : (
                         // Edit Mode
@@ -593,66 +647,58 @@ export default function ProfilePage() {
                     Actividad de la Cuenta
                   </CardTitle>
                   <CardDescription>
-                    Historial y estadísticas de tu cuenta
+                    Información básica de tu cuenta
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium text-gray-500">Fecha de registro</Label>
+                        <Label className="text-sm font-medium text-gray-100">UID de Usuario</Label>
                         <div className="flex items-center space-x-2">
-                          <Calendar className="h-4 w-4 text-gray-400" />
-                          <span className="text-sm">
-                            {new Date(userProfile.createdAt).toLocaleDateString('es-ES', {
-                              weekday: 'long',
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
+                          <span className="text-sm font-mono bg-gray-700 px-2 py-1 rounded">
+                            {user.uid}
                           </span>
                         </div>
                       </div>
                       
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium text-gray-500">Última actualización</Label>
+                        <Label className="text-sm font-medium text-gray-500">Proveedor</Label>
                         <div className="flex items-center space-x-2">
-                          <RefreshCw className="h-4 w-4 text-gray-400" />
                           <span className="text-sm">
-                            {new Date(userProfile.updatedAt).toLocaleDateString('es-ES', {
-                              weekday: 'long',
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
+                            {user.providerData[0]?.providerId === 'google.com' ? 'Google' : 'Email/Contraseña'}
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="border-t pt-4">
-                      <div className="space-y-4">
-                        <h4 className="font-medium">Información de la cuenta</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div className="p-3 bg-gray-50 rounded-lg">
-                            <div className="text-2xl font-bold text-blue-600">1</div>
-                            <div className="text-sm text-gray-600">Organizaciones</div>
-                          </div>
-                          <div className="p-3 bg-gray-50 rounded-lg">
-                            <div className="text-2xl font-bold text-green-600">{userProfile.role === 'admin' ? 'Admin' : 'User'}</div>
-                            <div className="text-sm text-gray-600">Rol actual</div>
-                          </div>
-                          <div className="p-3 bg-gray-50 rounded-lg">
-                            <div className="text-2xl font-bold text-purple-600">{userProfile.isActive ? 'Activo' : 'Inactivo'}</div>
-                            <div className="text-sm text-gray-600">Estado</div>
+                    {userProfile && (
+                      <div className="border-t pt-4">
+                        <div className="space-y-4">
+                          <h4 className="font-medium">Información de la cuenta</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="p-3 bg-gray-50 rounded-lg">
+                              <div className="text-2xl font-bold text-blue-600">
+                                {userProfile.role === 'admin' ? 'Admin' : 'User'}
+                              </div>
+                              <div className="text-sm text-gray-600">Rol actual</div>
+                            </div>
+                            <div className="p-3 bg-gray-50 rounded-lg">
+                              <div className="text-2xl font-bold text-green-600">
+                                {userProfile.isActive ? 'Activo' : 'Inactivo'}
+                              </div>
+                              <div className="text-sm text-gray-600">Estado</div>
+                            </div>
+                            <div className="p-3 bg-gray-50 rounded-lg">
+                              <div className="text-2xl font-bold text-purple-600">
+                                {user.emailVerified ? 'Sí' : 'No'}
+                              </div>
+                              <div className="text-sm text-gray-600">Email Verificado</div>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
