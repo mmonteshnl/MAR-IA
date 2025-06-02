@@ -2,6 +2,7 @@
 "use client";
 
 import React from 'react';
+import '@/styles/sidebar.css';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -19,6 +20,14 @@ import {
   SidebarGroupLabel,
 } from '@/components/ui/sidebar';
 import { Toaster } from "@/components/ui/toaster";
+import { Separator } from '@/components/ui/separator';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
 import { ListChecks, Search, LogOut, PackageSearch, FileUp, Send, Cable, Zap, UserCircle, LayoutDashboard, Bell, TrendingUp, Settings, MessageSquare, Phone, Tags, FileText, Users, Briefcase, ShieldCheck, Palette, ConciergeBell, Calculator, Brain } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useFirebaseInit } from '@/hooks/useFirebaseInit';
@@ -42,6 +51,18 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
   const { isInitialized, isInitializing } = useFirebaseInit();
   const router = useRouter();
   const { toast } = useToast();
+
+  // Leer estado inicial del sidebar desde cookie
+  const getInitialSidebarState = () => {
+    if (typeof document !== 'undefined') {
+      const cookieValue = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('sidebar_state='))
+        ?.split('=')[1];
+      return cookieValue === 'true';
+    }
+    return true; // default abierto
+  };
 
   const noSidebarPaths = ['/login', '/register'];
   const showSidebar = initialLoadDone && user && !noSidebarPaths.includes(pathname);
@@ -129,6 +150,7 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
       title: 'HERRAMIENTAS Y AUTOMATIZACIÓN',
       items: [
         { href: '/leads?action=import-xml', label: 'Importar Leads (IA)', icon: FileUp, currentPathMatcher: (p: string, sp: URLSearchParams) => p === '/leads' && sp.get('action') === 'import-xml' },
+        { href: '/ai-prompts', label: 'Configuración de IA', icon: Brain, currentPathMatcher: (p: string) => p === '/ai-prompts' },
         { href: '/valuation', label: 'Configurar Valoración', icon: Calculator, currentPathMatcher: (p: string) => p === '/valuation' },
         { href: '/config', label: 'Configuración General', icon: Settings, currentPathMatcher: (p: string) => p === '/config' },
         { href: '/automations', label: 'Automatizaciones', icon: Zap, currentPathMatcher: (p: string) => p === '/automations' },
@@ -138,9 +160,16 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
 
 
   return (
-    <SidebarProvider defaultOpen={true}> 
-      <div className="flex   bg-blue-700 p-3 w-full">
-        <Sidebar collapsible="icon" side="left" variant="sidebar" className="border-r border-sidebar-border bg-sidebar-background text-sidebar-foreground">
+    <SidebarProvider 
+      defaultOpen={getInitialSidebarState()}
+    > 
+      <div className="flex min-h-screen bg-background">
+        <Sidebar 
+          collapsible="icon" 
+          side="left" 
+          variant="sidebar" 
+          className="sidebar border-r border-sidebar-border bg-sidebar-background text-sidebar-foreground shadow-md"
+        >
           <SidebarHeader className="p-4 flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
             <Link href="/business-finder" className="flex items-center gap-2.5">
               <LogoIcon />
@@ -204,13 +233,37 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
           </SidebarFooter>
         </Sidebar>
 
-        <SidebarInset className="flex-1 flex flex-col overflow-auto p-3 bg-green-600 min-w-full">
-          <main className=" bg-red-600 w-min-full">
+        <SidebarInset className="flex-1 flex flex-col overflow-auto bg-background">
+          <header className="flex h-16 shrink-0 items-center gap-2 px-4 border-b border-sidebar-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <SidebarTrigger className="sidebar-trigger -ml-1 hover:bg-accent hover:text-accent-foreground transition-all duration-200" />
+            <Separator orientation="vertical" className="mr-2 h-4" />
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink href="/business-finder" className="font-medium">
+                    MAR-IA
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                {pathname !== '/business-finder' && pathname !== '/' && (
+                  <>
+                    <BreadcrumbSeparator />
+                    <BreadcrumbItem className="hidden md:block">
+                      <BreadcrumbLink href="#" className="capitalize">
+                        {pathname.split('/')[1]?.replace('-', ' ') || 'Dashboard'}
+                      </BreadcrumbLink>
+                    </BreadcrumbItem>
+                  </>
+                )}
+              </BreadcrumbList>
+            </Breadcrumb>
+          </header>
+          <main className="flex-1 p-4 sm:p-6 md:p-8">
             {children}
           </main>
         </SidebarInset>
       </div>
       <Toaster />
+
     </SidebarProvider>
   );
 };
