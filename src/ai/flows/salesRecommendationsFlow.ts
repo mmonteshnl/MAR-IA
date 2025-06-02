@@ -94,15 +94,18 @@ Instrucciones para la recomendación (categorías genéricas):
 Genera una lista de recomendaciones en formato JSON de acuerdo con el esquema de salida esperado, siguiendo estrictamente las instrucciones anteriores.`,
 });
 
+interface SalesRecommendationsFlowInput extends SalesRecommendationsInput {}
+interface SalesRecommendationsFlowOutput extends SalesRecommendationsOutput {}
+
 const salesRecommendationsFlow = ai.defineFlow(
   {
     name: 'salesRecommendationsFlow',
     inputSchema: SalesRecommendationsInputSchema,
     outputSchema: SalesRecommendationsOutputSchema,
   },
-  async (input) => {
+  async (input: SalesRecommendationsFlowInput): Promise<SalesRecommendationsFlowOutput> => {
     const {output} = await prompt(input);
-     if (!output || !output.recommendations) {
+    if (!output || !output.recommendations) {
       // Si la IA no devuelve nada o un formato incorrecto, asegurar un array vacío
       // para evitar errores en el frontend.
       console.warn('SalesRecommendationsFlow: AI did not return valid recommendations. Returning empty array.');

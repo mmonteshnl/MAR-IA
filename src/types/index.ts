@@ -15,7 +15,8 @@ export interface BusinessDetail {
   website?: string;
   types?: string[];
   rating?: number;
-  opening_hours?: OpeningHours;
+    opening_hours?: OpeningHours;
+  }
 
 export interface LeadImage {
   public_id: string;
