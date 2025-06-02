@@ -20,7 +20,12 @@ import {
   AlertCircle,
   CheckCircle2,
   Loader2,
-  MessageSquare
+  MessageSquare,
+  Save,
+  Upload,
+  Trash2,
+  Plus,
+  Database
 } from 'lucide-react';
 import { PromptTemplate, PromptVariable } from '@/types/ai-prompts';
 import { useToast } from '@/hooks/use-toast';
@@ -39,6 +44,13 @@ interface TestData {
   [key: string]: string;
 }
 
+interface TestCase {
+  id: string;
+  name: string;
+  data: TestData;
+  createdAt: Date;
+}
+
 export default function PromptPreview({ template, globalSettings }: PromptPreviewProps) {
   const { toast } = useToast();
   const [testData, setTestData] = useState<TestData>({});
@@ -46,6 +58,12 @@ export default function PromptPreview({ template, globalSettings }: PromptPrevie
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedResult, setGeneratedResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [estimatedTokens, setEstimatedTokens] = useState<number>(0);
+  const [estimatedCost, setEstimatedCost] = useState<number>(0);
+  const [testCases, setTestCases] = useState<TestCase[]>([]);
+  const [currentTestCase, setCurrentTestCase] = useState<string | null>(null);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [newTestCaseName, setNewTestCaseName] = useState('');
 
   // Initialize test data with examples
   useEffect(() => {
@@ -100,6 +118,81 @@ export default function PromptPreview({ template, globalSettings }: PromptPrevie
       ...prev,
       [variableName]: value
     }));
+  };
+
+  // Estimate tokens and cost
+  const estimateTokensAndCost = (text: string) => {
+    // Rough estimation: 1 token ≈ 4 characters for English/Spanish mixed text
+    const estimatedTokenCount = Math.ceil(text.length / 4);
+    
+    // Gemini pricing (approximate): $0.075 per 1M input tokens for Flash model
+    const pricePerToken = 0.000000075; // $0.075 / 1,000,000
+    const estimatedCostValue = estimatedTokenCount * pricePerToken;
+    
+    setEstimatedTokens(estimatedTokenCount);
+    setEstimatedCost(estimatedCostValue);
+  };
+
+  // Update estimates when processed prompt changes
+  useEffect(() => {
+    if (processedPrompt) {
+      estimateTokensAndCost(processedPrompt);
+    }
+  }, [processedPrompt]);
+
+  // Test case management functions
+  const saveCurrentTestCase = () => {
+    if (!newTestCaseName.trim()) return;
+    
+    const newTestCase: TestCase = {
+      id: `test_${Date.now()}`,
+      name: newTestCaseName.trim(),
+      data: { ...testData },
+      createdAt: new Date()
+    };
+    
+    setTestCases(prev => [...prev, newTestCase]);
+    setCurrentTestCase(newTestCase.id);
+    setNewTestCaseName('');
+    setShowSaveDialog(false);
+    
+    toast({
+      title: "Caso de prueba guardado",
+      description: `"${newTestCase.name}" ha sido guardado correctamente.`
+    });
+  };
+
+  const loadTestCase = (testCaseId: string) => {
+    const testCase = testCases.find(tc => tc.id === testCaseId);
+    if (testCase) {
+      setTestData(testCase.data);
+      setCurrentTestCase(testCaseId);
+      toast({
+        title: "Caso de prueba cargado",
+        description: `"${testCase.name}" ha sido cargado.`
+      });
+    }
+  };
+
+  const deleteTestCase = (testCaseId: string) => {
+    const testCase = testCases.find(tc => tc.id === testCaseId);
+    if (testCase) {
+      setTestCases(prev => prev.filter(tc => tc.id !== testCaseId));
+      if (currentTestCase === testCaseId) {
+        setCurrentTestCase(null);
+      }
+      toast({
+        title: "Caso de prueba eliminado",
+        description: `"${testCase.name}" ha sido eliminado.`
+      });
+    }
+  };
+
+  const clearCurrentData = () => {
+    setTestData({});
+    setCurrentTestCase(null);
+    setGeneratedResult(null);
+    setError(null);
   };
 
   const handleGenerateWithAI = async () => {
@@ -244,10 +337,89 @@ export default function PromptPreview({ template, globalSettings }: PromptPrevie
           {/* Test Data */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Code className="h-5 w-5 text-primary" />
-                Datos de Prueba
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Database className="h-5 w-5 text-primary" />
+                  Casos de Prueba
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  {currentTestCase && (
+                    <Badge variant="secondary" className="text-xs">
+                      {testCases.find(tc => tc.id === currentTestCase)?.name}
+                    </Badge>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowSaveDialog(true)}
+                    disabled={Object.keys(testData).length === 0}
+                  >
+                    <Save className="h-4 w-4 mr-1" />
+                    Guardar
+                  </Button>
+                </div>
+              </div>
+              
+              {/* Test Case Management */}
+              {testCases.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm">Casos guardados:</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {testCases.map((testCase) => (
+                      <div key={testCase.id} className="flex items-center gap-1">
+                        <Button
+                          variant={currentTestCase === testCase.id ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => loadTestCase(testCase.id)}
+                          className="text-xs h-7"
+                        >
+                          <Upload className="h-3 w-3 mr-1" />
+                          {testCase.name}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteTestCase(testCase.id)}
+                          className="h-7 w-7 p-0 text-destructive"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearCurrentData}
+                    className="text-xs text-muted-foreground"
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Nuevo caso
+                  </Button>
+                </div>
+              )}
+              
+              {/* Save Dialog */}
+              {showSaveDialog && (
+                <div className="border rounded-lg p-3 bg-muted/50">
+                  <Label className="text-sm">Nombre del caso de prueba:</Label>
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      value={newTestCaseName}
+                      onChange={(e) => setNewTestCaseName(e.target.value)}
+                      placeholder="Ej: Cliente ejemplo, Caso complejo..."
+                      className="text-sm"
+                      onKeyPress={(e) => e.key === 'Enter' && saveCurrentTestCase()}
+                    />
+                    <Button size="sm" onClick={saveCurrentTestCase} disabled={!newTestCaseName.trim()}>
+                      Guardar
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setShowSaveDialog(false)}>
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
               {template.variables.map((variable) => (
@@ -286,9 +458,26 @@ export default function PromptPreview({ template, globalSettings }: PromptPrevie
               
               <Separator />
               
+              {estimatedTokens > 2000 && (
+                <Alert className="bg-amber-50 border-amber-200">
+                  <AlertCircle className="h-4 w-4 text-amber-600" />
+                  <AlertDescription className="text-amber-800">
+                    <strong>Prompt largo detectado:</strong> ~{estimatedTokens.toLocaleString()} tokens estimados 
+                    (costo aprox. ${estimatedCost.toFixed(4)}). Considere acortar el prompt para reducir costos.
+                  </AlertDescription>
+                </Alert>
+              )}
+              
               <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">
-                  {template.variables.filter(v => v.required && testData[v.name]?.trim()).length} / {template.variables.filter(v => v.required).length} requeridas completadas
+                <div className="space-y-1">
+                  <div className="text-sm text-muted-foreground">
+                    {template.variables.filter(v => v.required && testData[v.name]?.trim()).length} / {template.variables.filter(v => v.required).length} requeridas completadas
+                  </div>
+                  {estimatedTokens > 0 && (
+                    <div className="text-xs text-muted-foreground">
+                      Estimación: {estimatedTokens.toLocaleString()} tokens • ${estimatedCost.toFixed(6)}
+                    </div>
+                  )}
                 </div>
                 <Button
                   onClick={handleGenerateWithAI}
@@ -340,9 +529,22 @@ export default function PromptPreview({ template, globalSettings }: PromptPrevie
                         </pre>
                       </div>
                       
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <span>{processedPrompt.split(/\s+/).length} palabras</span>
-                        <span>{processedPrompt.length} caracteres</span>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <span>{processedPrompt.split(/\s+/).length} palabras</span>
+                          <span>{processedPrompt.length} caracteres</span>
+                        </div>
+                        
+                        {estimatedTokens > 0 && (
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs">
+                              ~{estimatedTokens.toLocaleString()} tokens
+                            </Badge>
+                            <Badge variant="outline" className="text-xs text-green-600">
+                              ~${estimatedCost.toFixed(6)}
+                            </Badge>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

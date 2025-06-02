@@ -43,7 +43,7 @@ El módulo de **Configuración de IA** permite personalizar completamente los pr
 **Propósito**: Generar mensajes de bienvenida personalizados para nuevos leads
 ```handlebars
 Variables disponibles:
-- {{businessName}} - Nombre del negocio
+- {{leadName}} - Nombre del negocio
 - {{businessType}} - Tipo de negocio
 - {{contactName}} - Nombre del contacto
 - {{location}} - Ubicación del negocio
@@ -53,31 +53,53 @@ Variables disponibles:
 **Propósito**: Analizar el potencial y características de un negocio
 ```handlebars
 Variables disponibles:
-- {{businessData}} - Datos completos del negocio
-- {{industryInfo}} - Información de la industria
-- {{marketAnalysis}} - Análisis de mercado
-- {{competitorData}} - Datos de competidores
+- {{leadName}} - Nombre del negocio
+- {{businessType}} - Tipo de negocio
+- {{address}} - Dirección del negocio
+- {{website}} - Sitio web del negocio
 ```
 
 ### 3. 🎯 Recomendaciones de Ventas
 **Propósito**: Generar estrategias y recomendaciones de venta personalizadas
 ```handlebars
 Variables disponibles:
-- {{leadProfile}} - Perfil del lead
-- {{businessNeeds}} - Necesidades identificadas
+- {{leadName}} - Nombre del negocio
+- {{businessType}} - Tipo de negocio
+- {{businessSize}} - Tamaño del negocio
 - {{budget}} - Presupuesto estimado
-- {{timeline}} - Timeline del proyecto
+- {{currentSystems}} - Sistemas actuales
 ```
 
 ### 4. 📧 Email de Configuración TPV
 **Propósito**: Crear emails técnicos para configuración de terminales de pago
 ```handlebars
 Variables disponibles:
-- {{clientInfo}} - Información del cliente
-- {{tpvModel}} - Modelo de TPV
-- {{configDetails}} - Detalles de configuración
-- {{supportContact}} - Contacto de soporte
+- {{leadName}} - Nombre del negocio
+- {{businessType}} - Tipo de negocio
+- {{contactName}} - Persona de contacto
+- {{proposedConfiguration}} - Configuración propuesta (array)
 ```
+
+### 📝 Sintaxis de Variables
+
+**Uso Estándar de Variables:**
+```handlebars
+{{variableName}}        # Insertar texto plano (recomendado)
+{{#if variable}}...{{/if}}  # Condicional
+{{#each array}}...{{/each}}  # Iteración sobre arrays
+```
+
+**Variables de Array (Ejemplo TPV):**
+```handlebars
+{{#each proposedConfiguration}}
+  - Área: {{this.areaFunction}}
+  {{#each this.suggestedProducts}}
+    - Producto: {{this.quantity}} x {{this.productName}}
+  {{/each}}
+{{/each}}
+```
+
+**Nota de Seguridad:** Se usa doble llave `{{}}` para inserción segura de texto. El uso de triple llave `{{{variable}}}` permite HTML pero puede introducir riesgos de seguridad.
 
 ---
 
@@ -282,15 +304,54 @@ Variables disponibles:
 
 ---
 
+## 🆕 Nuevas Funcionalidades Implementadas
+
+### 🎯 **Paleta de Variables Inteligente**
+- **Click para insertar**: Variables disponibles como botones clickeables
+- **Autocompletado**: Inserta variables en la posición del cursor
+- **Validación visual**: Variables requeridas marcadas con asterisco
+- **Sintaxis helpers**: Botones para insertar `{{#if}}` y `{{#each}}`
+
+### 📊 **Estimador de Tokens y Costos**
+- **Estimación en tiempo real**: Cálculo automático basado en el prompt procesado
+- **Alertas de costo**: Advertencias para prompts largos (>2000 tokens)
+- **Información detallada**: Tokens estimados y costo en USD
+- **Modelo Gemini**: Precios actualizados para Google AI
+
+### 💾 **Casos de Prueba Múltiples**
+- **Guardar y cargar**: Almacena conjuntos de datos de prueba
+- **Gestión completa**: Crear, cargar, eliminar casos
+- **Reutilización**: Prueba el mismo prompt con diferentes datos
+- **Interfaz intuitiva**: Botones para cambiar entre casos
+
+### 🔄 **Indicador de Sincronización**
+- **Estado en tiempo real**: Guardando, guardado, error
+- **Feedback visual**: Indicadores de colores y animaciones
+- **Última sincronización**: Timestamp del último guardado
+- **Persistencia automática**: Guardado en background
+
+### 💡 **Consejos Contextuales**
+- **Específicos por tipo**: Tips adaptados a cada plantilla
+- **Mejores prácticas**: Guías para crear prompts efectivos
+- **Integración visual**: Directamente en la interfaz del editor
+- **Actualización dinámica**: Cambian según el prompt seleccionado
+
+---
+
 ## ✅ Estado Actual del Proyecto
 
-**Versión**: 1.0.0  
+**Versión**: 1.1.0  
 **Estado**: ✅ Producción  
-**Última Actualización**: Diciembre 2024  
+**Última Actualización**: Junio 2025  
 **Desarrollador**: Equipo MAR-IA  
 
 ### Funcionalidades Implementadas ✅
 - [x] Editor de prompts con validación
+- [x] Paleta de variables clickeable con autocompletado
+- [x] Indicador de sincronización en tiempo real
+- [x] Estimador de tokens y costos
+- [x] Casos de prueba múltiples y reutilizables
+- [x] Consejos contextuales por tipo de prompt
 - [x] Configuración global del modelo
 - [x] Vista previa en tiempo real
 - [x] Persistencia en Firebase

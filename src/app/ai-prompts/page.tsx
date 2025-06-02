@@ -36,6 +36,7 @@ import { usePromptConfig } from '@/hooks/usePromptConfig';
 import PromptEditor from '@/components/ai-prompts/PromptEditor';
 import PromptPreview from '@/components/ai-prompts/PromptPreview';
 import GlobalSettings from '@/components/ai-prompts/GlobalSettings';
+import SyncIndicator from '@/components/ai-prompts/SyncIndicator';
 
 const ACTION_ICONS = {
   'Mensaje de Bienvenida': MessageSquare,
@@ -62,7 +63,10 @@ export default function AIPromptsPage() {
     saveConfig, 
     loadConfig,
     updateTemplate,
-    isModified 
+    isModified,
+    saving,
+    lastSaved,
+    syncStatus
   } = usePromptConfig();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -196,11 +200,14 @@ export default function AIPromptsPage() {
       <div className="container mx-auto p-6 max-w-7xl">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-accent/10">
-              <Brain className="h-6 w-6 text-primary" />
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-accent/10">
+                <Brain className="h-6 w-6 text-primary" />
+              </div>
+              <h1 className="text-3xl font-bold text-foreground">Configuración de IA</h1>
             </div>
-            <h1 className="text-3xl font-bold text-foreground">Configuración de IA</h1>
+            <SyncIndicator status={syncStatus} lastSaved={lastSaved} />
           </div>
           <p className="text-muted-foreground">
             Personaliza los prompts de las funciones de inteligencia artificial para optimizar los resultados.

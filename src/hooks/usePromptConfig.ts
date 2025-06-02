@@ -14,6 +14,9 @@ interface UsePromptConfigReturn {
   removeTemplate: (templateId: string) => void;
   getTemplateByName: (name: string) => PromptTemplate | null;
   isModified: boolean;
+  saving: boolean;
+  lastSaved: Date | null;
+  syncStatus: 'idle' | 'saving' | 'saved' | 'error';
 }
 
 export function usePromptConfig(): UsePromptConfigReturn {
@@ -22,6 +25,9 @@ export function usePromptConfig(): UsePromptConfigReturn {
   const [originalConfig, setOriginalConfig] = useState<PromptConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   // Check if config has been modified
   const isModified = promptConfig && originalConfig ? 
@@ -119,6 +125,10 @@ export function usePromptConfig(): UsePromptConfigReturn {
     if (!user) throw new Error('Usuario no autenticado');
 
     try {
+      setSaving(true);
+      setSyncStatus('saving');
+      setError(null);
+
       const headers = await getAuthHeaders();
       const response = await fetch('/api/ai-prompts', {
         method: 'POST',
@@ -138,11 +148,19 @@ export function usePromptConfig(): UsePromptConfigReturn {
       };
       setPromptConfig(updatedConfig);
       setOriginalConfig(JSON.parse(JSON.stringify(updatedConfig)));
-      setError(null);
+      setLastSaved(new Date());
+      setSyncStatus('saved');
+      
+      // Reset to idle after showing "saved" for 2 seconds
+      setTimeout(() => setSyncStatus('idle'), 2000);
+      
     } catch (err) {
       console.error('Error saving prompt config:', err);
       setError(err instanceof Error ? err.message : 'Error al guardar');
+      setSyncStatus('error');
       throw err;
+    } finally {
+      setSaving(false);
     }
   }, [user, getAuthHeaders]);
 
@@ -233,6 +251,9 @@ export function usePromptConfig(): UsePromptConfigReturn {
     addTemplate,
     removeTemplate,
     getTemplateByName,
-    isModified
+    isModified,
+    saving,
+    lastSaved,
+    syncStatus
   };
 }

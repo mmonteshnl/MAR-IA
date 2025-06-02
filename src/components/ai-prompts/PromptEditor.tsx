@@ -21,7 +21,8 @@ import {
   Info,
   AlertTriangle,
   CheckCircle2,
-  Hash
+  Hash,
+  Lightbulb
 } from 'lucide-react';
 import { PromptTemplate } from '@/types/ai-prompts';
 
@@ -95,6 +96,41 @@ export default function PromptEditor({
     validatePrompt(value);
   };
 
+  const insertVariable = (variableName: string) => {
+    const textarea = document.querySelector('textarea[placeholder="Escribe tu prompt aquí..."]') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const cursorPos = textarea.selectionStart;
+    const textToInsert = `{{${variableName}}}`;
+    const newText = promptText.slice(0, cursorPos) + textToInsert + promptText.slice(cursorPos);
+    
+    setPromptText(newText);
+    validatePrompt(newText);
+    
+    // Reset cursor position after the inserted text
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(cursorPos + textToInsert.length, cursorPos + textToInsert.length);
+    }, 0);
+  };
+
+  const insertText = (text: string) => {
+    const textarea = document.querySelector('textarea[placeholder="Escribe tu prompt aquí..."]') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const cursorPos = textarea.selectionStart;
+    const newText = promptText.slice(0, cursorPos) + text + promptText.slice(cursorPos);
+    
+    setPromptText(newText);
+    validatePrompt(newText);
+    
+    // Reset cursor position after the inserted text
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(cursorPos + text.length, cursorPos + text.length);
+    }, 0);
+  };
+
   const handleSave = () => {
     const updatedTemplate: PromptTemplate = {
       ...editedTemplate,
@@ -106,6 +142,42 @@ export default function PromptEditor({
 
   const handleCopyToClipboard = () => {
     navigator.clipboard.writeText(promptText);
+  };
+
+  const getContextualTips = (templateName: string) => {
+    const tips = {
+      'Mensaje de Bienvenida': [
+        'Mantén un tono cálido y profesional',
+        'Personaliza con el nombre del negocio',
+        'Incluye una propuesta de valor clara',
+        'Haz preguntas abiertas para generar diálogo'
+      ],
+      'Evaluación de Negocio': [
+        'Sé objetivo y basado en datos',
+        'Estructura la evaluación en puntos claros',
+        'Incluye tanto fortalezas como oportunidades',
+        'Usa un lenguaje técnico pero comprensible'
+      ],
+      'Recomendaciones de Ventas': [
+        'Enfócate en beneficios, no solo características',
+        'Adapta las recomendaciones al tipo de negocio',
+        'Incluye justificaciones sólidas',
+        'Proporciona opciones y alternativas'
+      ],
+      'Email de Configuración TPV': [
+        'Usa un tono técnico pero accesible',
+        'Incluye todos los detalles de configuración',
+        'Proporciona pasos claros y ordenados',
+        'Añade información de contacto para soporte'
+      ]
+    };
+    
+    return tips[templateName as keyof typeof tips] || [
+      'Sé específico y claro en las instrucciones',
+      'Define el rol de la IA al inicio',
+      'Usa ejemplos cuando sea posible',
+      'Especifica el formato de salida deseado'
+    ];
   };
 
   const isModified = promptText !== (template.customPrompt || template.defaultPrompt) || 
@@ -271,9 +343,19 @@ export default function PromptEditor({
                     <Info className="h-4 w-4" />
                     <AlertDescription className="text-xs">
                       <strong>Sintaxis:</strong><br />
-                      • <code>{`{{{variable}}}`}</code> - Variable simple<br />
+                      • <code>{`{{variable}}`}</code> - Variable simple<br />
                       • <code>{`{{#if variable}}`}</code> - Condicional<br />
                       • <code>{`{{#each array}}`}</code> - Iteración
+                    </AlertDescription>
+                  </Alert>
+                  
+                  <Alert>
+                    <Lightbulb className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      <strong>💡 Consejos para "{template.name}":</strong><br />
+                      {getContextualTips(template.name).map((tip, index) => (
+                        <span key={index}>• {tip}<br /></span>
+                      ))}
                     </AlertDescription>
                   </Alert>
                 </div>
@@ -322,6 +404,50 @@ export default function PromptEditor({
             
             <CardContent>
               <div className="space-y-4">
+                {/* Variable Palette */}
+                {isEditing && (
+                  <div className="border rounded-lg p-3 bg-muted/30">
+                    <Label className="text-sm font-medium mb-2 block">
+                      Variables Disponibles (Click para insertar)
+                    </Label>
+                    <div className="flex flex-wrap gap-2">
+                      {template.variables.map((variable) => (
+                        <Button
+                          key={variable.name}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => insertVariable(variable.name)}
+                          className="text-xs h-7 px-2"
+                        >
+                          <Hash className="h-3 w-3 mr-1" />
+                          {variable.name}
+                          {variable.required && (
+                            <span className="ml-1 text-red-500">*</span>
+                          )}
+                        </Button>
+                      ))}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => insertText('{{#if }}\n\n{{/if}}')}
+                        className="text-xs h-7 px-2 text-blue-600"
+                      >
+                        <Code className="h-3 w-3 mr-1" />
+                        if
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => insertText('{{#each }}\n\n{{/each}}')}
+                        className="text-xs h-7 px-2 text-green-600"
+                      >
+                        <Code className="h-3 w-3 mr-1" />
+                        each
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
                 <Textarea
                   value={promptText}
                   onChange={(e) => handlePromptChange(e.target.value)}

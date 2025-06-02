@@ -111,10 +111,10 @@ Genera solo el cuerpo del mensaje.`,
     defaultPrompt: `Eres un analista de negocios especializado en identificar oportunidades para empresas a través de la tecnología y servicios digitales. Tu tarea es proporcionar una breve evaluación del negocio "{{leadName}}".
 
 Información disponible del negocio:
-- Nombre: {{{leadName}}}
-{{#if businessType}}- Tipo: {{{businessType}}}{{/if}}
-{{#if address}}- Dirección: {{{address}}}{{/if}}
-{{#if website}}- Sitio Web: {{{website}}}{{/if}}
+- Nombre: {{leadName}}
+{{#if businessType}}- Tipo: {{businessType}}{{/if}}
+{{#if address}}- Dirección: {{address}}{{/if}}
+{{#if website}}- Sitio Web: {{website}}{{/if}}
 
 Basándote en esta información (y en conocimiento general si es un tipo de negocio común):
 1. Identifica 1-2 posibles puntos fuertes del negocio.
@@ -197,28 +197,28 @@ Genera una lista de recomendaciones en formato JSON de acuerdo con el esquema de
     category: 'lead_actions',
     variables: [
       {
-        name: 'nombre_lead',
+        name: 'leadName',
         type: 'string',
         description: 'Nombre del negocio lead',
         required: true,
         example: 'Café Central'
       },
       {
-        name: 'tipo_negocio_lead',
+        name: 'businessType',
         type: 'string',
         description: 'Tipo de negocio del lead',
         required: true,
         example: 'cafetería'
       },
       {
-        name: 'contacto_lead',
+        name: 'contactName',
         type: 'string',
         description: 'Persona de contacto en el lead',
         required: false,
         example: 'Sr. Martínez'
       },
       {
-        name: 'configuracion_propuesta',
+        name: 'proposedConfiguration',
         type: 'array',
         description: 'Configuración de productos propuestos',
         required: true,
@@ -229,16 +229,16 @@ Genera una lista de recomendaciones en formato JSON de acuerdo con el esquema de
 Tu tarea es generar el ASUNTO y el CUERPO de un correo electrónico personalizado para un lead, presentando una propuesta de configuración de solución TPV.
 
 Información del Lead y Propuesta (proporcionada por el sistema CRM):
-- Nombre del Lead (Negocio): {{{nombre_lead}}}
-- Tipo de Negocio del Lead: {{{tipo_negocio_lead}}}
-{{#if contacto_lead}}- Persona de Contacto en el Lead: {{{contacto_lead}}}{{/if}}
+- Nombre del Lead (Negocio): {{leadName}}
+- Tipo de Negocio del Lead: {{businessType}}
+{{#if contactName}}- Persona de Contacto en el Lead: {{contactName}}{{/if}}
 
 - Configuración de Solución TPV Propuesta:
-{{#each configuracion_propuesta}}
-  - Área/Función: {{{this.area_o_funcion_destino}}}
-  {{#each this.productos_sugeridos}}
-    - Producto: {{{this.cantidad}}} x {{{this.nombre_producto}}}
-    - Justificación Base (Sistema): {{{this.justificacion_base_del_sistema}}}
+{{#each proposedConfiguration}}
+  - Área/Función: {{this.areaFunction}}
+  {{#each this.suggestedProducts}}
+    - Producto: {{this.quantity}} x {{this.productName}}
+    - Justificación Base (Sistema): {{this.justification}}
   {{/each}}
 {{/each}}
 
@@ -251,7 +251,7 @@ Instrucciones para MAR-IA:
    - Máximo 60 caracteres
 
 2. **Cuerpo del Correo:**
-   - Saludo personalizado (usar contacto_lead si está disponible, sino dirigirse al negocio)
+   - Saludo personalizado (usar contactName si está disponible, sino dirigirse al negocio)
    - Introducción breve que demuestre conocimiento del tipo de negocio
    - Presentación clara de la configuración propuesta
    - Beneficios específicos para su tipo de negocio

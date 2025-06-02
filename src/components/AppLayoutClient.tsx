@@ -129,7 +129,6 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
       title: 'HERRAMIENTAS Y AUTOMATIZACIÓN',
       items: [
         { href: '/leads?action=import-xml', label: 'Importar Leads (IA)', icon: FileUp, currentPathMatcher: (p: string, sp: URLSearchParams) => p === '/leads' && sp.get('action') === 'import-xml' },
-        { href: '/ai-prompts', label: 'Configuración de IA', icon: Brain, currentPathMatcher: (p: string) => p === '/ai-prompts' },
         { href: '/valuation', label: 'Configurar Valoración', icon: Calculator, currentPathMatcher: (p: string) => p === '/valuation' },
         { href: '/config', label: 'Configuración General', icon: Settings, currentPathMatcher: (p: string) => p === '/config' },
         { href: '/automations', label: 'Automatizaciones', icon: Zap, currentPathMatcher: (p: string) => p === '/automations' },
@@ -140,7 +139,7 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <SidebarProvider defaultOpen={true}> 
-      <div className="flex min-h-screen bg-background">
+      <div className="flex   bg-blue-700 p-3 w-full">
         <Sidebar collapsible="icon" side="left" variant="sidebar" className="border-r border-sidebar-border bg-sidebar-background text-sidebar-foreground">
           <SidebarHeader className="p-4 flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
             <Link href="/business-finder" className="flex items-center gap-2.5">
@@ -205,8 +204,8 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
           </SidebarFooter>
         </Sidebar>
 
-        <SidebarInset className="flex-1 flex flex-col overflow-auto bg-background">
-          <main className="flex-1 p-4 sm:p-6 md:p-8">
+        <SidebarInset className="flex-1 flex flex-col overflow-auto p-3 bg-green-600 min-w-full">
+          <main className=" bg-red-600 w-min-full">
             {children}
           </main>
         </SidebarInset>
