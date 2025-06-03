@@ -32,7 +32,7 @@ export default function LeadStats({ leads }: LeadStatsProps) {
           <Users className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{stats.total}</div>
+          <div className="text-6xl font-bold leading-none mb-2">{stats.total}</div>
           <p className="text-xs text-muted-foreground">
             Todos los leads registrados
           </p>
@@ -45,7 +45,7 @@ export default function LeadStats({ leads }: LeadStatsProps) {
           <Bell className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{stats.nuevo}</div>
+          <div className="text-6xl font-bold leading-none mb-2">{stats.nuevo}</div>
           <p className="text-xs text-muted-foreground">
             Leads sin contactar
           </p>
@@ -58,9 +58,9 @@ export default function LeadStats({ leads }: LeadStatsProps) {
           <Clock className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">
-            {stats.contactado + stats.calificado + stats.propuesta + stats.negociacion}
-          </div>
+<div className="text-6xl font-bold leading-none mb-2">
+  {stats.contactado + stats.calificado + stats.propuesta + stats.negociacion}
+</div>
           <p className="text-xs text-muted-foreground">
             Leads activos en el embudo
           </p>
@@ -73,7 +73,7 @@ export default function LeadStats({ leads }: LeadStatsProps) {
           <Handshake className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{conversionRate}%</div>
+          <div className="text-6xl font-bold leading-none mb-2">{conversionRate}%</div>
           <p className="text-xs text-muted-foreground">
             {stats.ganado} de {stats.total} leads
           </p>
