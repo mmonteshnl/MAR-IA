@@ -578,9 +578,6 @@ const [open, setOpen] = useState(false);
           <div className="p-4 sm:p-6 lg:p-6 border-b border-border/50">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <h1 className="text-2xl md:text-3xl font-bold text-foreground">Mis Leads</h1>
-<Button onClick={() => setOpen(true)} variant="outline">
-  Importar Leads
-</Button>
 <LeadImportDialog 
   open={open} 
   onOpenChange={setOpen} 
