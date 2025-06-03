@@ -39,7 +39,7 @@ export interface Lead {
   businessType?: string | null; // For AI context
   notes?: string | null;
   source: string;
-  stage: string;
+  stage: 'Nuevo' | 'Contactado' | 'Calificado' | 'Propuesta Enviada' | 'Negociación' | 'Ganado' | 'Perdido' | 'Prospecto' | 'Interesado' | 'Propuesta' | 'Vendido';
   createdAt: Timestamp | string;
   updatedAt: Timestamp | string;
   images?: LeadImage[];

@@ -13,9 +13,9 @@ interface LeadActionButtonsProps {
   onEvaluateBusiness: (lead: Lead) => void;
   onGenerateSalesRecommendations: (lead: Lead) => void;
   onGenerateSolutionEmail: (lead: Lead) => void;
-  currentActionLead: Lead | null;
+  currentActionLead: Lead | null; // Allow null for initial state
   isActionLoading: boolean;
-  currentActionType: string | null;
+  currentActionType: string | null; // Allow null for initial state
 }
 
 export default function LeadActionButtons({
@@ -31,6 +31,8 @@ export default function LeadActionButtons({
   const isContactDisabled = isFieldMissing(lead.phone) && isFieldMissing(lead.website) && isFieldMissing(lead.email);
   const isCurrentlyProcessing = currentActionLead?.id === lead.id && isActionLoading;
 
+  console.log("lead:", lead);
+
   const actions = [
     {
       id: 'welcome',
@@ -40,6 +42,7 @@ export default function LeadActionButtons({
       onClick: onGenerateWelcomeMessage,
       disabled: isContactDisabled || isCurrentlyProcessing,
       color: 'text-blue-400',
+      availableStages: [ 'Nuevo','Contactado','Calificado','Propuesta Enviada','Negociación','Ganado','Perdido','Prospecto','Interesado','Propuesta','Vendido']
     },
     {
       id: 'evaluate',
@@ -49,6 +52,7 @@ export default function LeadActionButtons({
       onClick: onEvaluateBusiness,
       disabled: isCurrentlyProcessing,
       color: 'text-amber-400',
+      availableStages: [ 'Nuevo','Contactado','Calificado','Propuesta Enviada','Negociación','Ganado','Perdido','Prospecto','Interesado','Propuesta','Vendido']
     },
     {
       id: 'recommend',
@@ -58,6 +62,7 @@ export default function LeadActionButtons({
       onClick: onGenerateSalesRecommendations,
       disabled: isCurrentlyProcessing,
       color: 'text-green-400',
+      availableStages: [ 'Nuevo','Contactado','Calificado','Propuesta Enviada','Negociación','Ganado','Perdido','Prospecto','Interesado','Propuesta','Vendido']
     },
     {
       id: 'solution-email',
@@ -67,11 +72,12 @@ export default function LeadActionButtons({
       onClick: onGenerateSolutionEmail,
       disabled: isCurrentlyProcessing,
       color: 'text-purple-400',
+      availableStages: [ 'Nuevo','Contactado','Calificado','Propuesta Enviada','Negociación','Ganado','Perdido','Prospecto','Interesado','Propuesta','Vendido']
     }
   ];
 
   const getCurrentAction = () => {
-    return actions.find(action => action.id === currentActionType);
+    return actions.find(action => action.id === currentActionType );
   };
 
   const currentAction = getCurrentAction();
@@ -124,7 +130,7 @@ export default function LeadActionButtons({
             </>
           )}
           
-          {actions.map((action) => {
+          {actions.filter(action => action.availableStages.includes(lead.stage)).map((action) => {
             const Icon = action.icon;
             const isProcessing = isCurrentlyProcessing && currentActionType === action.id;
             

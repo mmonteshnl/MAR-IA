@@ -231,16 +231,16 @@ export default function KanbanView({
               </div>
             )}
             
-            <LeadActionButtons
-                lead={lead}
-                onGenerateWelcomeMessage={onGenerateWelcomeMessage}
-                onEvaluateBusiness={onEvaluateBusiness}
-                onGenerateSalesRecommendations={onGenerateSalesRecommendations}
-                onGenerateSolutionEmail={onGenerateSolutionEmail}
-                currentActionLead={currentActionLead}
-                isActionLoading={isActionLoading}
-                currentActionType={currentActionType}
-            />
+<LeadActionButtons
+  lead={lead}
+  onGenerateWelcomeMessage={() => onGenerateWelcomeMessage(lead)}
+  onEvaluateBusiness={() => onEvaluateBusiness(lead)}
+  onGenerateSalesRecommendations={() => onGenerateSalesRecommendations(lead)}
+  onGenerateSolutionEmail={() => onGenerateSolutionEmail(lead)}
+  isActionLoading={isActionLoading && currentActionLead?.id === lead.id}
+  currentActionLead={currentActionLead}
+  currentActionType={currentActionType}
+/>
           </CardContent>
       </Card>
     );
