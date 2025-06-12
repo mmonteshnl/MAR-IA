@@ -67,17 +67,25 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    const leadsFlow = snapshot.docs
-      .map((doc): FirestoreLeadsFlow => ({
-        id: doc.id,
-        data: doc.data() as FirestoreLeadsFlow['data']
+    interface LeadsFlowDoc {
+      id: string;
+      data: LeadsFlowModel & {
+      createdAt: Timestamp;
+      updatedAt: Timestamp;
+      };
+    }
+
+    const leadsFlow: LeadsFlowDoc[] = snapshot.docs
+      .map((doc): LeadsFlowDoc => ({
+      id: doc.id,
+      data: doc.data() as LeadsFlowDoc['data']
       }))
-      .filter(lead => lead.data.flowStatus === 'active') // Filter active leads in code
-      .sort((a, b) => {
-        // Sort by updatedAt desc (most recent first)
-        const aTime = a.data.updatedAt?.toDate?.()?.getTime() || 0;
-        const bTime = b.data.updatedAt?.toDate?.()?.getTime() || 0;
-        return bTime - aTime;
+      .filter((lead: LeadsFlowDoc) => lead.data.flowStatus === 'active') // Filter active leads in code
+      .sort((a: LeadsFlowDoc, b: LeadsFlowDoc) => {
+      // Sort by updatedAt desc (most recent first)
+      const aTime: number = a.data.updatedAt?.toDate?.()?.getTime() || 0;
+      const bTime: number = b.data.updatedAt?.toDate?.()?.getTime() || 0;
+      return bTime - aTime;
       });
 
     // Convert to compatible format for UI

@@ -18,6 +18,8 @@ import LeadActionButtons from './LeadActionButtons';
 import { isFieldMissing, generateWhatsAppLink } from '@/lib/leads-utils';
 import { useValuationConfig } from '@/hooks/useValuationConfig';
 import { calculateLeadValuation, calculateStageTotal, formatCurrency } from '@/lib/valuation-calculator';
+import { getLeadSourceIcon, getLeadSourceColor } from '@/lib/lead-converter';
+import { getLeadSourceFromString, LEAD_SOURCE_LABELS } from '@/types/formatters/lead-sources';
 
 interface KanbanViewProps {
   leads: Lead[];
@@ -108,6 +110,11 @@ export default function KanbanView({
     );
     const isLocal = lead.source === LOCAL_FALLBACK_SOURCE || (lead.source.includes('_import_ia') && !lead.placeId && !lead.id.startsWith('local_firebase_id_'));
     const isSelected = selectedLeadForDetails?.id === lead.id;
+    
+    // Get source information
+    const sourceIcon = getLeadSourceIcon(lead.source);
+    const sourceColor = getLeadSourceColor(lead.source);
+    const sourceLabel = LEAD_SOURCE_LABELS[getLeadSourceFromString(lead.source)];
 
     return (
       <Card
@@ -132,29 +139,40 @@ export default function KanbanView({
         onClick={() => onOpenLeadDetails(lead)}
       >
         <CardHeader className={`${isMobile ? 'p-4' : 'p-3'} space-y-3`}>
-          {/* Stage Selector at Top */}
+          {/* Stage Selector and Source Indicator at Top */}
           <div className="flex items-center justify-between">
-            <Select value={lead.stage} onValueChange={(newStage) => onStageChange(lead.id, newStage as LeadStage)}>
-              <SelectTrigger 
-                className={`w-auto min-w-[120px] ${isMobile ? 'h-8' : 'h-7'} ${isMobile ? 'text-sm' : 'text-xs'} bg-gradient-to-r ${stageColors[lead.stage as LeadStage]} text-white border-none shadow-sm font-medium`}
-                onClick={(e) => e.stopPropagation()}
+            <div className="flex items-center gap-2">
+              <Select value={lead.stage} onValueChange={(newStage) => onStageChange(lead.id, newStage as LeadStage)}>
+                <SelectTrigger 
+                  className={`w-auto min-w-[100px] ${isMobile ? 'h-8' : 'h-7'} ${isMobile ? 'text-sm' : 'text-xs'} bg-gradient-to-r ${stageColors[lead.stage as LeadStage]} text-white border-none shadow-sm font-medium`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-white/80 rounded-full"></div>
+                    <SelectValue placeholder="Etapa" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="bg-popover text-popover-foreground">
+                  {LEAD_STAGES.map(s => (
+                    <SelectItem key={s} value={s} className={`${isMobile ? 'text-sm' : 'text-xs'}`}>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${stageColors[s].split(' ')[0]}`}></div>
+                        {s}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              {/* Source Indicator */}
+              <div 
+                className={`flex items-center gap-1 px-2 py-1 rounded-full border ${sourceColor} ${isMobile ? 'text-xs' : 'text-[10px]'} font-medium`}
+                title={`Fuente: ${sourceLabel}`}
               >
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-white/80 rounded-full"></div>
-                  <SelectValue placeholder="Etapa" />
-                </div>
-              </SelectTrigger>
-              <SelectContent className="bg-popover text-popover-foreground">
-                {LEAD_STAGES.map(s => (
-                  <SelectItem key={s} value={s} className={`${isMobile ? 'text-sm' : 'text-xs'}`}>
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${stageColors[s].split(' ')[0]}`}></div>
-                      {s}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                <span className="text-sm">{sourceIcon}</span>
+                {!isMobile && <span className="hidden sm:inline">{sourceLabel}</span>}
+              </div>
+            </div>
             
             <Button variant="ghost" size="icon" className={`${isMobile ? 'h-8 w-8' : 'h-7 w-7'} text-muted-foreground hover:text-primary`} onClick={(e: React.MouseEvent) => { e.stopPropagation(); /* TODO: Open three-dot menu */ }}>
               <MoreVertical className="h-4 w-4" />

@@ -16,7 +16,8 @@ import {
   Phone, MessageSquareText, Globe, Mail, MapPin, 
   Building, Briefcase, Calendar, Clock, Edit2, Save, X, AlertCircle, 
   Image, User, FileText, History, CheckCircle2, 
-  ExternalLink, Sparkles 
+  ExternalLink, Sparkles, Target, Users, Car, Home, 
+  Tag, Hash, Database, Eye
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -263,7 +264,7 @@ export default function LeadDetailsDialog({
         {/* Content Section */}
         <ScrollArea className="flex-1 px-6 py-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList className="grid w-full grid-cols-4 lg:w-[400px]">
+            <TabsList className="grid w-full grid-cols-5 lg:w-[500px]">
               <TabsTrigger value="overview" className="text-xs">
                 <User className="h-4 w-4 mr-1" />
                 General
@@ -271,6 +272,10 @@ export default function LeadDetailsDialog({
               <TabsTrigger value="business" className="text-xs">
                 <Briefcase className="h-4 w-4 mr-1" />
                 Negocio
+              </TabsTrigger>
+              <TabsTrigger value="marketing" className="text-xs">
+                <Target className="h-4 w-4 mr-1" />
+                Marketing
               </TabsTrigger>
               <TabsTrigger value="media" className="text-xs">
                 <Image className="h-4 w-4 mr-1" />
@@ -436,6 +441,44 @@ export default function LeadDetailsDialog({
                       />
                     }
                   />
+
+                  {/* Interest Information */}
+                  {(!isFieldMissing(lead.vehicle) || !isFieldMissing(lead.homeListing)) && (
+                    <>
+                      <Separator />
+                      <div className="space-y-4">
+                        <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                          <Eye className="h-4 w-4" />
+                          Interés Específico
+                        </h4>
+                        
+                        {!isFieldMissing(lead.vehicle) && (
+                          <InfoField
+                            icon={Car}
+                            label="Vehículo de Interés"
+                            value={lead.vehicle}
+                            isEditing={false}
+                          />
+                        )}
+                        
+                        {!isFieldMissing(lead.homeListing) && (
+                          <InfoField
+                            icon={Home}
+                            label="Propiedad de Interés"
+                            value={lead.homeListing}
+                            isEditing={false}
+                          />
+                        )}
+
+                        {lead.visitRequest === 'yes' && (
+                          <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <Home className="h-4 w-4 text-green-600" />
+                            <span className="text-sm font-medium text-green-800">Solicita visita</span>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                   
                   <Separator />
                   
@@ -464,6 +507,123 @@ export default function LeadDetailsDialog({
                       </div>
                     )}
                   </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="marketing" className="space-y-4 mt-4">
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <div className="p-1 rounded-md bg-primary/10">
+                      <Target className="h-4 w-4 text-primary" />
+                    </div>
+                    Información de Marketing
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <InfoField
+                      icon={Target}
+                      label="Campaña"
+                      value={lead.campaignName}
+                      isEditing={false}
+                    />
+                    
+                    <InfoField
+                      icon={Users}
+                      label="Conjunto de Anuncios"
+                      value={lead.adSetName}
+                      isEditing={false}
+                    />
+                    
+                    <InfoField
+                      icon={Tag}
+                      label="Anuncio"
+                      value={lead.adName}
+                      isEditing={false}
+                    />
+                    
+                    <InfoField
+                      icon={Building}
+                      label="Socio/Fuente"
+                      value={lead.partnerName}
+                      isEditing={false}
+                    />
+                  </div>
+
+                  <Separator />
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <InfoField
+                      icon={Hash}
+                      label="ID de Campaña"
+                      value={lead.campaignId}
+                      isEditing={false}
+                    />
+                    
+                    <InfoField
+                      icon={Hash}
+                      label="ID de Conjunto"
+                      value={lead.adSetId}
+                      isEditing={false}
+                    />
+                    
+                    <InfoField
+                      icon={Hash}
+                      label="ID de Lead"
+                      value={lead.leadId}
+                      isEditing={false}
+                    />
+                  </div>
+
+                  <Separator />
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <InfoField
+                      icon={Database}
+                      label="ID de Formulario"
+                      value={lead.formId}
+                      isEditing={false}
+                    />
+                    
+                    <InfoField
+                      icon={Database}
+                      label="ID de Plataforma"
+                      value={lead.platformId}
+                      isEditing={false}
+                    />
+                  </div>
+
+                  {!isFieldMissing(lead.retailerItemId) && (
+                    <InfoField
+                      icon={Tag}
+                      label="ID de Artículo Retailer"
+                      value={lead.retailerItemId}
+                      isEditing={false}
+                    />
+                  )}
+
+                  <div className="flex items-center gap-2 p-3 rounded-lg border">
+                    <div className={`w-3 h-3 rounded-full ${lead.isOrganic === 'true' ? 'bg-green-500' : 'bg-blue-500'}`}></div>
+                    <span className="text-sm font-medium">
+                      Tipo: {lead.isOrganic === 'true' ? 'Orgánico' : 'Pagado'}
+                    </span>
+                  </div>
+
+                  {!isFieldMissing(lead.customDisclaimerResponses) && (
+                    <>
+                      <Separator />
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                          Respuestas Personalizadas
+                        </Label>
+                        <div className="p-4 rounded-lg bg-muted/30">
+                          <p className="whitespace-pre-wrap text-sm">{lead.customDisclaimerResponses}</p>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -524,43 +684,102 @@ export default function LeadDetailsDialog({
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30">
-                      <div className="flex items-center gap-3">
-                        <Calendar className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <p className="text-sm font-medium">Fecha de creación</p>
-                          <p className="text-xs text-muted-foreground">
-                            {format(
-                              lead.createdAt instanceof Date
-                                ? lead.createdAt
-                                : (typeof lead.createdAt === "object" && "toDate" in lead.createdAt)
-                                  ? (lead.createdAt as any).toDate()
-                                  : new Date(lead.createdAt),
-                              "d 'de' MMMM, yyyy 'a las' HH:mm",
-                              { locale: es }
-                            )}
-                          </p>
+                    {/* Original Meta Lead Creation Date */}
+                    {!isFieldMissing(lead.dateCreated) && (
+                      <div className="flex items-center justify-between p-4 rounded-lg bg-blue-50 border border-blue-200">
+                        <div className="flex items-center gap-3">
+                          <Target className="h-5 w-5 text-blue-600" />
+                          <div>
+                            <p className="text-sm font-medium text-blue-900">Fecha de creación del lead (Meta)</p>
+                            <p className="text-xs text-blue-600">
+                              {(() => {
+                                try {
+                                  return format(new Date(lead.dateCreated), "d 'de' MMMM, yyyy 'a las' HH:mm", { locale: es });
+                                } catch {
+                                  return lead.dateCreated;
+                                }
+                              })()}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30">
-                      <div className="flex items-center gap-3">
-                        <Clock className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <p className="text-sm font-medium">Última actualización</p>
-                          <p className="text-xs text-muted-foreground">
-                            {format(
-                              lead.updatedAt instanceof Date
-                                ? lead.updatedAt
-                                : (typeof lead.updatedAt === "object" && "toDate" in lead.updatedAt)
-                                  ? (lead.updatedAt as any).toDate()
-                                  : new Date(lead.updatedAt),
-                              "d 'de' MMMM, yyyy 'a las' HH:mm",
-                              { locale: es }
-                            )}
-                          </p>
+                    )}
+
+                    {/* System Creation Date */}
+                    {lead.createdAt && (
+                      <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30">
+                        <div className="flex items-center gap-3">
+                          <Calendar className="h-5 w-5 text-muted-foreground" />
+                          <div>
+                            <p className="text-sm font-medium">Fecha de importación al sistema</p>
+                            <p className="text-xs text-muted-foreground">
+                              {format(
+                                lead.createdAt instanceof Date
+                                  ? lead.createdAt
+                                  : (typeof lead.createdAt === "object" && "toDate" in lead.createdAt)
+                                    ? (lead.createdAt as any).toDate()
+                                    : new Date(lead.createdAt),
+                                "d 'de' MMMM, yyyy 'a las' HH:mm",
+                                { locale: es }
+                              )}
+                            </p>
+                          </div>
                         </div>
+                      </div>
+                    )}
+                    
+                    {/* System Update Date */}
+                    {lead.updatedAt && (
+                      <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30">
+                        <div className="flex items-center gap-3">
+                          <Clock className="h-5 w-5 text-muted-foreground" />
+                          <div>
+                            <p className="text-sm font-medium">Última actualización del sistema</p>
+                            <p className="text-xs text-muted-foreground">
+                              {(() => {
+                                try {
+                                  let date;
+                                  if (lead.updatedAt instanceof Date) {
+                                    date = lead.updatedAt;
+                                  } else if (typeof lead.updatedAt === "object" && "toDate" in lead.updatedAt) {
+                                    date = (lead.updatedAt as any).toDate();
+                                  } else if (typeof lead.updatedAt === 'string') {
+                                    // Try to parse as ISO string or Meta format
+                                    date = new Date(lead.updatedAt);
+                                  } else {
+                                    date = new Date(lead.updatedAt);
+                                  }
+                                  return format(date, "d 'de' MMMM, yyyy 'a las' HH:mm", { locale: es });
+                                } catch {
+                                  return String(lead.updatedAt);
+                                }
+                              })()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Lead Source Information */}
+                    <Separator />
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                        <Database className="h-4 w-4" />
+                        Información de Origen
+                      </h4>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="p-3 rounded-lg bg-muted/20 border">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Fuente</p>
+                          <p className="text-sm font-medium">{lead.source}</p>
+                        </div>
+                        
+                        {lead.placeId && (
+                          <div className="p-3 rounded-lg bg-muted/20 border">
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Place ID</p>
+                            <p className="text-sm font-medium font-mono">{lead.placeId}</p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

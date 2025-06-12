@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import LoadingComponent from '@/components/LoadingComponent';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 export default function HomePage() {
   const router = useRouter();
