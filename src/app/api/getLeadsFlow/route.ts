@@ -49,11 +49,12 @@ export async function POST(request: NextRequest) {
     // Build query for leads-flow collection
     let query = firestoreDbAdmin
       .collection('leads-flow')
-      .where('organizationId', '==', organizationId)
-      .where('flowStatus', '==', 'active'); // Solo leads activos en el flujo
+      .where('organizationId', '==', organizationId);
+      // Temporarily removed flowStatus filter to avoid index requirement
+      // .where('flowStatus', '==', 'active'); // Solo leads activos en el flujo
 
-    // Order by updated date (most recent first)
-    query = query.orderBy('updatedAt', 'desc');
+    // Order by updated date (most recent first) - disabled for now
+    // query = query.orderBy('updatedAt', 'desc');
 
     const snapshot = await query.get();
     console.log(`📊 Encontrados ${snapshot.size} leads en leads-flow`);
@@ -66,10 +67,18 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    const leadsFlow = snapshot.docs.map((doc): FirestoreLeadsFlow => ({
-      id: doc.id,
-      data: doc.data() as FirestoreLeadsFlow['data']
-    }));
+    const leadsFlow = snapshot.docs
+      .map((doc): FirestoreLeadsFlow => ({
+        id: doc.id,
+        data: doc.data() as FirestoreLeadsFlow['data']
+      }))
+      .filter(lead => lead.data.flowStatus === 'active') // Filter active leads in code
+      .sort((a, b) => {
+        // Sort by updatedAt desc (most recent first)
+        const aTime = a.data.updatedAt?.toDate?.()?.getTime() || 0;
+        const bTime = b.data.updatedAt?.toDate?.()?.getTime() || 0;
+        return bTime - aTime;
+      });
 
     // Convert to compatible format for UI
     const formattedLeads = leadsFlow.map(({ id, data }) => {

@@ -121,10 +121,14 @@ export default function LeadsPage() {
     
     setLoadingLeads(true);
     try {
+      // Obtener el token de Firebase
+      const token = await user.getIdToken();
+      
       const response = await fetch('/api/getLeadsFlow', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           organizationId: currentOrganization.id,
@@ -621,6 +625,42 @@ export default function LeadsPage() {
   formatCsvLeads={formatCsvLeads} 
 />
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+                <Button 
+                  variant="outline" 
+                  className="h-10 text-sm w-full sm:w-auto" 
+                  onClick={async () => {
+                    try {
+                      const token = await user?.getIdToken();
+                      const response = await fetch(`/api/debug-leads?organizationId=${currentOrganization?.id}`, {
+                        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+                      });
+                      const data = await response.json();
+                      console.log('🔍 Debug data:', data);
+                      toast({
+                        title: "Debug Info", 
+                        description: `Meta: ${data.counts?.metaLeads || 0}, Flow: ${data.counts?.flowLeads || 0}, Active: ${data.counts?.activeFlowLeads || 0}`
+                      });
+                    } catch (error) {
+                      console.error('Debug error:', error);
+                      toast({title: "Error", description: "Error al obtener debug info", variant: "destructive"});
+                    }
+                  }}
+                >
+                  🔍 Debug
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="h-10 text-sm w-full sm:w-auto" 
+                  onClick={() => {
+                    // Limpiar caché local
+                    localStorage.removeItem(getLocalStorageKey());
+                    // Recargar leads
+                    loadLeads();
+                    toast({title: "Recargando", description: "Forzando recarga de leads desde la base de datos"});
+                  }}
+                >
+                  🔄 Recargar
+                </Button>
                 <Button 
                   variant="default" 
                   className="bg-primary text-primary-foreground hover:bg-primary/90 h-10 text-sm w-full sm:w-auto" 
