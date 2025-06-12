@@ -222,14 +222,14 @@ const AttachmentValidator = z.object({
   name: z.string().min(1),
   type: z.string().min(1),
   size: z.number().positive(),
-  url: urlValidator.required(),
+  url: z.string().url(),
   uploadedBy: z.string().min(1),
   uploadedAt: z.union([z.date(), z.string()])
 });
 
 const LeadImageValidator = z.object({
   public_id: z.string().min(1),
-  secure_url: urlValidator.required(),
+  secure_url: z.string().url(),
   is_featured: z.boolean(),
   uploaded_at: z.union([z.date(), z.string()]),
   alt_text: z.string().optional(),
