@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import '@/styles/sidebar.css';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -27,10 +27,12 @@ import {
   BreadcrumbList,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
-import { ListChecks, Search, LogOut, PackageSearch, FileUp, Send, Cable, Zap, UserCircle, LayoutDashboard, Bell, TrendingUp, Settings, MessageSquare, Phone, Tags, FileText, Users, Briefcase, ShieldCheck, Palette, ConciergeBell, Calculator, Brain, User } from 'lucide-react';
+import { ListChecks, Search, LogOut, PackageSearch, FileUp, Send, Cable, Zap, UserCircle, LayoutDashboard, Bell, TrendingUp, Settings, MessageSquare, Phone, Tags, FileText, Users, Briefcase, ShieldCheck, Palette, ConciergeBell, Calculator, Brain, User, Building2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useFirebaseInit } from '@/hooks/useFirebaseInit';
+import { useOrganization } from '@/hooks/useOrganization';
 import { signOut } from 'firebase/auth';
+import OrganizationInfoModal from '@/components/OrganizationInfoModal';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { User as FirebaseUser } from 'firebase/auth';
@@ -41,8 +43,10 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
   const pathname = usePathname();
   const { user, authInstance, loading: authLoading, initialLoadDone } = useAuth();
   const { isInitialized, isInitializing } = useFirebaseInit();
+  const { currentOrganization } = useOrganization();
   const router = useRouter();
   const { toast } = useToast();
+  const [isOrgModalOpen, setIsOrgModalOpen] = useState(false);
 
   // Leer estado inicial del sidebar desde cookie
   const getInitialSidebarState = () => {
@@ -121,7 +125,8 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
       title: 'OVERVIEW',
       items: [
         { href: '/business-finder', label: 'Dashboard', icon: LayoutDashboard, currentPathMatcher: (p: string) => p === '/business-finder' || p === '/' },
-        { href: '/leads', label: 'Mis Leads', icon: ListChecks, currentPathMatcher: (p: string, sp: URLSearchParams) => p.startsWith('/leads') && sp.get('action') !== 'import-xml' },
+        { href: '/data-sources', label: 'Fuentes de Datos', icon: Database, currentPathMatcher: (p: string) => p === '/data-sources' },
+        { href: '/leads', label: 'Flujo de Leads', icon: ListChecks, currentPathMatcher: (p: string, sp: URLSearchParams) => p.startsWith('/leads') && sp.get('action') !== 'import-xml' },
       ]
     },
     {
@@ -260,6 +265,23 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
                 )}
               </BreadcrumbList>
             </Breadcrumb>
+            
+            {/* Current Organization Display */}
+            <div className="flex-1"></div>
+            {currentOrganization && (
+              <button
+                onClick={() => setIsOrgModalOpen(true)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 rounded-full border border-border/50 shadow-sm hover:bg-muted/70 hover:shadow-md transition-all duration-200 cursor-pointer group"
+              >
+                <Building2 className="h-4 w-4 text-muted-foreground group-hover:text-indigo-600 transition-colors" />
+                <span className="text-sm font-medium text-foreground truncate max-w-[150px] sm:max-w-[200px] group-hover:text-indigo-700 transition-colors">
+                  {currentOrganization.name}
+                </span>
+                <span className="text-xs text-muted-foreground bg-background px-2 py-0.5 rounded-full border border-border/30 font-mono hidden sm:inline group-hover:text-indigo-600 group-hover:border-indigo-200 transition-colors">
+                  {currentOrganization.id.slice(-6)}
+                </span>
+              </button>
+            )}
           </header>
           <main className="flex-1 p-4 sm:p-6 md:p-8  overflow-y-auto">
             {children}
@@ -268,6 +290,13 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
       </div>
       <Toaster />
 
+      {/* Organization Info Modal */}
+      <OrganizationInfoModal
+        organization={currentOrganization}
+        open={isOrgModalOpen}
+        onOpenChange={setIsOrgModalOpen}
+        userIsOwner={currentOrganization?.ownerId === user?.uid}
+      />
     </SidebarProvider>
   );
 };

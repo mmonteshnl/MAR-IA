@@ -1,5 +1,6 @@
 
 import type { Timestamp } from 'firebase/firestore';
+import type { MetaLeadAdsModel } from './meta-lead-ads';
 
 export interface OpeningHours {
   open_now?: boolean;
@@ -25,26 +26,29 @@ export interface LeadImage {
   uploaded_at: Timestamp | string; // Allow string for client-side optimistic updates
 }
 
-export interface Lead {
-  id: string;
-  uid: string;
-  organizationId?: string; // New field for organization-based filtering
-  placeId?: string | null; // Made optional for imported leads
-  name: string;
-  address: string | null;
-  phone: string | null;
-  website: string | null;
-  email?: string | null;
-  company?: string | null;
-  businessType?: string | null; // For AI context
-  notes?: string | null;
-  source: string;
+// Re-export MetaLeadAdsModel as the primary Lead type
+export type { MetaLeadAdsModel as Lead } from './meta-lead-ads';
+
+// Extended Lead interface with additional fields for UI and compatibility
+export interface ExtendedLead extends MetaLeadAdsModel {
+  id: string; // Firestore document ID
+  uid: string; // User ID - derived from context
+  organizationId: string; // Organization ID - derived from context
   stage: 'Nuevo' | 'Contactado' | 'Calificado' | 'Propuesta Enviada' | 'Negociación' | 'Ganado' | 'Perdido' | 'Prospecto' | 'Interesado' | 'Propuesta' | 'Vendido';
-  createdAt: Timestamp | string;
-  updatedAt: Timestamp | string;
+  source: string; // Derived from lead data analysis
   images?: LeadImage[];
   featured_image_url?: string; // Denormalized for quick display
-
+  
+  // Computed/derived fields for backward compatibility
+  name: string; // Maps to fullName
+  email: string; // Direct mapping
+  phone: string; // Maps to phoneNumber
+  company: string; // Maps to companyName
+  address?: string | null; // Derived from homeListing or other sources
+  website?: string | null; // Not available in Meta model, kept for imports
+  businessType?: string | null; // Derived from campaign/vehicle/home analysis
+  notes?: string | null; // Maps to customDisclaimerResponses or derived
+  placeId?: string | null; // Only for Google Places leads, stored in platformId
 }
 
 export interface Product {

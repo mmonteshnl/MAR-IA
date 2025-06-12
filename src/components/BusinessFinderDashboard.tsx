@@ -30,12 +30,14 @@ interface BusinessDetail {
     open_now?: boolean;
     weekday_text?: string[];
   };
+  business_status?: string;
 }
 
 // Define Business if it's different from BusinessDetail or also needed
 interface Business extends Partial<BusinessDetail> {
   place_id: string;
   name: string;
+  business_status?: string;
 }
 
 
@@ -107,20 +109,20 @@ export default function BusinessFinderDashboard() {
     
     setStatsLoading(true);
     try {
-      // Try direct Firestore query first - filter by organization OR by user (backward compatibility)
+      // Query meta-lead-ads collection
       let leadsQuery = query(
-        collection(db, 'leads'),
+        collection(db, 'meta-lead-ads'),
         where('organizationId', '==', currentOrganization.id),
         orderBy('updatedAt', 'desc')
       );
       
       let snapshot = await getDocs(leadsQuery);
       
-      // If no results, try fallback to user-based filter for backward compatibility
+      // If no results, try old leads collection for backward compatibility
       if (snapshot.size === 0) {
         leadsQuery = query(
           collection(db, 'leads'),
-          where('uid', '==', user.uid),
+          where('organizationId', '==', currentOrganization.id),
           orderBy('updatedAt', 'desc')
         );
         snapshot = await getDocs(leadsQuery);
@@ -258,91 +260,79 @@ export default function BusinessFinderDashboard() {
     }
 
     setSaveLoading(true);
+    
+    // Prepare leads data for the new API
     const leadsDataToSave = searchResults
       .filter(business => selectedLeads.has(business.place_id))
       .map(b => ({
-        uid: user.uid,
-        organizationId: currentOrganization.id,
-        placeId: b.place_id,
+        place_id: b.place_id,
         name: b.name,
-        address: b.formatted_address || b.vicinity || null,
-        phone: b.international_phone_number || null,
-        website: b.website || null,
-        businessType: b.types && b.types.length > 0 ? b.types[0].replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : null,
-        source: 'google_places_search',
-        stage: 'Nuevo' as LeadStageClient,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        images: [],
+        vicinity: b.vicinity,
+        formatted_address: b.formatted_address,
+        phone: b.international_phone_number,
+        website: b.website,
+        types: b.types,
+        rating: b.rating,
+        business_status: b.business_status
       }));
 
-    let savedCount = 0;
-    const localLeadsToSave: LeadClient[] = [];
-    const currentTimestampISO = new Date().toISOString();
-    let allServerLeadsExist = true;
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch('/api/addLeads', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          leads: leadsDataToSave,
+          organizationId: currentOrganization.id
+        }),
+      });
 
-    for (const leadData of leadsDataToSave) {
-      try {
-        const leadsCollectionRef = collection(db, 'leads');
-        const q = query(leadsCollectionRef, where("organizationId", "==", currentOrganization.id), where("placeId", "==", leadData.placeId));
-        const querySnapshot = await getDocs(q);
+      const result = await response.json();
 
-        if (querySnapshot.empty) {
-          allServerLeadsExist = false;
-          await addDoc(leadsCollectionRef, leadData as any);
-          savedCount++;
-        } else {
-          console.log(`Lead ${leadData.name} (Place ID: ${leadData.placeId}) ya existe para este usuario. Omitiendo.`);
-        }
-      } catch (error: any) {
-        allServerLeadsExist = false;
-        console.error("Error al guardar lead en Firestore:", error);
-        toast({ title: "Error al Guardar Lead", description: `El lead ${leadData.name} no se pudo guardar en servidor. Intentando guardado local.`, variant: "default" });
-        const localStorageKey = getLocalStorageKey();
-        if (localStorageKey) {
-          localLeadsToSave.push({
-            id: `local_${leadData.placeId}_${Date.now()}`,
-            ...leadData,
-            stage: 'Nuevo',
-            source: LOCAL_FALLBACK_SOURCE,
-            createdAt: currentTimestampISO,
-            updatedAt: currentTimestampISO,
-            address: leadData.address || null,
-            phone: leadData.phone || null,
-            website: leadData.website || null,
-            businessType: leadData.businessType || null,
-          });
-        }
+      if (!response.ok) {
+        throw new Error(result.message || 'Error al guardar leads');
       }
-    }
 
-    if (localLeadsToSave.length > 0) {
-      const localStorageKey = getLocalStorageKey();
-      if (localStorageKey) {
-        try {
-          const existingLocalLeadsString = localStorage.getItem(localStorageKey);
-          let allLocalLeads: LeadClient[] = [];
-          if (existingLocalLeadsString) {
-            allLocalLeads = JSON.parse(existingLocalLeadsString);
-          }
-          const leadsToAddFiltered = localLeadsToSave.filter(newLead =>
-            !allLocalLeads.some(existingLead => existingLead.placeId === newLead.placeId && existingLead.id.startsWith('local_'))
-          );
-          const updatedLocalLeads = [...allLocalLeads, ...leadsToAddFiltered];
-          localStorage.setItem(localStorageKey, JSON.stringify(updatedLocalLeads));
-          if (leadsToAddFiltered.length > 0) {
-            toast({ title: "Guardado Localmente", description: `${leadsToAddFiltered.length} lead(s) guardados localmente.` });
-          }
-        } catch (localSaveError: any) {
-          toast({ title: "Error en Guardado Local", description: `No se pudieron guardar los leads localmente: ${localSaveError.message}`, variant: "destructive" });
-        }
+      const savedCount = result.saved || 0;
+      const totalCount = result.total || 0;
+      const errors = result.errors || [];
+
+      if (savedCount > 0) {
+        toast({ 
+          title: "Éxito", 
+          description: `¡${savedCount} de ${totalCount} lead(s) guardados correctamente!` 
+        });
       }
-    }
-    
-    if (savedCount > 0) {
-      toast({ title: "Éxito", description: `¡${savedCount} lead(s) guardados correctamente en el servidor!` });
-    } else if (leadsDataToSave.length > 0 && allServerLeadsExist && localLeadsToSave.length === 0) {
-      toast({ title: "Información", description: "Todos los leads seleccionados ya existían o no se pudieron guardar." });
+
+      if (errors.length > 0) {
+        console.warn('Errors during lead saving:', errors);
+        toast({ 
+          title: "Advertencia", 
+          description: `${errors.length} leads tuvieron errores. Revisa la consola para detalles.`,
+          variant: "default"
+        });
+      }
+
+      if (savedCount === 0 && errors.length === 0) {
+        toast({ 
+          title: "Información", 
+          description: "Todos los leads seleccionados ya existían." 
+        });
+      }
+
+      // Refresh leads stats after successful save
+      await fetchLeadsStats();
+      
+    } catch (error: any) {
+      console.error("Error saving leads:", error);
+      toast({ 
+        title: "Error al Guardar Leads", 
+        description: error.message || "Error desconocido al guardar leads",
+        variant: "destructive"
+      });
     }
 
     setSelectedLeads(new Set());

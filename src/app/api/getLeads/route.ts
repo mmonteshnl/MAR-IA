@@ -6,14 +6,19 @@ import type { Timestamp } from 'firebase-admin/firestore';
 interface LeadDocument {
   id: string;
   uid: string;
-  placeId: string;
+  organizationId?: string;
+  placeId: string | null;
   name: string;
   address: string | null;
   phone: string | null;
   website: string | null;
-  businessType: string | null; // Añadido para IA
+  email: string | null;
+  company: string | null;
+  businessType: string | null;
   source: string;
   stage: string;
+  notes: string | null;
+  metaAdData?: any; // Meta Ads specific data
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
 }
@@ -43,22 +48,40 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const leadsSnapshot = await firestoreDbAdmin
-      .collection('leads')
-      .where('uid', '==', uid)
-      .orderBy('updatedAt', 'desc')
-      .get();
+    const { searchParams } = new URL(request.url);
+    const organizationId = searchParams.get('organizationId');
+
+    // Query leads by organization first, fallback to uid for backward compatibility
+    let leadsSnapshot;
+    if (organizationId) {
+      leadsSnapshot = await firestoreDbAdmin
+        .collection('leads')
+        .where('organizationId', '==', organizationId)
+        .orderBy('updatedAt', 'desc')
+        .get();
+    } else {
+      leadsSnapshot = await firestoreDbAdmin
+        .collection('leads')
+        .where('uid', '==', uid)
+        .orderBy('updatedAt', 'desc')
+        .get();
+    }
 
     interface FirestoreLeadData {
       uid: string;
-      placeId: string;
+      organizationId?: string;
+      placeId: string | null;
       name: string;
       address?: string;
       phone?: string;
       website?: string;
+      email?: string;
+      company?: string;
       businessType?: string;
       source: string;
       stage: string;
+      notes?: string;
+      metaAdData?: any;
       createdAt: Timestamp;
       updatedAt: Timestamp;
     }
@@ -80,14 +103,19 @@ export async function GET(request: NextRequest) {
       return {
         id: doc.id,
         uid: data.uid,
-        placeId: data.placeId,
+        organizationId: data.organizationId,
+        placeId: data.placeId || null,
         name: data.name,
         address: data.address || null,
         phone: data.phone || null,
         website: data.website || null,
+        email: data.email || null,
+        company: data.company || null,
         businessType: data.businessType || null,
         source: data.source,
         stage: data.stage,
+        notes: data.notes || null,
+        metaAdData: data.metaAdData || null,
         createdAt,
         updatedAt,
       } as LeadDocument;

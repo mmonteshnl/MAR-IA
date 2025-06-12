@@ -202,16 +202,29 @@ export default function OrganizationManager() {
 
       {/* Current Organization */}
       {currentOrganization && (
-        <Card>
+        <Card className="border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 to-purple-50">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center">
-                  <Building2 className="mr-2 h-5 w-5" />
-                  {currentOrganization.name}
-                  <Badge variant="outline" className="ml-2">Actual</Badge>
+              <div className="flex-1">
+                <CardTitle className="flex items-center flex-wrap gap-2">
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg mr-3">
+                      <Building2 className="h-5 w-5 text-white" />
+                    </div>
+                    <span className="text-xl font-bold text-gray-900">{currentOrganization.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-emerald-100 text-emerald-800 border-emerald-300">
+                      Organización Actual
+                    </Badge>
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-300 font-mono text-xs">
+                      ID: {currentOrganization.id}
+                    </Badge>
+                  </div>
                 </CardTitle>
-                <CardDescription>{currentOrganization.description}</CardDescription>
+                <CardDescription className="text-gray-700 mt-2">
+                  {currentOrganization.description || 'Sin descripción disponible'}
+                </CardDescription>
               </div>
               
               <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
@@ -268,24 +281,62 @@ export default function OrganizationManager() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="flex items-center">
-                <Users className="mr-2 h-4 w-4 text-gray-500" />
-                <span className="text-sm text-gray-600">
-                  {currentOrganization.memberIds.length} miembro(s)
-                </span>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Miembros</p>
+                    <p className="text-2xl font-bold text-gray-900">{currentOrganization.memberIds.length}</p>
+                  </div>
+                  <Users className="h-8 w-8 text-indigo-500" />
+                </div>
               </div>
-              <div className="flex items-center">
-                <Crown className="mr-2 h-4 w-4 text-yellow-500" />
-                <span className="text-sm text-gray-600">
-                  Propietario
-                </span>
+              <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Tu Rol</p>
+                    <p className="text-lg font-semibold text-yellow-600 flex items-center">
+                      <Crown className="h-4 w-4 mr-1" />
+                      {currentOrganization.ownerId === user?.uid ? 'Propietario' : 'Miembro'}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center">
-                <Settings className="mr-2 h-4 w-4 text-gray-500" />
-                <span className="text-sm text-gray-600">
-                  Configuración activa
-                </span>
+              <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Estado</p>
+                    <p className="text-lg font-semibold text-emerald-600 flex items-center">
+                      <div className="w-2 h-2 bg-emerald-500 rounded-full mr-2 animate-pulse"></div>
+                      Activa
+                    </p>
+                  </div>
+                  <Settings className="h-8 w-8 text-emerald-500" />
+                </div>
+              </div>
+              <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Invitaciones</p>
+                    <p className="text-lg font-semibold text-gray-700">
+                      {currentOrganization.settings.allowMemberInvites ? 'Habilitadas' : 'Deshabilitadas'}
+                    </p>
+                  </div>
+                  <Mail className="h-8 w-8 text-gray-500" />
+                </div>
+              </div>
+            </div>
+            
+            {/* Organization ID Display */}
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-900">ID de Organización</h4>
+                  <p className="text-xs text-gray-600 mt-1">Usa este ID para referencias técnicas</p>
+                </div>
+                <code className="text-sm bg-white px-3 py-2 rounded border font-mono text-gray-700 select-all">
+                  {currentOrganization.id}
+                </code>
               </div>
             </div>
           </CardContent>

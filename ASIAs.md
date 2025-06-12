@@ -85,3 +85,27 @@ Acciones "Próximamente" (pendientes de implementación):
 17. Informe Competidores (Clave: "competitorReport")
 
     - Objetivo: Generar informes sobre competidores para mejorar la estrategia comercial.
+
+
+
+
+al final la ide basica es que exiatan colecciones individuales para cada funte d einformacion pero que cuando se pasen a ledas se pasen unificados con su respetiva etiqeuta de fuente pero a leads-flows con sus nuevas valores de estados y demas en el flujo toamncuanta cuales son los flujo los estados  son los de los leads: 
+  Nuevo
+
+
+  Contactado
+
+
+  Calificado
+
+
+  Propuesta Enviada
+ 
+
+  Negociación
+
+  Ganado
+
+  Perdido
+
+  piensa en como esta , crea una  modulo unificacion  en donde organices esa informacion y donde se pueda ver o selccina que data ver individualmente de cada fuente de datos y un boton para selccionar que ledas pasar al flujo de leads , tomando enccuanta que no existan ya. y enotonce ya que eso se hace asi es mejor eliminar otras cosas que confundan ala usario  

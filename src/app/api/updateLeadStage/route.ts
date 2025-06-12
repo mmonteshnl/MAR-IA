@@ -6,6 +6,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 interface UpdateLeadStageBody {
   leadId: string;
   newStage: string;
+  organizationId?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -34,21 +35,30 @@ export async function POST(request: NextRequest) {
 
   try {
     const body: UpdateLeadStageBody = await request.json();
-    const { leadId, newStage } = body;
+    const { leadId, newStage, organizationId } = body;
 
     if (!leadId || !newStage) {
       return NextResponse.json({ message: 'Faltan leadId o newStage en la solicitud.' }, { status: 400 });
     }
 
-    const leadDocRef = firestoreDbAdmin.collection('leads').doc(leadId);
-    const leadDoc = await leadDocRef.get();
+    // Try to find lead in meta-lead-ads collection first
+    let leadDocRef = firestoreDbAdmin.collection('meta-lead-ads').doc(leadId);
+    let leadDoc = await leadDocRef.get();
+
+    // If not found in meta-lead-ads, try old leads collection for backward compatibility
+    if (!leadDoc.exists) {
+      leadDocRef = firestoreDbAdmin.collection('leads').doc(leadId);
+      leadDoc = await leadDocRef.get();
+    }
 
     if (!leadDoc.exists) {
       return NextResponse.json({ message: 'Lead no encontrado.' }, { status: 404 });
     }
 
     const leadData = leadDoc.data();
-    if (leadData?.uid !== uid) {
+    
+    // Check authorization (uid or organizationId)
+    if (leadData?.uid !== uid && (!organizationId || leadData?.organizationId !== organizationId)) {
       return NextResponse.json({ message: 'No autorizado para modificar este lead.' }, { status: 403 });
     }
 

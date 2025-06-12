@@ -2,15 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { firestoreDbAdmin, authAdmin } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { LeadFormatterFactory, type GooglePlacesLeadData } from '@/types/formatters/formatter-factory';
 
-interface LeadData {
-  place_id: string;
-  name: string;
-  vicinity?: string;
-  phone?: string;
-  website?: string;
-  businessType?: string; // Añadido para IA
-}
 
 export async function POST(request: NextRequest) {
   if (!authAdmin || !firestoreDbAdmin) {
@@ -41,41 +34,97 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const leads: LeadData[] = body.leads;
+    const { leads, organizationId } = body;
 
     if (!Array.isArray(leads) || leads.length === 0) {
       return NextResponse.json({ message: 'No se proporcionaron leads o el formato es inválido.' }, { status: 400 });
     }
 
-    console.log(`Attempting to save ${leads.length} leads for UID: ${uid}`);
+    if (!organizationId) {
+      return NextResponse.json({ message: 'organizationId es requerido.' }, { status: 400 });
+    }
+
+    console.log(`Attempting to save ${leads.length} leads for UID: ${uid}, Organization: ${organizationId}`);
 
     const batch = firestoreDbAdmin.batch();
-    const leadsCollection = firestoreDbAdmin.collection('leads');
-    const timestamp = FieldValue.serverTimestamp();
+    const metaLeadsCollection = firestoreDbAdmin.collection('meta-lead-ads');
+    let savedCount = 0;
+    const errors: string[] = [];
 
-    leads.forEach(lead => {
-      const leadDocRef = leadsCollection.doc(); 
-      const leadDataToSave = {
-        uid: uid,
-        placeId: lead.place_id,
-        name: lead.name,
-        address: lead.vicinity || null,
-        phone: lead.phone || null,
-        website: lead.website || null,
-        businessType: lead.businessType || null, // Guardar tipo de negocio
-        source: 'google_places_search',
-        stage: 'Nuevo', 
-        createdAt: timestamp,
-        updatedAt: timestamp, 
-      };
-      console.log(`Preparing to save lead: ${JSON.stringify(leadDataToSave)}`);
-      batch.set(leadDocRef, leadDataToSave);
-    });
+    for (const lead of leads) {
+      try {
+        // Convert Google Places lead to MetaLeadAdsModel format
+        const googlePlacesData: GooglePlacesLeadData = {
+          place_id: lead.place_id,
+          name: lead.name,
+          vicinity: lead.vicinity,
+          formatted_address: lead.formatted_address,
+          international_phone_number: lead.phone,
+          website: lead.website,
+          types: lead.types || [],
+          rating: lead.rating,
+          business_status: lead.business_status
+        };
 
-    await batch.commit();
-    console.log(`Successfully saved ${leads.length} leads for UID: ${uid}`);
+        const formatResult = LeadFormatterFactory.formatGooglePlacesLead(
+          googlePlacesData,
+          uid,
+          organizationId
+        );
 
-    return NextResponse.json({ message: `¡${leads.length} lead(s) guardados correctamente!` }, { status: 201 });
+        if (!formatResult.success) {
+          errors.push(`Error formatting lead ${lead.name}: ${formatResult.error}`);
+          continue;
+        }
+
+        // Check for duplicates based on leadId or platformId
+        const existingLeadQuery = await firestoreDbAdmin
+          .collection('meta-lead-ads')
+          .where('organizationId', '==', organizationId)
+          .where('platformId', '==', lead.place_id)
+          .limit(1)
+          .get();
+
+        if (!existingLeadQuery.empty) {
+          console.log(`Lead ${lead.name} (Place ID: ${lead.place_id}) already exists. Skipping.`);
+          continue;
+        }
+
+        const leadDocRef = metaLeadsCollection.doc();
+        const metaLeadData = {
+          ...formatResult.data,
+          uid,
+          organizationId,
+          stage: 'Nuevo',
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp()
+        };
+
+        console.log(`Preparing to save lead: ${JSON.stringify(metaLeadData)}`);
+        batch.set(leadDocRef, metaLeadData);
+        savedCount++;
+      } catch (error: any) {
+        errors.push(`Error processing lead ${lead.name}: ${error.message}`);
+      }
+    }
+
+    if (savedCount > 0) {
+      await batch.commit();
+      console.log(`Successfully saved ${savedCount} leads for UID: ${uid}`);
+    }
+
+    const response: any = { 
+      message: `¡${savedCount} lead(s) guardados correctamente!`,
+      saved: savedCount,
+      total: leads.length
+    };
+
+    if (errors.length > 0) {
+      response.errors = errors;
+      response.message += ` (${errors.length} errores)`;
+    }
+
+    return NextResponse.json(response, { status: 201 });
   } catch (error: any) {
     console.error('Error al guardar leads en Firestore:', error);
     let requestBodyForLog;

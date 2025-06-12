@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import type { Lead, LeadImage } from '@/types';
+import type { ExtendedLead as Lead, LeadImage } from '@/types';
 import ImageUploader from '@/components/ImageUploader';
 import { useToast } from '@/hooks/use-toast';
 import { LEAD_STAGES, type LeadStage, stageColors, isFieldMissing, LOCAL_FALLBACK_SOURCE } from '@/lib/leads-utils';

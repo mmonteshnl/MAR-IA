@@ -15,6 +15,7 @@ import { useGeneralConfig } from '@/hooks/useGeneralConfig';
 import { GeneralConfig, CURRENCY_OPTIONS, LANGUAGE_OPTIONS, TIMEZONE_OPTIONS } from '@/types/general-config';
 import OrganizationManager from './OrganizationManager';
 import UserProfileManager from '@/components/UserProfileManager';
+import DatabaseResetSection from './DatabaseResetSection';
 
 export const GeneralConfigManager = () => {
   const { config, loading, updateConfig, resetConfig } = useGeneralConfig();
@@ -127,12 +128,8 @@ export const GeneralConfigManager = () => {
         </Card>
       )}
 
-      <Tabs defaultValue="profile" className="w-full">
+      <Tabs defaultValue="organization" className="w-full">
         <TabsList className="grid w-full grid-cols-8">
-          <TabsTrigger value="profile" className="flex items-center gap-1">
-            <User className="h-3 w-3" />
-            Perfil
-          </TabsTrigger>
           <TabsTrigger value="organization" className="flex items-center gap-1">
             <Users className="h-3 w-3" />
             Organización
@@ -161,14 +158,18 @@ export const GeneralConfigManager = () => {
             <Database className="h-3 w-3" />
             Datos
           </TabsTrigger>
+          <TabsTrigger value="profile" className="flex items-center gap-1">
+            <User className="h-3 w-3" />
+            Perfil
+          </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="profile" className="space-y-4">
-          <UserProfileManager />
-        </TabsContent>
 
         <TabsContent value="organization" className="space-y-4">
           <OrganizationManager />
+        </TabsContent>
+
+        <TabsContent value="profile" className="space-y-4">
+          <UserProfileManager />
         </TabsContent>
 
         <TabsContent value="currency" className="space-y-4">
@@ -554,6 +555,9 @@ export const GeneralConfigManager = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Database Reset Section - Always visible */}
+      <DatabaseResetSection />
     </div>
   );
 };

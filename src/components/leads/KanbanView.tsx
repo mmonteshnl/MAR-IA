@@ -9,7 +9,7 @@ import { MoreVertical, AlertCircle, Dot, Phone, MessageSquareText, Mail as MailI
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useDragAndDrop } from '@/hooks/useDragAndDrop';
 import { useState } from 'react';
-import type { Lead } from '@/types';
+import type { ExtendedLead as Lead } from '@/types';
 
 // Define LeadStage type based on LEAD_STAGES if not exported from '@/types'
 type LeadStage = (typeof LEAD_STAGES)[number];

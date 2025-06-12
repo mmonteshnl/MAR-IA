@@ -6,12 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { FileUp, AlertCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { Lead } from '@/types';
+import { useAuth } from '@/hooks/use-auth';
+import { useOrganization } from '@/hooks/useOrganization';
+import type { ExtendedLead } from '@/types';
+import { convertMetaLeadToExtended } from '@/lib/lead-converter';
+import { XmlImportFormatter, CsvImportFormatter } from '@/types/formatters/import-formatter';
 
 interface LeadImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onImportComplete: (leads: Lead[]) => void;
+  onImportComplete: (leads: ExtendedLead[]) => void;
   formatXmlLeads?: (input: any) => Promise<any>;
   formatCsvLeads?: (input: any) => Promise<any>;
 }
@@ -24,12 +28,23 @@ export default function LeadImportDialog({
   formatCsvLeads
 }: LeadImportDialogProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { currentOrganization } = useOrganization();
   const [isProcessingImport, setIsProcessingImport] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
 
   const handleFileImport = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    if (!user || !currentOrganization) {
+      toast({
+        title: "Error de autenticación",
+        description: "Debes estar autenticado para importar leads.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     setIsProcessingImport(true);
     setImportError(null);
@@ -43,7 +58,7 @@ export default function LeadImportDialog({
         throw new Error("Por favor selecciona un archivo XML o CSV");
       }
 
-      let processedLeads: Lead[] = [];
+      let processedLeads: ExtendedLead[] = [];
 
       if (isXml && formatXmlLeads) {
         const result = await formatXmlLeads({ xmlContent: text });
@@ -56,24 +71,28 @@ export default function LeadImportDialog({
           throw new Error("No se encontraron leads válidos en el archivo XML");
         }
 
-        processedLeads = result.leads.map((lead: any) => ({
-          id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          uid: '',
-          placeId: null,
-          name: lead.name || 'Sin nombre',
-          address: lead.location || null,
-          phone: lead.contact || null,
-          website: lead.website || null,
-          email: lead.email || null,
-          company: lead.company || lead.name || null,
-          notes: lead.notes || null,
-          businessType: lead.category || null,
-          source: 'xml_import_ia',
-          stage: lead.suggestedStage || 'Nuevo',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          images: []
-        }));
+        // Use the XML formatter to convert to MetaLeadAdsModel
+        const xmlFormatter = new XmlImportFormatter(user.uid, currentOrganization.id);
+        
+        processedLeads = result.leads.map((lead: any) => {
+          const formatResult = xmlFormatter.format(lead);
+          if (!formatResult.success || !formatResult.data) {
+            throw new Error(`Error al formatear lead: ${formatResult.error}`);
+          }
+          
+          // Convert MetaLeadAdsModel to ExtendedLead
+          const metaLeadWithId = {
+            ...formatResult.data,
+            id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          };
+          
+          return convertMetaLeadToExtended(
+            metaLeadWithId,
+            user.uid,
+            currentOrganization.id,
+            lead.suggestedStage || 'Nuevo'
+          );
+        });
       } else if (isCsv && formatCsvLeads) {
         const result = await formatCsvLeads({ csvContent: text });
         
@@ -85,24 +104,28 @@ export default function LeadImportDialog({
           throw new Error("No se encontraron leads válidos en el archivo CSV");
         }
 
-        processedLeads = result.leads.map((lead: any) => ({
-          id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          uid: '',
-          placeId: null,
-          name: lead.name || 'Sin nombre',
-          address: lead.location || null,
-          phone: lead.contact || null,
-          website: lead.website || null,
-          email: lead.email || null,
-          company: lead.company || lead.name || null,
-          notes: lead.notes || null,
-          businessType: lead.category || null,
-          source: 'csv_import_ia',
-          stage: lead.suggestedStage || 'Nuevo',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          images: []
-        }));
+        // Use the CSV formatter to convert to MetaLeadAdsModel
+        const csvFormatter = new CsvImportFormatter(user.uid, currentOrganization.id);
+        
+        processedLeads = result.leads.map((lead: any) => {
+          const formatResult = csvFormatter.format(lead);
+          if (!formatResult.success || !formatResult.data) {
+            throw new Error(`Error al formatear lead: ${formatResult.error}`);
+          }
+          
+          // Convert MetaLeadAdsModel to ExtendedLead
+          const metaLeadWithId = {
+            ...formatResult.data,
+            id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          };
+          
+          return convertMetaLeadToExtended(
+            metaLeadWithId,
+            user.uid,
+            currentOrganization.id,
+            lead.suggestedStage || 'Nuevo'
+          );
+        });
       }
 
       if (processedLeads.length > 0) {
@@ -126,7 +149,7 @@ export default function LeadImportDialog({
       // Reset input
       event.target.value = '';
     }
-  }, [formatXmlLeads, formatCsvLeads, onImportComplete, onOpenChange, toast]);
+  }, [formatXmlLeads, formatCsvLeads, onImportComplete, onOpenChange, toast, user, currentOrganization]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

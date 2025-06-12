@@ -8,13 +8,13 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { LogOut, PlusCircle, ArrowLeft, KanbanSquare, List, FileUp, Search } from 'lucide-react';
+import { LogOut, PlusCircle, ArrowLeft, KanbanSquare, List, FileUp, Search, Facebook, Filter } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { db } from '@/lib/firebase';
 import { collection, doc, getDocs, updateDoc, query, where, orderBy, serverTimestamp, Timestamp as FirestoreTimestamp, writeBatch, addDoc, deleteDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 
-import type { Lead, LeadImage, Product as ProductDefinition } from '@/types';
+import type { ExtendedLead as Lead, LeadImage, Product as ProductDefinition } from '@/types';
 import { type WelcomeMessageInput, type WelcomeMessageOutput } from '@/ai/flows/welcomeMessageFlow';
 import { type EvaluateBusinessInput, type EvaluateBusinessOutput } from '@/ai/flows/evaluateBusinessFlow';
 import { type SalesRecommendationsInput, type SalesRecommendationsOutput, type Product as AIProduct } from '@/ai/flows/salesRecommendationsFlow';
@@ -31,9 +31,14 @@ import LeadStats from '@/components/leads/LeadStats';
 import { LeadInsights } from '@/components/leads/LeadInsights';
 import { InsightsSkeleton, KanbanSkeleton, TableSkeleton, StatsSkeleton, FiltersSkeleton } from '@/components/leads/LeadsSkeleton';
 import LeadActionResultModal from '@/components/leads/LeadActionResultModal';
+import MetaAdsSync from '@/components/leads/MetaAdsSync';
+import MetaAdsTransferButton from '@/components/leads/MetaAdsTransferButton';
+import LeadSourceFilterModal from '@/components/leads/LeadSourceFilterModal';
 
 // Import utilities
 import { LEAD_STAGES, LOCAL_STORAGE_LEADS_KEY_PREFIX, LOCAL_FALLBACK_SOURCE, formatFirestoreTimestamp, isFieldMissing, type LeadStage } from '@/lib/leads-utils';
+import { getBusinessTypeFromMetaLead } from '@/lib/lead-converter';
+import { LeadSource, getLeadSourceFromString } from '@/types/formatters/lead-sources';
 
 type ImportedFormattedLead = (XmlFormattedLead | CsvFormattedLead) & { suggestedStage?: string };
 type ActionResult = WelcomeMessageOutput | EvaluateBusinessOutput | SalesRecommendationsOutput | { error: string } | null;
@@ -48,7 +53,7 @@ export default function LeadsPage() {
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(true);
-  const [viewMode, setViewMode] = useState<"kanban" | "table" | "insights">("kanban");
+  const [viewMode, setViewMode] = useState<"kanban" | "table" | "insights" | "meta-sync">("kanban");
 
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [currentActionLead, setCurrentActionLead] = useState<Lead | null>(null);
@@ -59,7 +64,7 @@ export default function LeadsPage() {
   const [userProducts, setUserProducts] = useState<AIProduct[]>([]);
 
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false);
   const [selectedFileForImport, setSelectedFileForImport] = useState<File | null>(null);
   const [importTargetStage, setImportTargetStage] = useState<LeadStage>("Nuevo");
   const [isImporting, setIsImporting] = useState(false);
@@ -75,6 +80,8 @@ const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSource, setSelectedSource] = useState('');
   const [selectedStage, setSelectedStage] = useState('');
+  const [isSourceFilterModalOpen, setIsSourceFilterModalOpen] = useState(false);
+  const [selectedSources, setSelectedSources] = useState<LeadSource[]>([]);
 
   // Local storage key helper
   const getLocalStorageKey = useCallback(() => {
@@ -108,40 +115,29 @@ const [open, setOpen] = useState(false);
     }
   }, [user?.uid]);
 
-  // Load leads
+  // Load leads from leads-flow collection
   const loadLeads = useCallback(async () => {
     if (!user?.uid || !currentOrganization) return;
     
     setLoadingLeads(true);
     try {
-      // First try with organizationId filter
-      let leadsQuery = query(
-        collection(db, 'leads'),
-        where('organizationId', '==', currentOrganization.id),
-        orderBy('updatedAt', 'desc')
-      );
-      
-      let snapshot = await getDocs(leadsQuery);
-      
-      // If no results, try fallback to user-based filter for backward compatibility
-      if (snapshot.size === 0) {
-        leadsQuery = query(
-          collection(db, 'leads'),
-          where('uid', '==', user.uid),
-          orderBy('updatedAt', 'desc')
-        );
-        snapshot = await getDocs(leadsQuery);
-      }
-      
-      const fetchedLeads = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          createdAt: formatFirestoreTimestamp(data.createdAt),
-          updatedAt: formatFirestoreTimestamp(data.updatedAt),
-        } as Lead;
+      const response = await fetch('/api/getLeadsFlow', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          organizationId: currentOrganization.id,
+          userId: user.uid
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const fetchedLeads = data.leads || [];
 
       setLeads(fetchedLeads);
       
@@ -170,15 +166,43 @@ const [open, setOpen] = useState(false);
   // Stage change handler
   const handleStageChange = async (leadId: string, newStage: LeadStage) => {
     try {
-      const leadRef = doc(db, 'leads', leadId);
-      await updateDoc(leadRef, {
+      const leadRef = doc(db, 'leads-flow', leadId);
+      const now = new Date().toISOString();
+      
+      // Get current lead to update stage history
+      const currentLead = leads.find(lead => lead.id === leadId);
+      const stageHistory = currentLead?.stageHistory || [];
+      
+      // Close previous stage if exists
+      const updatedHistory = stageHistory.map(entry => 
+        !entry.exitedAt ? { ...entry, exitedAt: now } : entry
+      );
+      
+      // Add new stage entry
+      updatedHistory.push({
         stage: newStage,
+        enteredAt: now,
+        triggeredBy: 'user',
+        userId: user?.uid,
+        notes: `Movido manualmente a ${newStage}`
+      });
+
+      await updateDoc(leadRef, {
+        currentStage: newStage,
+        stage: newStage, // For compatibility
+        stageHistory: updatedHistory,
         updatedAt: serverTimestamp()
       });
 
       setLeads(prevLeads => prevLeads.map(lead => 
         lead.id === leadId 
-          ? { ...lead, stage: newStage, updatedAt: new Date().toISOString() }
+          ? { 
+              ...lead, 
+              stage: newStage, 
+              currentStage: newStage,
+              stageHistory: updatedHistory,
+              updatedAt: now 
+            }
           : lead
       ));
 
@@ -204,7 +228,7 @@ const [open, setOpen] = useState(false);
 
   const handleUpdateLead = async (leadId: string, updates: Partial<Lead>) => {
     try {
-      const leadRef = doc(db, 'leads', leadId);
+      const leadRef = doc(db, 'leads-flow', leadId);
       await updateDoc(leadRef, {
         ...updates,
         updatedAt: serverTimestamp()
@@ -229,8 +253,8 @@ const [open, setOpen] = useState(false);
     
     try {
       const input: WelcomeMessageInput = {
-        leadName: lead.name,
-        businessType: lead.businessType || 'negocio'
+        leadName: lead.fullName || lead.name,
+        businessType: getBusinessTypeFromMetaLead(lead) || 'negocio'
       };
       
       console.log('Generating welcome message with input:', input);
@@ -276,8 +300,8 @@ const [open, setOpen] = useState(false);
     
     try {
       const input: EvaluateBusinessInput = {
-        leadName: lead.name,
-        businessType: lead.businessType || '',
+        leadName: lead.fullName || lead.name,
+        businessType: getBusinessTypeFromMetaLead(lead) || '',
         website: lead.website || '',
         address: lead.address || ''
       };
@@ -339,8 +363,8 @@ const [open, setOpen] = useState(false);
     
     try {
       const input: SalesRecommendationsInput = {
-        leadName: lead.name,
-        businessType: lead.businessType || '',
+        leadName: lead.fullName || lead.name,
+        businessType: getBusinessTypeFromMetaLead(lead) || '',
         userProducts: userProducts
       };
       
@@ -387,8 +411,8 @@ const [open, setOpen] = useState(false);
     
     try {
       const input = {
-        leadName: lead.name,
-        businessType: lead.businessType || '',
+        leadName: lead.fullName || lead.name,
+        businessType: getBusinessTypeFromMetaLead(lead) || '',
         configurationProposal: 'Configuración TPV personalizada',
         products: userProducts,
         benefits: ['Procesamiento seguro de pagos', 'Gestión de inventario', 'Reportes de ventas', 'Soporte técnico 24/7']
@@ -443,7 +467,7 @@ const [open, setOpen] = useState(false);
   // Image handlers
   const handleUploadImages = async (leadId: string, images: LeadImage[]) => {
     try {
-      const leadRef = doc(db, 'leads', leadId);
+      const leadRef = doc(db, 'leads-flow', leadId);
       await updateDoc(leadRef, {
         images: arrayUnion(...images),
         updatedAt: serverTimestamp()
@@ -477,6 +501,7 @@ const [open, setOpen] = useState(false);
     setSearchTerm('');
     setSelectedSource('');
     setSelectedStage('');
+    setSelectedSources(availableLeadSources);
   };
 
   // Effects
@@ -551,16 +576,26 @@ const [open, setOpen] = useState(false);
     );
   }
 
-  // Filter leads
+  // Get available sources from leads
   const sources = Array.from(new Set(leads.map(lead => lead.source)));
+  const availableLeadSources = Array.from(new Set(leads.map(lead => getLeadSourceFromString(lead.source))));
+  
+  // Initialize selected sources if empty
+  if (selectedSources.length === 0 && availableLeadSources.length > 0) {
+    setSelectedSources(availableLeadSources);
+  }
+  
+  // Filter leads
   const filteredLeads = leads.filter(lead => {
-    const matchesSearch = lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = (lead.fullName || lead.name).toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (!isFieldMissing(lead.email) && lead.email!.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                         (!isFieldMissing(lead.company) && lead.company!.toLowerCase().includes(searchTerm.toLowerCase()));
+                         (!isFieldMissing(lead.companyName) && lead.companyName!.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                         (!isFieldMissing(lead.phoneNumber) && lead.phoneNumber!.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesSource = !selectedSource || lead.source === selectedSource;
     const matchesStage = !selectedStage || lead.stage === selectedStage;
+    const matchesSelectedSources = selectedSources.length === 0 || selectedSources.includes(getLeadSourceFromString(lead.source));
     
-    return matchesSearch && matchesSource && matchesStage;
+    return matchesSearch && matchesSource && matchesStage && matchesSelectedSources;
   });
 
   // Action result modal handlers
@@ -572,12 +607,12 @@ const [open, setOpen] = useState(false);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "kanban" | "table" | "insights")} className="flex flex-col h-full">
+      <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "kanban" | "table" | "insights" | "meta-sync")} className="flex flex-col h-full">
         <header className="bg-background border-b border-border flex-shrink-0">
           {/* Title and Action Buttons */}
           <div className="p-4 sm:p-6 lg:p-6 border-b border-border/50">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground">Mis Leads</h1>
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground">Flujo de Leads</h1>
 <LeadImportDialog 
   open={open} 
   onOpenChange={setOpen} 
@@ -609,7 +644,7 @@ const [open, setOpen] = useState(false);
             {/* Tabs, Search and Filters in one unified line */}
             <div className="flex flex-col xl:flex-row items-start xl:items-center gap-4">
               {/* Tabs */}
-              <TabsList className="grid w-full max-w-[600px] grid-cols-3 bg-muted xl:w-auto xl:flex-shrink-0">
+              <TabsList className="grid w-full max-w-[800px] grid-cols-4 bg-muted xl:w-auto xl:flex-shrink-0">
                 <TabsTrigger value="insights" className="data-[state=active]:bg-background data-[state=active]:text-foreground">
                   📊 Resumen
                 </TabsTrigger>
@@ -620,6 +655,10 @@ const [open, setOpen] = useState(false);
                 <TabsTrigger value="table" className="data-[state=active]:bg-background data-[state=active]:text-foreground">
                   <List className="h-4 w-4 mr-2" />
                   Tabla
+                </TabsTrigger>
+                <TabsTrigger value="meta-sync" className="data-[state=active]:bg-background data-[state=active]:text-foreground">
+                  <Facebook className="h-4 w-4 mr-2" />
+                  Meta Ads
                 </TabsTrigger>
               </TabsList>
 
@@ -678,7 +717,17 @@ const [open, setOpen] = useState(false);
                       ))}
                     </select>
 
-                    {(searchTerm || selectedSource || selectedStage) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsSourceFilterModalOpen(true)}
+                      className="text-muted-foreground hover:text-foreground px-3 whitespace-nowrap"
+                    >
+                      <Filter className="h-4 w-4 mr-2" />
+                      Fuentes ({selectedSources.length})
+                    </Button>
+
+                    {(searchTerm || selectedSource || selectedStage || selectedSources.length !== availableLeadSources.length) && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -740,6 +789,12 @@ const [open, setOpen] = useState(false);
             />
           )}
         </TabsContent>
+
+        <TabsContent value="meta-sync" className="flex-1 overflow-auto p-4">
+          <div className="max-w-4xl mx-auto">
+            <MetaAdsSync onSyncComplete={loadLeads} />
+          </div>
+        </TabsContent>
       </Tabs>
 
       <LeadDetailsDialog
@@ -771,9 +826,17 @@ const [open, setOpen] = useState(false);
         onClose={handleActionResultModalClose}
         isActionLoading={isActionLoading}
         currentLead={currentActionLead ? {
-          name: currentActionLead.name,
-          phone: currentActionLead.phone
+          name: currentActionLead.fullName || currentActionLead.name,
+          phone: currentActionLead.phoneNumber || currentActionLead.phone
         } : null}
+      />
+
+      <LeadSourceFilterModal
+        open={isSourceFilterModalOpen}
+        onOpenChange={setIsSourceFilterModalOpen}
+        selectedSources={selectedSources}
+        onSourcesChange={setSelectedSources}
+        availableSources={availableLeadSources}
       />
     </div>
   );

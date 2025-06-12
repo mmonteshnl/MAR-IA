@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, Users, Target, Phone, Mail, Globe, Calendar, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Lead } from '@/types';
+import type { ExtendedLead as Lead } from '@/types';
 import { LEAD_STAGES } from '@/lib/leads-utils';
 import { useValuationConfig } from '@/hooks/useValuationConfig';
 import { calculateLeadValuation, calculateStageTotal, formatCurrency } from '@/lib/valuation-calculator';

@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Dot, Phone, MessageSquareText, Mail, ExternalLink as ExternalLinkIcon } from 'lucide-react';
-import type { Lead } from '@/types';
+import type { ExtendedLead as Lead } from '@/types';
 
 // Define LeadStage type based on your LEAD_STAGES if not exported from '@/types'
 type LeadStage = (typeof LEAD_STAGES)[number];

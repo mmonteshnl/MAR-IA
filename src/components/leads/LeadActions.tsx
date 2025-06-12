@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Phone, MessageSquareText, Globe, Mail as MailIconLucide, BrainCircuit, Lightbulb, Zap, MoreVertical, Trash2, Edit2, Eye, PackageSearch, Mail } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { Lead } from '@/types';
+import type { ExtendedLead as Lead } from '@/types';
 
 interface LeadActionsProps {
   lead: Lead;
