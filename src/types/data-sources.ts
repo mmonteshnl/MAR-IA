@@ -12,8 +12,8 @@ export const DATA_SOURCE_CONFIG = {
     name: 'Meta Ads',
     description: 'Leads de Facebook e Instagram Ads',
     collection: 'meta-lead-ads',
-    color: 'bg-blue-100 text-blue-800 border-blue-200',
-    icon: '📱',
+    color: 'bg-blue-900/20 text-blue-300 border-blue-600',
+    icon: '📘',
     fields: ['fullName', 'email', 'phoneNumber', 'campaignName', 'adName', 'platform'],
     autoSync: true
   },
@@ -21,8 +21,8 @@ export const DATA_SOURCE_CONFIG = {
     name: 'Google Places',
     description: 'Negocios encontrados en Google Places',
     collection: 'google-places-leads', 
-    color: 'bg-green-100 text-green-800 border-green-200',
-    icon: '🗺️',
+    color: 'bg-green-900/20 text-green-300 border-green-600',
+    icon: '🌍',
     fields: ['name', 'address', 'phone', 'website', 'businessType', 'rating'],
     autoSync: false
   },
@@ -30,7 +30,7 @@ export const DATA_SOURCE_CONFIG = {
     name: 'XML Import',
     description: 'Leads importados desde archivos XML',
     collection: 'xml-import-leads',
-    color: 'bg-purple-100 text-purple-800 border-purple-200', 
+    color: 'bg-purple-900/20 text-purple-300 border-purple-600', 
     icon: '📄',
     fields: ['name', 'email', 'phone', 'company', 'source'],
     autoSync: false
@@ -39,7 +39,7 @@ export const DATA_SOURCE_CONFIG = {
     name: 'CSV Import', 
     description: 'Leads importados desde archivos CSV',
     collection: 'csv-import-leads',
-    color: 'bg-orange-100 text-orange-800 border-orange-200',
+    color: 'bg-orange-900/20 text-orange-300 border-orange-600',
     icon: '📊',
     fields: ['name', 'email', 'phone', 'company', 'source'],
     autoSync: false
@@ -48,8 +48,8 @@ export const DATA_SOURCE_CONFIG = {
     name: 'Manual',
     description: 'Leads creados manualmente',
     collection: 'manual-leads',
-    color: 'bg-gray-100 text-gray-800 border-gray-200',
-    icon: '✏️', 
+    color: 'bg-gray-800 text-gray-300 border-gray-600',
+    icon: '✍️', 
     fields: ['name', 'email', 'phone', 'company', 'notes'],
     autoSync: false
   }

@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import LoadingComponent from '@/components/LoadingComponent';
-import { LogOut, PlusCircle, ArrowLeft, KanbanSquare, List, FileUp, Search, Facebook, Filter } from 'lucide-react';
+import { LogOut, PlusCircle, ArrowLeft, KanbanSquare, List, FileUp, Search, Filter } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { db } from '@/lib/firebase';
@@ -31,8 +31,6 @@ import LeadStats from '@/components/leads/LeadStats';
 import { LeadInsights } from '@/components/leads/LeadInsights';
 import { InsightsSkeleton, KanbanSkeleton, TableSkeleton, StatsSkeleton, FiltersSkeleton } from '@/components/leads/LeadsSkeleton';
 import LeadActionResultModal from '@/components/leads/LeadActionResultModal';
-import MetaAdsSync from '@/components/leads/MetaAdsSync';
-import MetaAdsTransferButton from '@/components/leads/MetaAdsTransferButton';
 import LeadSourceFilterModal from '@/components/leads/LeadSourceFilterModal';
 
 // Import utilities
@@ -53,7 +51,7 @@ export default function LeadsPage() {
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(true);
-  const [viewMode, setViewMode] = useState<"kanban" | "table" | "insights" | "meta-sync">("kanban");
+  const [viewMode, setViewMode] = useState<"kanban" | "table" | "insights">("kanban");
 
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [currentActionLead, setCurrentActionLead] = useState<Lead | null>(null);
@@ -611,7 +609,7 @@ export default function LeadsPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "kanban" | "table" | "insights" | "meta-sync")} className="flex flex-col h-full">
+      <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "kanban" | "table" | "insights")} className="flex flex-col h-full">
         <header className="bg-background border-b border-border flex-shrink-0">
           {/* Title and Action Buttons */}
           <div className="p-4 sm:p-6 lg:p-6 border-b border-border/50">
@@ -684,7 +682,7 @@ export default function LeadsPage() {
             {/* Tabs, Search and Filters in one unified line */}
             <div className="flex flex-col xl:flex-row items-start xl:items-center gap-4">
               {/* Tabs */}
-              <TabsList className="grid w-full max-w-[800px] grid-cols-4 bg-muted xl:w-auto xl:flex-shrink-0">
+              <TabsList className="grid w-full max-w-[600px] grid-cols-3 bg-muted xl:w-auto xl:flex-shrink-0">
                 <TabsTrigger value="insights" className="data-[state=active]:bg-background data-[state=active]:text-foreground">
                   📊 Resumen
                 </TabsTrigger>
@@ -695,10 +693,6 @@ export default function LeadsPage() {
                 <TabsTrigger value="table" className="data-[state=active]:bg-background data-[state=active]:text-foreground">
                   <List className="h-4 w-4 mr-2" />
                   Tabla
-                </TabsTrigger>
-                <TabsTrigger value="meta-sync" className="data-[state=active]:bg-background data-[state=active]:text-foreground">
-                  <Facebook className="h-4 w-4 mr-2" />
-                  Meta Ads
                 </TabsTrigger>
               </TabsList>
 
@@ -830,11 +824,6 @@ export default function LeadsPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="meta-sync" className="flex-1 overflow-auto p-4">
-          <div className="max-w-4xl mx-auto">
-            <MetaAdsSync onSyncComplete={loadLeads} />
-          </div>
-        </TabsContent>
       </Tabs>
 
       <LeadDetailsDialog

@@ -35,7 +35,7 @@ export function convertMetaLeadToExtended(
     website,
     businessType,
     notes,
-    placeId: source === 'google_places' ? metaLead.platformId : null,
+    placeId: source === 'google-places' ? metaLead.platformId : null,
     
     // UI fields
     images: [],
@@ -65,17 +65,29 @@ export function convertExtendedToMeta(extendedLead: ExtendedLead): MetaLeadAdsMo
 function determineLeadSource(metaLead: MetaLeadAdsModel): string {
   // Analyze partner name and platform ID to determine original source
   if (metaLead.partnerName?.includes('Google')) {
-    return 'google_places';
+    return 'google-places';
   }
   if (metaLead.partnerName?.includes('XML')) {
-    return 'xml_import';
+    return 'xml-import';
   }
   if (metaLead.partnerName?.includes('CSV')) {
-    return 'csv_import';
+    return 'csv-import';
   }
-  if (metaLead.isOrganic === 'false') {
-    return 'meta_ads';
+  
+  // Check multiple indicators for Meta Ads
+  if (metaLead.isOrganic === 'false' || 
+      metaLead.campaignId ||
+      metaLead.campaignName ||
+      metaLead.adSetId ||
+      metaLead.adSetName ||
+      metaLead.adName ||
+      metaLead.formId ||
+      metaLead.partnerName?.toLowerCase().includes('meta') ||
+      metaLead.partnerName?.toLowerCase().includes('facebook') ||
+      metaLead.partnerName?.toLowerCase().includes('instagram')) {
+    return 'meta-ads';
   }
+  
   return 'manual';
 }
 
@@ -201,15 +213,15 @@ export function getLeadSourceColor(source: string): string {
   
   switch (leadSource) {
     case LeadSource.META_ADS:
-      return 'bg-blue-100 text-blue-800 border-blue-200';
+      return 'bg-blue-900/20 text-blue-300 border-blue-600';
     case LeadSource.GOOGLE_PLACES:
-      return 'bg-green-100 text-green-800 border-green-200';
+      return 'bg-green-900/20 text-green-300 border-green-600';
     case LeadSource.XML_IMPORT:
-      return 'bg-purple-100 text-purple-800 border-purple-200';
+      return 'bg-purple-900/20 text-purple-300 border-purple-600';
     case LeadSource.CSV_IMPORT:
-      return 'bg-orange-100 text-orange-800 border-orange-200';
+      return 'bg-orange-900/20 text-orange-300 border-orange-600';
     default:
-      return 'bg-gray-100 text-gray-800 border-gray-200';
+      return 'bg-gray-800 text-gray-300 border-gray-600';
   }
 }
 

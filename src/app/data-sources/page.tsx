@@ -23,6 +23,7 @@ import {
   Send
 } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import DuplicateDetector from '@/components/leads/DuplicateDetector';
 import { DataSource, DATA_SOURCE_CONFIG, type DataSourceStats, type UnifiedLead } from '@/types/data-sources';
 
 export default function DataSourcesPage() {
@@ -169,6 +170,18 @@ export default function DataSourcesPage() {
     } else {
       setSelectedLeads([]);
     }
+  };
+
+  // Handle duplicate resolution
+  const handleDuplicatesResolved = (remainingLeads: UnifiedLead[]) => {
+    setLeads(remainingLeads);
+    setSelectedLeads([]);
+  };
+
+  // Handle data reload after duplicates are deleted
+  const handleReloadData = () => {
+    console.log('🔄 DATASOURCES: Reloading data after duplicate deletion');
+    loadSourceLeads(activeTab);
   };
 
   useEffect(() => {
@@ -351,9 +364,9 @@ export default function DataSourcesPage() {
 
                     {/* Transferred Leads */}
                     {transferredLeads.length > 0 && (
-                      <div>
-                        <h3 className="font-medium text-muted-foreground mb-3 flex items-center gap-2">
-                          <CheckCircle className="h-4 w-4" />
+                      <div className="bg-gray-900 border border-gray-700 rounded-lg p-4">
+                        <h3 className="font-semibold text-gray-200 mb-4 flex items-center gap-2 text-base">
+                          <CheckCircle className="h-5 w-5 text-green-400" />
                           Ya transferidos ({transferredLeads.length})
                         </h3>
                         <div className="space-y-2">
@@ -376,6 +389,13 @@ export default function DataSourcesPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Detector de duplicados */}
+      <DuplicateDetector 
+        leads={leads}
+        onDuplicatesResolved={handleDuplicatesResolved}
+        onReloadData={handleReloadData}
+      />
     </div>
   );
 }
@@ -392,9 +412,9 @@ function LeadCard({ lead, isSelected, onSelect, showCheckbox }: LeadCardProps) {
   const config = DATA_SOURCE_CONFIG[lead.source];
   
   return (
-    <div className={`flex items-center gap-3 p-3 border rounded-lg transition-all duration-200 ${
+    <div className={`flex items-start gap-3 p-4 border rounded-lg transition-all duration-200 ${
       lead.transferredToFlow 
-        ? 'bg-green-50 border-green-200' 
+        ? 'bg-green-900/20 border-green-600' 
         : isSelected 
           ? 'bg-primary/5 border-primary' 
           : 'bg-background border-border hover:border-border/60'
@@ -403,26 +423,112 @@ function LeadCard({ lead, isSelected, onSelect, showCheckbox }: LeadCardProps) {
         <Checkbox
           checked={isSelected}
           onCheckedChange={(checked) => onSelect(lead.id, !!checked)}
+          className="mt-1"
         />
       )}
       
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <h4 className="font-medium text-foreground truncate">{lead.name}</h4>
+      <div className="flex-1 min-w-0 space-y-2">
+        {/* Header with name and source */}
+        <div className="flex items-center gap-2 mb-2">
+          <h4 className={`font-semibold text-base ${
+            lead.transferredToFlow ? 'text-gray-200' : 'text-foreground'
+          }`}>{lead.name}</h4>
           <Badge variant="outline" className={`${config.color} text-xs`}>
             {config.name}
           </Badge>
         </div>
         
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          {lead.email && <span>{lead.email}</span>}
-          {lead.phone && <span>{lead.phone}</span>}
-          {lead.company && <span>{lead.company}</span>}
+        {/* Lead ID */}
+        <div className="flex items-center gap-2">
+          <span className={`text-xs font-medium px-2 py-1 rounded ${
+            lead.transferredToFlow 
+              ? 'text-gray-400 bg-gray-800' 
+              : 'text-muted-foreground bg-muted'
+          }`}>
+            ID: {lead.id}
+          </span>
+          {lead.createdAt && (
+            <span className={`text-xs ${
+              lead.transferredToFlow ? 'text-gray-400' : 'text-muted-foreground'
+            }`}>
+              Creado: {new Date(lead.createdAt).toLocaleDateString('es-ES', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
+            </span>
+          )}
         </div>
+        
+        {/* Contact Information */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+          {lead.email && (
+            <div className="flex items-center gap-1">
+              <span className={lead.transferredToFlow ? "text-gray-400" : "text-muted-foreground"}>📧</span>
+              <span className={`truncate ${lead.transferredToFlow ? "text-gray-300" : "text-foreground"}`}>{lead.email}</span>
+            </div>
+          )}
+          {lead.phone && (
+            <div className="flex items-center gap-1">
+              <span className={lead.transferredToFlow ? "text-gray-400" : "text-muted-foreground"}>📱</span>
+              <span className={lead.transferredToFlow ? "text-gray-300" : "text-foreground"}>{lead.phone}</span>
+            </div>
+          )}
+          {lead.company && (
+            <div className="flex items-center gap-1">
+              <span className={lead.transferredToFlow ? "text-gray-400" : "text-muted-foreground"}>🏢</span>
+              <span className={`truncate ${lead.transferredToFlow ? "text-gray-300" : "text-foreground"}`}>{lead.company}</span>
+            </div>
+          )}
+          {lead.stage && (
+            <div className="flex items-center gap-1">
+              <span className={lead.transferredToFlow ? "text-gray-400" : "text-muted-foreground"}>📊</span>
+              <Badge variant="secondary" className={`text-xs ${
+                lead.transferredToFlow ? "bg-gray-700 text-gray-300 border-gray-600" : ""
+              }`}>
+                {lead.stage}
+              </Badge>
+            </div>
+          )}
+        </div>
+        
+        {/* Additional Meta Ads specific information */}
+        {lead.source === 'meta-ads' && lead.metadata && (
+          <div className={`grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs ${
+            lead.transferredToFlow ? "text-gray-400" : "text-muted-foreground"
+          }`}>
+            {lead.metadata.campaignName && (
+              <div className="flex items-center gap-1">
+                <span>📢</span>
+                <span className="truncate">Campaña: {lead.metadata.campaignName}</span>
+              </div>
+            )}
+            {lead.metadata.adSetName && (
+              <div className="flex items-center gap-1">
+                <span>🎯</span>
+                <span className="truncate">AdSet: {lead.metadata.adSetName}</span>
+              </div>
+            )}
+            {lead.metadata.formId && (
+              <div className="flex items-center gap-1">
+                <span>📝</span>
+                <span className="truncate">Form ID: {lead.metadata.formId}</span>
+              </div>
+            )}
+            {lead.value && (
+              <div className="flex items-center gap-1">
+                <span>💰</span>
+                <span>Valor: ${lead.value}</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
       
       {lead.transferredToFlow && (
-        <div className="flex items-center gap-1 text-green-600">
+        <div className="flex items-center gap-1 text-green-400 mt-1">
           <CheckCircle className="h-4 w-4" />
           <span className="text-xs font-medium">Transferido</span>
         </div>

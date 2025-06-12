@@ -102,24 +102,18 @@ export default function LeadStats({ leads }: LeadStatsProps) {
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={[
-              { name: 'Nuevo', value: stats.nuevo },
-              { name: 'Contactado', value: stats.contactado },
-              { name: 'Calificado', value: stats.calificado },
-              { name: 'Propuesta Enviada', value: stats.propuesta },
-              { name: 'Negociación', value: stats.negociacion },
-              { name: 'Ganado', value: stats.ganado },
-              { name: 'Perdido', value: stats.perdido },
+              { name: 'Nuevo', value: stats.nuevo, fill: '#007bff' },
+              { name: 'Contactado', value: stats.contactado, fill: '#ffc107' },
+              { name: 'Calificado', value: stats.calificado, fill: '#fd7e14' },
+              { name: 'Propuesta Enviada', value: stats.propuesta, fill: '#0dcaf0' },
+              { name: 'Negociación', value: stats.negociacion, fill: '#6f42c1' },
+              { name: 'Ganado', value: stats.ganado, fill: '#198754' },
+              { name: 'Perdido', value: stats.perdido, fill: '#dc3545' },
             ]}>
               <XAxis dataKey="name" />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="value" fill="#007bff" /> {/* Nuevo */}
-              <Bar dataKey="value" fill="#ffc107" /> {/* Contactado */}
-              <Bar dataKey="value" fill="#fd7e14" /> {/* Calificado */}
-              <Bar dataKey="value" fill="#0dcaf0" /> {/* Propuesta Enviada */}
-              <Bar dataKey="value" fill="#6f42c1" /> {/* Negociación */}
-              <Bar dataKey="value" fill="#198754" /> {/* Ganado */}
-              <Bar dataKey="value" fill="#dc3545" /> {/* Perdido */}
+              <Bar dataKey="value" />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>

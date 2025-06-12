@@ -7,11 +7,11 @@ export enum LeadSource {
 }
 
 export const LEAD_SOURCE_COLORS = {
-  [LeadSource.META_ADS]: 'bg-blue-100 text-blue-800 border-blue-200',
-  [LeadSource.GOOGLE_PLACES]: 'bg-green-100 text-green-800 border-green-200',
-  [LeadSource.XML_IMPORT]: 'bg-purple-100 text-purple-800 border-purple-200',
-  [LeadSource.CSV_IMPORT]: 'bg-orange-100 text-orange-800 border-orange-200',
-  [LeadSource.MANUAL]: 'bg-gray-100 text-gray-800 border-gray-200'
+  [LeadSource.META_ADS]: 'bg-blue-900/20 text-blue-300 border-blue-600',
+  [LeadSource.GOOGLE_PLACES]: 'bg-green-900/20 text-green-300 border-green-600',
+  [LeadSource.XML_IMPORT]: 'bg-purple-900/20 text-purple-300 border-purple-600',
+  [LeadSource.CSV_IMPORT]: 'bg-orange-900/20 text-orange-300 border-orange-600',
+  [LeadSource.MANUAL]: 'bg-gray-800 text-gray-300 border-gray-600'
 } as const;
 
 export const LEAD_SOURCE_LABELS = {
@@ -24,6 +24,7 @@ export const LEAD_SOURCE_LABELS = {
 
 export function getLeadSourceFromString(source: string): LeadSource {
   switch (source) {
+    case 'meta_ads':
     case 'meta_lead_ads':
     case 'facebook_ads':
     case 'instagram_ads':
