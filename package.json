@@ -9,7 +9,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "analyze:data": "node scripts/run-analysis.js",
+    "migrate:unified": "tsx scripts/migrate-to-unified.ts",
+    "check:unified": "tsx scripts/check-unified-compatibility.ts"
   },
   "dependencies": {
     "@genkit-ai/googleai": "^1.8.0",
@@ -57,7 +60,7 @@
     "recharts": "^2.15.1",
     "tailwind-merge": "^3.0.1",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^3.24.2"
+    "zod": "^3.25.63"
   },
   "devDependencies": {
     "@types/node": "^20",

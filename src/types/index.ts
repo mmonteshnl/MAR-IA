@@ -29,6 +29,20 @@ export interface LeadImage {
 // Re-export MetaLeadAdsModel as the primary Lead type
 export type { MetaLeadAdsModel as Lead } from './meta-lead-ads';
 
+// Re-export UnifiedLead system
+export type { 
+  UnifiedLead, 
+  CreateLeadInput, 
+  UpdateLeadInput, 
+  LeadFilters,
+  LeadSearchResult,
+  BusinessType,
+  LeadSource,
+  LeadStage,
+  LeadStatus,
+  Priority
+} from './unified-lead';
+
 // Extended Lead interface with additional fields for UI and compatibility
 export interface ExtendedLead extends MetaLeadAdsModel {
   id: string; // Firestore document ID

@@ -17,22 +17,24 @@ import {
   Building, Briefcase, Calendar, Clock, Edit2, Save, X, AlertCircle, 
   Image, User, FileText, History, CheckCircle2, 
   ExternalLink, Sparkles, Target, Users, Car, Home, 
-  Tag, Hash, Database, Eye
+  Tag, Hash, Database, Eye, Star, TrendingUp
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import type { ExtendedLead as Lead, LeadImage, UnifiedLead } from '@/types';
+import type { UnifiedLead, LeadImage, UpdateLeadInput } from '@/types';
 import ImageUploader from '@/components/ImageUploader';
 import { useToast } from '@/hooks/use-toast';
 import { LEAD_STAGES, type LeadStage, stageColors, isFieldMissing, LOCAL_FALLBACK_SOURCE } from '@/lib/leads-utils';
 import { useValuationConfig } from '@/hooks/useValuationConfig';
 import { calculateLeadValuation, formatCurrency } from '@/lib/valuation-calculator';
+import { getLeadSourceIcon, getLeadSourceColor } from '@/lib/lead-converter';
+import { LEAD_SOURCE_LABELS } from '@/types/formatters/lead-sources';
 
-interface LeadDetailsDialogProps {
-  lead: Lead | null;
+interface UnifiedLeadDetailsDialogProps {
+  lead: UnifiedLead | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onUpdate: (leadId: string, updates: Partial<Lead>) => Promise<void>;
+  onUpdate: (leadId: string, updates: UpdateLeadInput) => Promise<void>;
   onUploadImages: (leadId: string, images: LeadImage[]) => Promise<void>;
   onDeleteImage: (leadId: string, imageId: string) => Promise<void>;
   onSetFeaturedImage: (leadId: string, imageId: string) => Promise<void>;
@@ -97,7 +99,7 @@ const InfoField = ({
   );
 };
 
-export default function LeadDetailsDialog({
+export default function UnifiedLeadDetailsDialog({
   lead,
   open,
   onOpenChange,
@@ -108,17 +110,17 @@ export default function LeadDetailsDialog({
   isUploadingImages = false,
   isDeletingImage = null,
   isSettingFeaturedImage = null
-}: LeadDetailsDialogProps) {
+}: UnifiedLeadDetailsDialogProps) {
   const { toast } = useToast();
   const { activeConfig } = useValuationConfig();
   const [isEditing, setIsEditing] = useState(false);
-  const [editedLead, setEditedLead] = useState<Partial<Lead>>({});
+  const [editedLead, setEditedLead] = useState<Partial<UpdateLeadInput>>({});
   const [activeTab, setActiveTab] = useState("overview");
 
   useEffect(() => {
     if (lead) {
       setEditedLead({
-        name: lead.name,
+        fullName: lead.fullName,
         company: lead.company,
         email: lead.email,
         phone: lead.phone,
@@ -152,7 +154,7 @@ export default function LeadDetailsDialog({
 
   const handleCancel = () => {
     setEditedLead({
-      name: lead.name,
+      fullName: lead.fullName,
       company: lead.company,
       email: lead.email,
       phone: lead.phone,
@@ -165,19 +167,18 @@ export default function LeadDetailsDialog({
     setIsEditing(false);
   };
 
-  const featuredImage = lead.images?.find(img => img.is_featured)?.secure_url;
-  const isImported = lead.source === 'xml_import_ia' || lead.source === 'csv_import_ia';
-  const isImportedIncomplete = isImported && (
-    isFieldMissing(lead.address) ||
-    isFieldMissing(lead.businessType) ||
-    isFieldMissing(lead.company) ||
-    isFieldMissing(lead.website)
-  );
-  const isLocal = lead.source === LOCAL_FALLBACK_SOURCE || (lead.source.includes('_import_ia') && !lead.placeId);
+  const featuredImage = lead.metadata.images?.find(img => img.is_featured)?.secure_url;
+  const sourceIcon = getLeadSourceIcon(lead.source);
+  const sourceColor = getLeadSourceColor(lead.source);
+  const sourceLabel = LEAD_SOURCE_LABELS[lead.source as keyof typeof LEAD_SOURCE_LABELS] || lead.source;
+  
+  // Check if it's a Meta Ads lead with full data
+  const isMetaAdsLead = lead.sourceData.type === 'meta_ads';
+  const metaData = isMetaAdsLead ? lead.sourceData : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl h-[90vh] p-0 gap-0 overflow-hidden">
+      <DialogContent className="max-w-6xl h-[95vh] p-0 gap-0 overflow-hidden">
         {/* Header Section */}
         <div className="relative bg-gradient-to-br from-primary/10 via-primary/5 to-background border-b">
           <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.5))]" />
@@ -185,33 +186,26 @@ export default function LeadDetailsDialog({
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-4">
                 <Avatar className="h-20 w-20 ring-4 ring-background shadow-xl">
-                  <AvatarImage src={featuredImage} alt={lead.name} />
+                  <AvatarImage src={featuredImage} alt={lead.fullName} />
                   <AvatarFallback className="text-xl bg-primary text-primary-foreground">
-                    {lead.name.substring(0, 2).toUpperCase()}
+                    {lead.fullName.substring(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <div className="space-y-1">
+                <div className="space-y-2">
                   {isEditing ? (
                     <Input
-                      value={editedLead.name}
-                      onChange={(e) => setEditedLead({...editedLead, name: e.target.value})}
+                      value={editedLead.fullName}
+                      onChange={(e) => setEditedLead({...editedLead, fullName: e.target.value})}
                       className="text-2xl font-bold bg-background/80 backdrop-blur"
                     />
                   ) : (
                     <h2 className="text-2xl font-bold flex items-center gap-2">
-                      {lead.name}
-                      {isLocal && <Badge variant="secondary" className="text-xs">Local</Badge>}
-                      {isImportedIncomplete && (
-                        <div className="group relative">
-                          <AlertCircle className="h-5 w-5 text-orange-400" />
-                          <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-popover text-popover-foreground px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
-                            Información incompleta
-                          </span>
-                        </div>
-                      )}
+                      {lead.fullName}
+                      {lead.status === 'archived' && <Badge variant="secondary" className="text-xs">Archivado</Badge>}
                     </h2>
                   )}
-                  {!isFieldMissing(lead.company) && (
+                  
+                  {lead.company && (
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Building className="h-4 w-4" />
                       {isEditing ? (
@@ -226,14 +220,30 @@ export default function LeadDetailsDialog({
                       )}
                     </div>
                   )}
-                  <div className="flex items-center gap-2 mt-2">
+                  
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Badge className={`${stageColors[lead.stage as LeadStage]} shadow-sm`}>
                       <Sparkles className="h-3 w-3 mr-1" />
                       {lead.stage}
                     </Badge>
-                    <Badge variant="outline" className="text-xs">
-                      {lead.source}
-                    </Badge>
+                    
+                    <div className={`flex items-center gap-1 px-2 py-1 rounded-full border ${sourceColor} text-xs font-medium`}>
+                      <span className="text-sm">{sourceIcon}</span>
+                      <span>{sourceLabel}</span>
+                    </div>
+                    
+                    {lead.priority && lead.priority !== 'medium' && (
+                      <Badge variant={lead.priority === 'high' || lead.priority === 'urgent' ? 'destructive' : 'secondary'}>
+                        {lead.priority === 'urgent' && '🔥'} {lead.priority}
+                      </Badge>
+                    )}
+                    
+                    {lead.leadScore && lead.leadScore > 70 && (
+                      <Badge variant="outline" className="text-yellow-600 border-yellow-200">
+                        <Star className="h-3 w-3 mr-1" />
+                        {lead.leadScore}% Score
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </div>
@@ -264,7 +274,7 @@ export default function LeadDetailsDialog({
         {/* Content Section */}
         <ScrollArea className="flex-1 px-6 py-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList className="grid w-full grid-cols-5 lg:w-[500px]">
+            <TabsList className="grid w-full grid-cols-6 lg:w-[600px]">
               <TabsTrigger value="overview" className="text-xs">
                 <User className="h-4 w-4 mr-1" />
                 General
@@ -273,9 +283,15 @@ export default function LeadDetailsDialog({
                 <Briefcase className="h-4 w-4 mr-1" />
                 Negocio
               </TabsTrigger>
-              <TabsTrigger value="marketing" className="text-xs">
-                <Target className="h-4 w-4 mr-1" />
-                Marketing
+              {isMetaAdsLead && (
+                <TabsTrigger value="marketing" className="text-xs">
+                  <Target className="h-4 w-4 mr-1" />
+                  Marketing
+                </TabsTrigger>
+              )}
+              <TabsTrigger value="pipeline" className="text-xs">
+                <TrendingUp className="h-4 w-4 mr-1" />
+                Pipeline
               </TabsTrigger>
               <TabsTrigger value="media" className="text-xs">
                 <Image className="h-4 w-4 mr-1" />
@@ -349,12 +365,15 @@ export default function LeadDetailsDialog({
                     <InfoField
                       icon={MapPin}
                       label="Dirección"
-                      value={lead.address}
+                      value={lead.address?.formatted}
                       isEditing={isEditing}
                       editComponent={
                         <Input
-                          value={editedLead.address || ''}
-                          onChange={(e) => setEditedLead({...editedLead, address: e.target.value})}
+                          value={editedLead.address?.formatted || ''}
+                          onChange={(e) => setEditedLead({
+                            ...editedLead, 
+                            address: { ...editedLead.address, formatted: e.target.value }
+                          })}
                           placeholder="Dirección"
                           className="text-sm"
                         />
@@ -364,53 +383,40 @@ export default function LeadDetailsDialog({
                 </CardContent>
               </Card>
 
-              {/* Valor Unitario Card */}
-              {activeConfig && (
-                <Card className="border shadow-sm bg-gradient-to-br from-primary/5 to-accent/10 border-primary/20 backdrop-blur-sm">
+              {/* Lead Score and Valuation */}
+              {(lead.leadScore || lead.estimatedValue || activeConfig) && (
+                <Card className="border shadow-sm bg-gradient-to-br from-primary/5 to-accent/10 border-primary/20">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
                       <div className="p-1 rounded-md bg-primary/10">
-                        <Sparkles className="h-4 w-4 text-primary" />
+                        <Star className="h-4 w-4 text-primary" />
                       </div>
                       Valoración del Lead
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {(() => {
-                      const valuation = calculateLeadValuation(lead, activeConfig);
-                      return (
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between p-3 bg-card/50 rounded-lg border border-border/30 backdrop-blur-sm">
-                            <div>
-                              <p className="text-sm font-medium text-muted-foreground">Valor Unitario (VU)</p>
-                              <p className="text-xs text-muted-foreground/70">Proyección basada en etapa actual</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-2xl font-bold text-primary">{valuation.formattedValue}</p>
-                            </div>
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-3 text-xs">
-                            <div className="space-y-1 p-2 bg-muted/30 rounded border border-border/20">
-                              <p className="font-medium text-muted-foreground">Valor Base</p>
-                              <p className="font-semibold text-foreground">{formatCurrency(valuation.baseValue)}</p>
-                            </div>
-                            <div className="space-y-1 p-2 bg-muted/30 rounded border border-border/20">
-                              <p className="font-medium text-muted-foreground">Multiplicador Etapa</p>
-                              <p className="font-semibold text-accent">{Math.round(valuation.stageMultiplier * 100)}%</p>
-                            </div>
-                            <div className="space-y-1 p-2 bg-muted/30 rounded border border-border/20">
-                              <p className="font-medium text-muted-foreground">Bonus Datos</p>
-                              <p className="font-semibold text-green-400">+{formatCurrency(valuation.completenessBonus)}</p>
-                            </div>
-                            <div className="space-y-1 p-2 bg-muted/30 rounded border border-border/20">
-                              <p className="font-medium text-muted-foreground">Bonus IA</p>
-                              <p className="font-semibold text-purple-400">+{formatCurrency(valuation.aiBonus)}</p>
-                            </div>
-                          </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {lead.leadScore && (
+                        <div className="p-3 bg-card/50 rounded-lg border">
+                          <p className="text-sm font-medium text-muted-foreground">Lead Score</p>
+                          <p className="text-2xl font-bold text-primary">{lead.leadScore}%</p>
                         </div>
-                      );
-                    })()}
+                      )}
+                      
+                      {lead.estimatedValue && (
+                        <div className="p-3 bg-card/50 rounded-lg border">
+                          <p className="text-sm font-medium text-muted-foreground">Valor Estimado</p>
+                          <p className="text-2xl font-bold text-green-600">{formatCurrency(lead.estimatedValue)}</p>
+                        </div>
+                      )}
+                      
+                      {lead.closeProbability && (
+                        <div className="p-3 bg-card/50 rounded-lg border">
+                          <p className="text-sm font-medium text-muted-foreground">Prob. Cierre</p>
+                          <p className="text-2xl font-bold text-blue-600">{lead.closeProbability}%</p>
+                        </div>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               )}
@@ -427,50 +433,53 @@ export default function LeadDetailsDialog({
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <InfoField
-                    icon={Briefcase}
-                    label="Tipo de Negocio"
-                    value={lead.businessType}
-                    isEditing={isEditing}
-                    editComponent={
-                      <Input
-                        value={editedLead.businessType || ''}
-                        onChange={(e) => setEditedLead({...editedLead, businessType: e.target.value})}
-                        placeholder="Tipo de negocio"
-                        className="text-sm"
-                      />
-                    }
-                  />
+                  {lead.businessType && (
+                    <InfoField
+                      icon={Briefcase}
+                      label="Tipo de Negocio"
+                      value={lead.businessType}
+                      isEditing={isEditing}
+                    />
+                  )}
 
-                  {/* Interest Information */}
-                  {(!isFieldMissing(lead.vehicle) || !isFieldMissing(lead.homeListing)) && (
+                  {lead.industry && (
+                    <InfoField
+                      icon={Building}
+                      label="Industria"
+                      value={lead.industry}
+                      isEditing={false}
+                    />
+                  )}
+
+                  {/* Interests */}
+                  {lead.interests && (
                     <>
                       <Separator />
                       <div className="space-y-4">
                         <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                           <Eye className="h-4 w-4" />
-                          Interés Específico
+                          Intereses Específicos
                         </h4>
                         
-                        {!isFieldMissing(lead.vehicle) && (
+                        {lead.interests.vehicle && (
                           <InfoField
                             icon={Car}
                             label="Vehículo de Interés"
-                            value={lead.vehicle}
+                            value={lead.interests.vehicle.type}
                             isEditing={false}
                           />
                         )}
                         
-                        {!isFieldMissing(lead.homeListing) && (
+                        {lead.interests.property && (
                           <InfoField
                             icon={Home}
                             label="Propiedad de Interés"
-                            value={lead.homeListing}
+                            value={lead.interests.property.location}
                             isEditing={false}
                           />
                         )}
 
-                        {lead.visitRequest === 'yes' && (
+                        {lead.interests.visitRequested && (
                           <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
                             <Home className="h-4 w-4 text-green-600" />
                             <span className="text-sm font-medium text-green-800">Solicita visita</span>
@@ -511,119 +520,175 @@ export default function LeadDetailsDialog({
               </Card>
             </TabsContent>
 
-            <TabsContent value="marketing" className="space-y-4 mt-4">
+            {/* Marketing Tab - Only for Meta Ads leads */}
+            {isMetaAdsLead && metaData && (
+              <TabsContent value="marketing" className="space-y-4 mt-4">
+                <Card className="border-0 shadow-sm">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                      <div className="p-1 rounded-md bg-primary/10">
+                        <Target className="h-4 w-4 text-primary" />
+                      </div>
+                      Información de Marketing (Meta Ads)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <InfoField
+                        icon={Target}
+                        label="Campaña"
+                        value={metaData.campaignName}
+                        isEditing={false}
+                      />
+                      
+                      <InfoField
+                        icon={Users}
+                        label="Conjunto de Anuncios"
+                        value={metaData.adSetName}
+                        isEditing={false}
+                      />
+                      
+                      <InfoField
+                        icon={Tag}
+                        label="Anuncio"
+                        value={metaData.adName}
+                        isEditing={false}
+                      />
+                      
+                      <InfoField
+                        icon={Building}
+                        label="Socio/Fuente"
+                        value={metaData.partnerName}
+                        isEditing={false}
+                      />
+                    </div>
+
+                    <Separator />
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <InfoField
+                        icon={Hash}
+                        label="ID de Campaña"
+                        value={metaData.campaignId}
+                        isEditing={false}
+                      />
+                      
+                      <InfoField
+                        icon={Hash}
+                        label="ID de Conjunto"
+                        value={metaData.adSetId}
+                        isEditing={false}
+                      />
+                      
+                      <InfoField
+                        icon={Hash}
+                        label="ID de Lead"
+                        value={lead.leadId}
+                        isEditing={false}
+                      />
+                    </div>
+
+                    <Separator />
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <InfoField
+                        icon={Database}
+                        label="ID de Formulario"
+                        value={metaData.formId}
+                        isEditing={false}
+                      />
+                      
+                      <InfoField
+                        icon={Database}
+                        label="ID de Plataforma"
+                        value={metaData.platformId}
+                        isEditing={false}
+                      />
+                    </div>
+
+                    {metaData.retailerItemId && (
+                      <InfoField
+                        icon={Tag}
+                        label="ID de Artículo Retailer"
+                        value={metaData.retailerItemId}
+                        isEditing={false}
+                      />
+                    )}
+
+                    <div className="flex items-center gap-2 p-3 rounded-lg border">
+                      <div className={`w-3 h-3 rounded-full ${metaData.isOrganic ? 'bg-green-500' : 'bg-blue-500'}`}></div>
+                      <span className="text-sm font-medium">
+                        Tipo: {metaData.isOrganic ? 'Orgánico' : 'Pagado'}
+                      </span>
+                    </div>
+
+                    {metaData.customResponses && (
+                      <>
+                        <Separator />
+                        <div className="space-y-2">
+                          <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            Respuestas Personalizadas
+                          </Label>
+                          <div className="p-4 rounded-lg bg-muted/30">
+                            <p className="whitespace-pre-wrap text-sm">{metaData.customResponses}</p>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
+
+            {/* Pipeline Tab */}
+            <TabsContent value="pipeline" className="space-y-4 mt-4">
               <Card className="border-0 shadow-sm">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base font-semibold flex items-center gap-2">
                     <div className="p-1 rounded-md bg-primary/10">
-                      <Target className="h-4 w-4 text-primary" />
+                      <TrendingUp className="h-4 w-4 text-primary" />
                     </div>
-                    Información de Marketing
+                    Pipeline de Ventas
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <InfoField
-                      icon={Target}
-                      label="Campaña"
-                      value={lead.campaignName}
-                      isEditing={false}
-                    />
+                    {lead.assignedTo && (
+                      <InfoField
+                        icon={User}
+                        label="Asignado a"
+                        value={lead.assignedTo}
+                        isEditing={false}
+                      />
+                    )}
                     
-                    <InfoField
-                      icon={Users}
-                      label="Conjunto de Anuncios"
-                      value={lead.adSetName}
-                      isEditing={false}
-                    />
+                    {lead.nextFollowUpDate && (
+                      <InfoField
+                        icon={Calendar}
+                        label="Próximo Seguimiento"
+                        value={format(new Date(lead.nextFollowUpDate), "d 'de' MMMM, yyyy", { locale: es })}
+                        isEditing={false}
+                      />
+                    )}
                     
-                    <InfoField
-                      icon={Tag}
-                      label="Anuncio"
-                      value={lead.adName}
-                      isEditing={false}
-                    />
+                    {lead.expectedCloseDate && (
+                      <InfoField
+                        icon={Calendar}
+                        label="Fecha Esperada de Cierre"
+                        value={format(new Date(lead.expectedCloseDate), "d 'de' MMMM, yyyy", { locale: es })}
+                        isEditing={false}
+                      />
+                    )}
                     
-                    <InfoField
-                      icon={Building}
-                      label="Socio/Fuente"
-                      value={lead.partnerName}
-                      isEditing={false}
-                    />
+                    {lead.communicationCount !== undefined && (
+                      <InfoField
+                        icon={MessageSquareText}
+                        label="Comunicaciones"
+                        value={lead.communicationCount.toString()}
+                        isEditing={false}
+                      />
+                    )}
                   </div>
-
-                  <Separator />
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <InfoField
-                      icon={Hash}
-                      label="ID de Campaña"
-                      value={lead.campaignId}
-                      isEditing={false}
-                    />
-                    
-                    <InfoField
-                      icon={Hash}
-                      label="ID de Conjunto"
-                      value={lead.adSetId}
-                      isEditing={false}
-                    />
-                    
-                    <InfoField
-                      icon={Hash}
-                      label="ID de Lead"
-                      value={lead.leadId}
-                      isEditing={false}
-                    />
-                  </div>
-
-                  <Separator />
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <InfoField
-                      icon={Database}
-                      label="ID de Formulario"
-                      value={lead.formId}
-                      isEditing={false}
-                    />
-                    
-                    <InfoField
-                      icon={Database}
-                      label="ID de Plataforma"
-                      value={lead.platformId}
-                      isEditing={false}
-                    />
-                  </div>
-
-                  {!isFieldMissing(lead.retailerItemId) && (
-                    <InfoField
-                      icon={Tag}
-                      label="ID de Artículo Retailer"
-                      value={lead.retailerItemId}
-                      isEditing={false}
-                    />
-                  )}
-
-                  <div className="flex items-center gap-2 p-3 rounded-lg border">
-                    <div className={`w-3 h-3 rounded-full ${lead.isOrganic === 'true' ? 'bg-green-500' : 'bg-blue-500'}`}></div>
-                    <span className="text-sm font-medium">
-                      Tipo: {lead.isOrganic === 'true' ? 'Orgánico' : 'Pagado'}
-                    </span>
-                  </div>
-
-                  {!isFieldMissing(lead.customDisclaimerResponses) && (
-                    <>
-                      <Separator />
-                      <div className="space-y-2">
-                        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                          Respuestas Personalizadas
-                        </Label>
-                        <div className="p-4 rounded-lg bg-muted/30">
-                          <p className="whitespace-pre-wrap text-sm">{lead.customDisclaimerResponses}</p>
-                        </div>
-                      </div>
-                    </>
-                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -643,15 +708,15 @@ export default function LeadDetailsDialog({
                     onUploadSuccess={uploadResult => onUploadImages(lead.id, [{
                       public_id: uploadResult.public_id,
                       secure_url: uploadResult.secure_url,
-                      is_featured: !lead.images || lead.images.length === 0,
+                      is_featured: !lead.metadata.images || lead.metadata.images.length === 0,
                       uploaded_at: new Date().toISOString()
                     }])}
                     contextId={lead.id}
                   />
                   
-                  {lead.images && lead.images.length > 0 && (
+                  {lead.metadata.images && lead.metadata.images.length > 0 && (
                     <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {lead.images.map((image) => (
+                      {lead.metadata.images.map((image) => (
                         <div key={image.public_id} className="relative group rounded-lg overflow-hidden shadow-sm">
                           <img 
                             src={image.secure_url} 
@@ -684,21 +749,15 @@ export default function LeadDetailsDialog({
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {/* Original Meta Lead Creation Date */}
-                    {!isFieldMissing(lead.dateCreated) && (
+                    {/* Original Source Creation Date */}
+                    {lead.sourceCreatedAt && (
                       <div className="flex items-center justify-between p-4 rounded-lg bg-blue-50 border border-blue-200">
                         <div className="flex items-center gap-3">
                           <Target className="h-5 w-5 text-blue-600" />
                           <div>
-                            <p className="text-sm font-medium text-blue-900">Fecha de creación del lead (Meta)</p>
+                            <p className="text-sm font-medium text-blue-900">Fecha de creación original</p>
                             <p className="text-xs text-blue-600">
-                              {(() => {
-                                try {
-                                  return format(new Date(lead.dateCreated), "d 'de' MMMM, yyyy 'a las' HH:mm", { locale: es });
-                                } catch {
-                                  return lead.dateCreated;
-                                }
-                              })()}
+                              {format(new Date(lead.sourceCreatedAt), "d 'de' MMMM, yyyy 'a las' HH:mm", { locale: es })}
                             </p>
                           </div>
                         </div>
@@ -706,59 +765,30 @@ export default function LeadDetailsDialog({
                     )}
 
                     {/* System Creation Date */}
-                    {lead.createdAt && (
-                      <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30">
-                        <div className="flex items-center gap-3">
-                          <Calendar className="h-5 w-5 text-muted-foreground" />
-                          <div>
-                            <p className="text-sm font-medium">Fecha de importación al sistema</p>
-                            <p className="text-xs text-muted-foreground">
-                              {format(
-                                lead.createdAt instanceof Date
-                                  ? lead.createdAt
-                                  : (typeof lead.createdAt === "object" && "toDate" in lead.createdAt)
-                                    ? (lead.createdAt as any).toDate()
-                                    : new Date(lead.createdAt),
-                                "d 'de' MMMM, yyyy 'a las' HH:mm",
-                                { locale: es }
-                              )}
-                            </p>
-                          </div>
+                    <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30">
+                      <div className="flex items-center gap-3">
+                        <Calendar className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm font-medium">Fecha de importación al sistema</p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(lead.createdAt), "d 'de' MMMM, yyyy 'a las' HH:mm", { locale: es })}
+                          </p>
                         </div>
                       </div>
-                    )}
+                    </div>
                     
                     {/* System Update Date */}
-                    {lead.updatedAt && (
-                      <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30">
-                        <div className="flex items-center gap-3">
-                          <Clock className="h-5 w-5 text-muted-foreground" />
-                          <div>
-                            <p className="text-sm font-medium">Última actualización del sistema</p>
-                            <p className="text-xs text-muted-foreground">
-                              {(() => {
-                                try {
-                                  let date;
-                                  if (lead.updatedAt instanceof Date) {
-                                    date = lead.updatedAt;
-                                  } else if (typeof lead.updatedAt === "object" && "toDate" in lead.updatedAt) {
-                                    date = (lead.updatedAt as any).toDate();
-                                  } else if (typeof lead.updatedAt === 'string') {
-                                    // Try to parse as ISO string or Meta format
-                                    date = new Date(lead.updatedAt);
-                                  } else {
-                                    date = new Date(lead.updatedAt);
-                                  }
-                                  return format(date, "d 'de' MMMM, yyyy 'a las' HH:mm", { locale: es });
-                                } catch {
-                                  return String(lead.updatedAt);
-                                }
-                              })()}
-                            </p>
-                          </div>
+                    <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30">
+                      <div className="flex items-center gap-3">
+                        <Clock className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm font-medium">Última actualización</p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(lead.updatedAt), "d 'de' MMMM, yyyy 'a las' HH:mm", { locale: es })}
+                          </p>
                         </div>
                       </div>
-                    )}
+                    </div>
 
                     {/* Lead Source Information */}
                     <Separator />
@@ -771,15 +801,13 @@ export default function LeadDetailsDialog({
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div className="p-3 rounded-lg bg-muted/20 border">
                           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Fuente</p>
-                          <p className="text-sm font-medium">{lead.source}</p>
+                          <p className="text-sm font-medium">{sourceLabel}</p>
                         </div>
                         
-                        {lead.placeId && (
-                          <div className="p-3 rounded-lg bg-muted/20 border">
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Place ID</p>
-                            <p className="text-sm font-medium font-mono">{lead.placeId}</p>
-                          </div>
-                        )}
+                        <div className="p-3 rounded-lg bg-muted/20 border">
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">ID de Lead</p>
+                          <p className="text-sm font-medium font-mono">{lead.leadId}</p>
+                        </div>
                       </div>
                     </div>
                   </div>
