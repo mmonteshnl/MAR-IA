@@ -37,6 +37,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { User as FirebaseUser } from 'firebase/auth';
 import Image from 'next/image';
+import LoadingComponent from '@/components/LoadingComponent';
 
 // Replace LogoIcon with logo.png in SidebarHeader
 const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
@@ -79,27 +80,12 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
      if (noSidebarPaths.includes(pathname)) {
         return <>{children}<Toaster /></>;
      }
-     return ( 
-      <div className="flex items-center justify-center min-h-screen bg-sidebar-background">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="text-sm text-muted-foreground">Cargando aplicación...</p>
-        </div>
-      </div>
-    );
+     return <LoadingComponent message="Cargando aplicación..." />;
   }
 
   // Mostrar loading mientras se inicializan las colecciones de Firebase
   if (user && isInitializing && !noSidebarPaths.includes(pathname)) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-sidebar-background">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="text-sm text-muted-foreground">Inicializando configuraciones...</p>
-          <p className="text-xs text-muted-foreground/60">Configurando tu espacio de trabajo por primera vez</p>
-        </div>
-      </div>
-    );
+    return <LoadingComponent message="Inicializando configuraciones..." />;
   }
 
   if (showOnlyChildren) {

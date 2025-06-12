@@ -4,7 +4,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import LoadingComponent from '@/components/LoadingComponent';
 
 export default function HomePage() {
   const router = useRouter();
@@ -22,9 +22,7 @@ export default function HomePage() {
 
   if (loading || !initialLoadDone) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <LoadingSpinner size="lg" />
-      </div>
+      <LoadingComponent message="Iniciando aplicación..." />
     );
   }
   

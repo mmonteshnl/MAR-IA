@@ -7,7 +7,7 @@ import { useOrganization } from '@/hooks/useOrganization';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import LoadingSpinner from '@/components/LoadingSpinner';
+import LoadingComponent from '@/components/LoadingComponent';
 import { Search, LineChart, Users, Target, Clock, TrendingUp } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp, Timestamp as FirestoreTimestamp, query, where, getDocs, orderBy } from 'firebase/firestore';
@@ -340,28 +340,15 @@ export default function BusinessFinderDashboard() {
   };
 
   if (authLoading || orgLoading || !initialLoadDone) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
+    return <LoadingComponent message="Cargando dashboard..." />;
   }
 
   if (!user && initialLoadDone) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <p className="text-foreground mr-2">Redirigiendo al inicio de sesión...</p>
-        <LoadingSpinner size="md" />
-      </div>
-    );
+    return <LoadingComponent message="Redirigiendo al inicio de sesión..." size="small" />;
   }
   
   if (!user || !currentOrganization) {
-     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
+     return <LoadingComponent message="Cargando organización..." />;
   }
 
   return (

@@ -7,7 +7,7 @@ import { useOrganization } from '@/hooks/useOrganization';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import LoadingSpinner from '@/components/LoadingSpinner';
+import LoadingComponent from '@/components/LoadingComponent';
 import { LogOut, PlusCircle, ArrowLeft, KanbanSquare, List, FileUp, Search, Facebook, Filter } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -520,7 +520,7 @@ export default function LeadsPage() {
   if (!initialLoadDone || authLoading || orgLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
-        <LoadingSpinner size="lg" />
+        <LoadingComponent message="Cargando leads..." />
       </div>
     );
   }
@@ -529,7 +529,7 @@ export default function LeadsPage() {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <p className="text-foreground mr-2">Redirigiendo al inicio de sesión...</p>
-        <LoadingSpinner size="md" />
+        <LoadingComponent message="Cargando organización..." size="small" />
       </div>
     );
   }

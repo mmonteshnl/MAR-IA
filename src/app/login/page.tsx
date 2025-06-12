@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { Mail, Lock, Chrome, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import LoadingComponent from '@/components/LoadingComponent';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -94,9 +94,7 @@ export default function LoginPage() {
   
   if (loading || (initialLoadDone && user)) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <LoadingSpinner size="lg" />
-      </div>
+      <LoadingComponent message="Verificando sesión..." />
     );
   }
 
@@ -119,7 +117,7 @@ export default function LoginPage() {
             className="w-full"
           >
             {isSubmitting ? (
-              <LoadingSpinner size="sm" />
+              "Conectando..."
             ) : (
               <>
                 <Chrome className="mr-2 h-4 w-4" />
@@ -197,7 +195,7 @@ export default function LoginPage() {
               className="w-full"
             >
               {isSubmitting ? (
-                <LoadingSpinner size="sm" />
+                "Iniciando sesión..."
               ) : (
                 'Iniciar Sesión'
               )}

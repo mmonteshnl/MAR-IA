@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Mail, Lock, User, Chrome, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import LoadingComponent from '@/components/LoadingComponent';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -122,7 +122,7 @@ export default function RegisterPage() {
   if (loading || (initialLoadDone && user)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
-        <LoadingSpinner size="lg" />
+        <LoadingComponent message="Verificando sesión..." />
       </div>
     );
   }
