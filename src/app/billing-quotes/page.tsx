@@ -30,9 +30,13 @@ import {
 } from 'lucide-react';
 import BillingQuoteModal from '@/components/BillingQuoteModal';
 import BillingQuoteDetailModal from '@/components/BillingQuoteDetailModal';
+import HybridQuoteModal from '@/components/HybridQuoteModal';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { BillingQuote } from '@/types/billing-quotes';
+import type { ExtendedLead as Lead } from '@/types';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { getBusinessTypeFromMetaLead } from '@/lib/lead-converter';
 
 interface BillingQuoteStats {
   total: number;
@@ -51,13 +55,17 @@ export default function BillingQuotesPage() {
   
   const [quotes, setQuotes] = useState<BillingQuote[]>([]);
   const [filteredQuotes, setFilteredQuotes] = useState<BillingQuote[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [templateFilter, setTemplateFilter] = useState<string>('all');
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
+  const [isHybridQuoteModalOpen, setIsHybridQuoteModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedQuoteForDetail, setSelectedQuoteForDetail] = useState<BillingQuote | null>(null);
+  const [selectedLeadForQuote, setSelectedLeadForQuote] = useState<Lead | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingLeads, setLoadingLeads] = useState(false);
   const [stats, setStats] = useState<BillingQuoteStats | null>(null);
 
   // Fetch billing quotes
@@ -100,6 +108,43 @@ export default function BillingQuotesPage() {
 
     fetchQuotes();
   }, [user, currentOrganization, toast]);
+
+  // Fetch leads when no quotes exist
+  const fetchLeads = async () => {
+    if (!user || !currentOrganization) return;
+    
+    setLoadingLeads(true);
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch('/api/getLeadsFlow', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          organizationId: currentOrganization.id,
+          userId: user.uid
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setLeads(data.leads || []);
+      }
+    } catch (error) {
+      console.error('Error fetching leads:', error);
+    } finally {
+      setLoadingLeads(false);
+    }
+  };
+
+  // Load leads when there are no quotes
+  useEffect(() => {
+    if (!loading && quotes.length === 0) {
+      fetchLeads();
+    }
+  }, [loading, quotes.length]);
 
   // Filter quotes
   useEffect(() => {
@@ -195,6 +240,15 @@ export default function BillingQuotesPage() {
       console.error('Error refreshing quotes:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateQuoteFromLead = (lead: Lead, isHybrid: boolean = false) => {
+    setSelectedLeadForQuote(lead);
+    if (isHybrid) {
+      setIsHybridQuoteModalOpen(true);
+    } else {
+      setIsQuoteModalOpen(true);
     }
   };
 
@@ -345,24 +399,131 @@ export default function BillingQuotesPage() {
             </CardContent>
           </Card>
         ) : filteredQuotes.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center">
-              <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">No hay cotizaciones PandaDoc</h3>
-              <p className="text-muted-foreground mb-4">
-                {quotes.length === 0 
-                  ? "Aún no has creado ninguna cotización con PandaDoc. ¡Crea tu primera cotización!"
-                  : "No se encontraron cotizaciones con los filtros aplicados."
-                }
-              </p>
-              {quotes.length === 0 && (
-                <Button onClick={() => setIsQuoteModalOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Crear Primera Cotización
-                </Button>
+          quotes.length === 0 ? (
+            // Show leads list when no quotes exist
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Selecciona un Lead para Crear tu Primera Cotización
+                  </CardTitle>
+                  <p className="text-muted-foreground">
+                    Elige un lead de tu lista para generar una cotización automáticamente con sus datos.
+                  </p>
+                </CardHeader>
+              </Card>
+
+              {loadingLeads ? (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">Cargando leads disponibles...</p>
+                  </CardContent>
+                </Card>
+              ) : leads.length === 0 ? (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No hay leads disponibles</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Primero crea algunos leads para poder generar cotizaciones.
+                    </p>
+                    <Button onClick={() => window.open('/leads', '_blank')}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Ir a Crear Leads
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-4">
+                  {leads.slice(0, 10).map((lead) => {
+                    const businessType = getBusinessTypeFromMetaLead(lead);
+                    const featuredImage = lead.images?.find(img => img.isFeatured)?.url;
+                    
+                    return (
+                      <Card key={lead.id} className="hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-10 w-10">
+                                <AvatarImage src={featuredImage} alt={lead.name} />
+                                <AvatarFallback>
+                                  {(lead.fullName || lead.name).substring(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              
+                              <div>
+                                <h3 className="font-semibold">{lead.fullName || lead.name}</h3>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <span>{lead.email || 'Sin email'}</span>
+                                  {businessType && (
+                                    <>
+                                      <span>•</span>
+                                      <span className="capitalize">{businessType}</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleCreateQuoteFromLead(lead, false)}
+                              >
+                                <Building2 className="h-4 w-4 mr-2" />
+                                PandaDoc
+                              </Button>
+                              <Button 
+                                size="sm"
+                                onClick={() => handleCreateQuoteFromLead(lead, true)}
+                                className="bg-gradient-to-r from-blue-600 to-purple-600"
+                              >
+                                <span className="mr-2">⚡</span>
+                                Híbrida IA+PandaDoc
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                  
+                  {leads.length > 10 && (
+                    <Card>
+                      <CardContent className="p-4 text-center">
+                        <p className="text-muted-foreground mb-2">
+                          Mostrando 10 de {leads.length} leads disponibles
+                        </p>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => window.open('/leads', '_blank')}
+                        >
+                          Ver Todos los Leads
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          ) : (
+            // Show no results message when filtering
+            <Card>
+              <CardContent className="p-8 text-center">
+                <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">No se encontraron cotizaciones</h3>
+                <p className="text-muted-foreground mb-4">
+                  No hay cotizaciones que coincidan con los filtros aplicados.
+                </p>
+                <Button variant="outline" onClick={clearFilters}>
+                  Limpiar filtros
+                </Button>
+              </CardContent>
+            </Card>
+          )
         ) : (
           filteredQuotes.map((quote) => (
             <Card key={quote.id} className="hover:shadow-md transition-shadow">
@@ -480,11 +641,34 @@ export default function BillingQuotesPage() {
         onOpenChange={(open) => {
           setIsQuoteModalOpen(open);
           if (!open) {
+            setSelectedLeadForQuote(null);
             // Refresh quotes when modal closes (in case a new quote was created)
             refreshQuotes();
           }
         }}
-        currentLead={null}
+        currentLead={selectedLeadForQuote ? {
+          name: selectedLeadForQuote.fullName || selectedLeadForQuote.name,
+          email: selectedLeadForQuote.email,
+          businessType: getBusinessTypeFromMetaLead(selectedLeadForQuote)
+        } : null}
+      />
+
+      {/* Modal for creating hybrid quotes */}
+      <HybridQuoteModal
+        open={isHybridQuoteModalOpen}
+        onOpenChange={(open) => {
+          setIsHybridQuoteModalOpen(open);
+          if (!open) {
+            setSelectedLeadForQuote(null);
+            // Refresh quotes when modal closes (in case a new quote was created)
+            refreshQuotes();
+          }
+        }}
+        currentLead={selectedLeadForQuote ? {
+          name: selectedLeadForQuote.fullName || selectedLeadForQuote.name,
+          email: selectedLeadForQuote.email,
+          businessType: getBusinessTypeFromMetaLead(selectedLeadForQuote)
+        } : null}
       />
 
       {/* Modal for viewing quote details */}

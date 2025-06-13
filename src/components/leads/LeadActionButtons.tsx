@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { BrainCircuit, Lightbulb, PackageSearch, Mail, Sparkles, Loader2, ChevronDown, AlertTriangle, Calculator, Building2 } from 'lucide-react';
+import { BrainCircuit, Lightbulb, PackageSearch, Mail, Sparkles, Loader2, ChevronDown, AlertTriangle, Calculator, Building2, Zap } from 'lucide-react';
 import type { ExtendedLead as Lead } from '@/types';
 import { isFieldMissing } from '@/lib/leads-utils';
 
@@ -15,6 +15,7 @@ interface LeadActionButtonsProps {
   onGenerateSolutionEmail: (lead: Lead) => void;
   onGenerateQuote: (lead: Lead) => void;
   onGenerateBillingQuote?: (lead: Lead) => void;
+  onGenerateHybridQuote?: (lead: Lead) => void;
   currentActionLead: Lead | null; // Allow null for initial state
   isActionLoading: boolean;
   currentActionType: string | null; // Allow null for initial state
@@ -28,6 +29,7 @@ export default function LeadActionButtons({
   onGenerateSolutionEmail,
   onGenerateQuote,
   onGenerateBillingQuote,
+  onGenerateHybridQuote,
   currentActionLead,
   isActionLoading,
   currentActionType,
@@ -96,6 +98,16 @@ export default function LeadActionButtons({
       onClick: onGenerateBillingQuote || (() => {}),
       disabled: !onGenerateBillingQuote || isCurrentlyProcessing,
       color: 'text-cyan-400',
+      availableStages: [ 'Nuevo','Contactado','Calificado','Propuesta Enviada','Negociación','Ganado','Perdido','Prospecto','Interesado','Propuesta','Vendido']
+    },
+    {
+      id: 'hybrid-quote',
+      label: 'Cotización Híbrida IA+PandaDoc',
+      description: 'Combina análisis IA con documentos PandaDoc',
+      icon: Zap,
+      onClick: onGenerateHybridQuote || (() => {}),
+      disabled: !onGenerateHybridQuote || isCurrentlyProcessing,
+      color: 'text-purple-400',
       availableStages: [ 'Nuevo','Contactado','Calificado','Propuesta Enviada','Negociación','Ganado','Perdido','Prospecto','Interesado','Propuesta','Vendido']
     }
   ];

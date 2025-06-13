@@ -48,6 +48,10 @@ export default function LeadActionResultModal({
     autoSent: boolean;
   }>({ connected: false, checking: false, autoSending: false, autoSent: false });
 
+  // Estado para editar número de teléfono
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [editedPhone, setEditedPhone] = useState('');
+
   // Memoized values
   const hasPhoneNumber = useMemo(() => 
     Boolean(currentLead?.phone && !isFieldMissing(currentLead.phone)), 
@@ -98,19 +102,35 @@ export default function LeadActionResultModal({
     }
   }, [resolveText, actions]);
   
-  // Verificar estado de WhatsApp
+  // Verificar estado de WhatsApp usando Evolution API
   const checkWhatsAppStatus = useCallback(async () => {
     setWhatsappStatus(prev => ({ ...prev, checking: true }));
     
     try {
-      const response = await fetch('/api/whatsapp/status');
-      const result = await response.json();
+      // Usar Evolution API endpoint
+      const response = await fetch('http://localhost:8081/instance/connectionState/h', {
+        method: 'GET',
+        headers: {
+          'apikey': 'evolution_api_key_2024'
+        }
+      });
       
-      setWhatsappStatus(prev => ({
-        ...prev,
-        connected: result.connected,
-        checking: false
-      }));
+      if (response.ok) {
+        const result = await response.json();
+        const isConnected = result.instance?.state === 'open';
+        
+        setWhatsappStatus(prev => ({
+          ...prev,
+          connected: isConnected,
+          checking: false
+        }));
+      } else {
+        setWhatsappStatus(prev => ({
+          ...prev,
+          connected: false,
+          checking: false
+        }));
+      }
     } catch (error) {
       console.error('Error checking WhatsApp status:', error);
       setWhatsappStatus(prev => ({
@@ -170,8 +190,33 @@ export default function LeadActionResultModal({
     }
   }, [currentLead, contentText, whatsappStatus.autoSending, whatsappStatus.autoSent]);
 
-  const handleWhatsAppSend = useCallback(async (customText?: string) => {
-    if (!hasPhoneNumber) {
+  // Función para normalizar número de teléfono
+  const normalizePhoneNumber = useCallback((phone: string) => {
+    // Limpiar el número de teléfono
+    let cleanPhone = phone.replace(/\D/g, '');
+    
+    // Lógica de formateo según la documentación Evolution API
+    if (cleanPhone.length === 8) {
+      // Número local, agregar código de país Costa Rica
+      cleanPhone = '506' + cleanPhone;
+    } else if (cleanPhone.length === 10 && !cleanPhone.startsWith('506')) {
+      // Número de 10 dígitos sin código de país
+      cleanPhone = '506' + cleanPhone;
+    } else if (cleanPhone.length === 11 && cleanPhone.startsWith('1')) {
+      // Número de Estados Unidos/Canadá
+      cleanPhone = cleanPhone;
+    } else if (cleanPhone.length === 12 && cleanPhone.startsWith('52')) {
+      // Número de México
+      cleanPhone = cleanPhone;
+    }
+    
+    return cleanPhone;
+  }, []);
+
+  const handleWhatsAppSend = useCallback(async (customText?: string, customPhone?: string) => {
+    const phoneToUse = customPhone || editedPhone || currentLead?.phone;
+    
+    if (!phoneToUse) {
       alert('❌ No hay número de teléfono disponible para este contacto');
       return;
     }
@@ -185,39 +230,41 @@ export default function LeadActionResultModal({
     actions.startSending();
     
     try {
-      // Simular delay para mostrar animación
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Normalizar número de teléfono
+      const normalizedPhone = normalizePhoneNumber(phoneToUse);
       
-      // Limpiar el número de teléfono
-      const cleanPhone = currentLead!.phone!.replace(/\D/g, '');
-      
-      // Asegurar que el número tenga el formato correcto
-      let phoneNumber = cleanPhone;
-      if (phoneNumber.length === 10 && !phoneNumber.startsWith('52')) {
-        phoneNumber = '52' + phoneNumber;
-      } else if (phoneNumber.length === 11 && phoneNumber.startsWith('1')) {
-        phoneNumber = phoneNumber;
-      } else if (phoneNumber.length === 12 && phoneNumber.startsWith('52')) {
-        phoneNumber = phoneNumber;
+      // Usar Evolution API para enviar mensaje
+      const response = await fetch('http://localhost:8081/message/sendText/h', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': 'evolution_api_key_2024'
+        },
+        body: JSON.stringify({
+          number: normalizedPhone,
+          text: textToSend
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Mensaje enviado exitosamente:', result);
+        actions.sendSuccess();
+        setTimeout(() => actions.sendReset(), 3000);
+        alert(`✅ Mensaje enviado exitosamente a ${normalizedPhone}`);
+      } else {
+        const errorData = await response.json();
+        console.error('❌ Error al enviar mensaje:', errorData);
+        alert(`❌ Error al enviar mensaje: ${errorData.message || 'Error desconocido'}`);
       }
       
-      // Codificar el mensaje
-      const message = encodeURIComponent(textToSend);
-      
-      // Crear el enlace de WhatsApp
-      const whatsappUrl = `https://wa.me/${phoneNumber}?text=${message}`;
-      
-      // Abrir WhatsApp
-      window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
-      
-      actions.sendSuccess();
-      setTimeout(() => actions.sendReset(), 3000);
-      
     } catch (error) {
-      console.error('Error al generar enlace de WhatsApp:', error);
-      alert('❌ Error al generar el enlace de WhatsApp');
+      console.error('Error al enviar mensaje via Evolution API:', error);
+      alert('❌ Error de conexión con Evolution API');
+    } finally {
+      actions.sendReset();
     }
-  }, [hasPhoneNumber, resolveText, actions, currentLead]);
+  }, [hasPhoneNumber, resolveText, actions, currentLead, editedPhone, normalizePhoneNumber]);
 
   const handleStartEdit = useCallback(() => {
     actions.startEdit(contentText);
@@ -227,8 +274,10 @@ export default function LeadActionResultModal({
   useEffect(() => {
     if (open) {
       checkWhatsAppStatus();
+      // Inicializar número editado - SIEMPRE inicializar
+      setEditedPhone(currentLead?.phone || '');
     }
-  }, [open]);
+  }, [open, currentLead?.phone, checkWhatsAppStatus]);
 
   // Auto-envío para mensajes de bienvenida
   useEffect(() => {
@@ -247,17 +296,17 @@ export default function LeadActionResultModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-gradient-to-br from-gray-50 to-white">
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-gradient-to-br from-gray-900 to-gray-800 text-white border-gray-700">
         {actionResult && actionResult.error ? (
           <>
             <DialogHeader className="space-y-3">
-              <DialogTitle className="text-xl font-semibold text-gray-900">
+              <DialogTitle className="text-xl font-semibold text-white">
                 Error al generar contenido
               </DialogTitle>
             </DialogHeader>
-            <Separator className="my-4" />
+            <Separator className="my-4 bg-gray-700" />
             <div className="space-y-4">
-              <Alert variant="destructive">
+              <Alert variant="destructive" className="bg-red-900/20 border-red-700 text-red-200">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Error al generar contenido</AlertTitle>
                 <AlertDescription className="mt-2">
@@ -292,15 +341,15 @@ export default function LeadActionResultModal({
         ) : (
           <>
             <DialogHeader className="space-y-3">
-              <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-100">
-                <div className="p-3 rounded-full bg-white shadow-sm border border-gray-200">
+              <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-gray-800 to-gray-700 rounded-lg border border-gray-600">
+                <div className="p-3 rounded-full bg-gray-700 shadow-sm border border-gray-600">
                   {modalIcon}
                 </div>
                 <div className="flex-1">
-                  <DialogTitle className="text-xl font-semibold text-gray-900">
+                  <DialogTitle className="text-xl font-semibold text-white">
                     {modalTitle}
                   </DialogTitle>
-                  <p className="text-sm text-gray-600 mt-1">Resultado impulsado por inteligencia artificial</p>
+                  <p className="text-sm text-gray-300 mt-1">Resultado impulsado por inteligencia artificial</p>
                 </div>
                 <div className="inline-flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm rounded-full font-medium shadow-sm">
                   <Sparkles className="h-3 w-3" />
@@ -308,7 +357,7 @@ export default function LeadActionResultModal({
                 </div>
               </div>
             </DialogHeader>
-            <Separator className="my-4" />
+            <Separator className="my-4 bg-gray-700" />
             <div className="space-y-4">
               {!state.isEditing && (
                 <QuickActions
@@ -334,17 +383,17 @@ export default function LeadActionResultModal({
               />
 
               {/* Estado de WhatsApp */}
-              <div className="p-3 bg-gray-50 border rounded-lg">
+              <div className="p-3 bg-gray-800 border border-gray-700 rounded-lg">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     {whatsappStatus.checking ? (
                       <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
                     ) : whatsappStatus.connected ? (
-                      <Wifi className="h-4 w-4 text-green-600" />
+                      <Wifi className="h-4 w-4 text-green-400" />
                     ) : (
-                      <WifiOff className="h-4 w-4 text-red-600" />
+                      <WifiOff className="h-4 w-4 text-red-400" />
                     )}
-                    <span className="text-sm font-medium">
+                    <span className="text-sm font-medium text-white">
                       WhatsApp: {whatsappStatus.checking ? 'Verificando...' : whatsappStatus.connected ? 'Conectado' : 'Desconectado'}
                     </span>
                   </div>
@@ -353,6 +402,7 @@ export default function LeadActionResultModal({
                     size="sm"
                     onClick={checkWhatsAppStatus}
                     disabled={whatsappStatus.checking}
+                    className="border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
                   >
                     Verificar
                   </Button>
@@ -360,22 +410,22 @@ export default function LeadActionResultModal({
                 
                 {/* Auto-envío de mensaje de bienvenida */}
                 {currentActionType === 'welcome' && whatsappStatus.connected && hasPhoneNumber && (
-                  <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded">
+                  <div className="mt-3 p-2 bg-blue-900/30 border border-blue-700 rounded">
                     <div className="flex items-center gap-2 text-sm">
                       {whatsappStatus.autoSending ? (
                         <>
-                          <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                          <span className="text-blue-800">Enviando mensaje de bienvenida automáticamente...</span>
+                          <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                          <span className="text-blue-300">Enviando mensaje de bienvenida automáticamente...</span>
                         </>
                       ) : whatsappStatus.autoSent ? (
                         <>
-                          <Check className="h-3 w-3 text-green-600" />
-                          <span className="text-green-800">Mensaje de bienvenida enviado automáticamente ✅</span>
+                          <Check className="h-3 w-3 text-green-400" />
+                          <span className="text-green-300">Mensaje de bienvenida enviado automáticamente ✅</span>
                         </>
                       ) : (
                         <>
-                          <MessageCircle className="h-3 w-3 text-blue-600" />
-                          <span className="text-blue-800">Mensaje de bienvenida se enviará automáticamente</span>
+                          <MessageCircle className="h-3 w-3 text-blue-400" />
+                          <span className="text-blue-300">Mensaje de bienvenida se enviará automáticamente</span>
                         </>
                       )}
                     </div>
@@ -383,62 +433,167 @@ export default function LeadActionResultModal({
                 )}
               </div>
 
-              {actionResult && !actionResult.error && hasPhoneNumber && !state.isEditing && (
-                <div className="p-4 bg-white border-2 border-[#25D366] rounded-lg">
-                  <div className="flex items-center justify-between">
+              {actionResult && !actionResult.error && !state.isEditing && (
+                <div className="p-4 bg-gray-800 border-2 border-[#25D366] rounded-lg">
+                  <div className="space-y-3">
+                    {/* Header con información del destinatario */}
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-[#25D366] rounded-lg">
                         <svg viewBox="0 0 24 24" className="h-5 w-5 text-white" fill="currentColor">
                           <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.434 3.268"/>
                         </svg>
                       </div>
-                      <div>
-                        <h4 className="font-medium text-gray-900">Enviar por WhatsApp (Manual)</h4>
-                        <p className="text-sm text-gray-600">
-                          {state.isSending ? 'Preparando mensaje...' : `Enviar a ${currentLead?.name}`}
+                      <div className="flex-1">
+                        <h4 className="font-medium text-white">Enviar por WhatsApp usando Evolution API</h4>
+                        <p className="text-sm text-gray-300">
+                          {state.isSending ? 'Enviando mensaje...' : `Destinatario: ${currentLead?.name || 'Cliente'}`}
                         </p>
                       </div>
                     </div>
-                    <Button
-                      onClick={() => handleWhatsAppSend()}
-                      disabled={state.isSending || state.justSent || !whatsappStatus.connected}
-                      className="bg-[#25D366] hover:bg-[#128C7E] text-white px-6"
-                      aria-label="Enviar mensaje por WhatsApp"
-                    >
-                      {state.isSending ? (
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          Enviando...
+
+                    {/* Sección del número de teléfono editable */}
+                    <div className="bg-gray-700 rounded-lg p-3 border border-gray-600">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-300">Número de WhatsApp:</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditingPhone(!editingPhone)}
+                          className="border-gray-500 text-gray-300 hover:bg-gray-600 h-6 px-2 text-xs"
+                        >
+                          {editingPhone ? 'Guardar' : 'Editar'}
+                        </Button>
+                      </div>
+                      
+                      {editingPhone ? (
+                        <div className="space-y-2">
+                          <input
+                            type="tel"
+                            value={editedPhone}
+                            onChange={(e) => setEditedPhone(e.target.value)}
+                            placeholder="Ej: +50612345678 o 12345678"
+                            className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded text-white text-sm focus:ring-2 focus:ring-[#25D366] focus:border-transparent"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                setEditingPhone(false);
+                              }
+                            }}
+                          />
+                          <div className="text-xs text-gray-400 space-y-1">
+                            <p>📱 <strong>Formatos válidos:</strong></p>
+                            <p>• <span className="text-green-400">+50612345678</span> (Costa Rica con prefijo)</p>
+                            <p>• <span className="text-green-400">12345678</span> (local, se añadirá +506)</p>
+                            <p>• <span className="text-green-400">+52155123456</span> (México)</p>
+                            <p>• <span className="text-green-400">+1234567890</span> (USA/Canadá)</p>
+                          </div>
                         </div>
-                      ) : state.justSent ? (
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-green-400 bg-gray-600 px-3 py-2 rounded text-sm border border-gray-500">
+                            {editedPhone ? (
+                              `+${normalizePhoneNumber(editedPhone)}`
+                            ) : (
+                              'No configurado'
+                            )}
+                          </span>
+                          {editedPhone && (
+                            <div className="flex items-center gap-1 text-xs text-gray-400">
+                              <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                              <span>Formato Evolution API</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Botones de acción */}
+                    <div className="space-y-2">
+                      {/* Información de estado antes del botón */}
+                      {(!whatsappStatus.connected || !editedPhone) && (
+                        <div className="text-xs text-yellow-400 bg-yellow-900/20 p-2 rounded border border-yellow-700">
+                          {!whatsappStatus.connected && !editedPhone ? (
+                            "⚠️ Necesitas conectar WhatsApp y configurar un número de teléfono"
+                          ) : !whatsappStatus.connected ? (
+                            "⚠️ WhatsApp desconectado. Haz clic en 'Verificar' para conectar"
+                          ) : !editedPhone ? (
+                            "⚠️ Configura un número de teléfono haciendo clic en 'Editar'"
+                          ) : null}
+                        </div>
+                      )}
+                      
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => handleWhatsAppSend()}
+                          disabled={state.isSending || state.justSent || !whatsappStatus.connected || !editedPhone}
+                          className="bg-[#25D366] hover:bg-[#128C7E] text-white flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                          aria-label="Enviar mensaje por WhatsApp"
+                        >
+                        {state.isSending ? (
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Enviando...
+                          </div>
+                        ) : state.justSent ? (
+                          <>
+                            <Check className="h-4 w-4 mr-2" />
+                            Enviado ✓
+                          </>
+                        ) : (
+                          <>
+                            <svg viewBox="0 0 24 24" className="h-4 w-4 mr-2" fill="currentColor">
+                              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.434 3.268"/>
+                            </svg>
+                            Enviar via Evolution API
+                          </>
+                        )}
+                        </Button>
+                        
+                        {!whatsappStatus.connected && (
+                          <Button
+                            variant="outline"
+                            onClick={checkWhatsAppStatus}
+                            disabled={whatsappStatus.checking}
+                            className="border-gray-500 text-gray-300 hover:bg-gray-600"
+                          >
+                            {whatsappStatus.checking ? (
+                              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                              'Reconectar'
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Estado de conexión */}
+                    <div className="flex items-center gap-2 text-xs">
+                      {whatsappStatus.connected ? (
                         <>
-                          <Check className="h-4 w-4 mr-2" />
-                          Enviado
+                          <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                          <span className="text-green-400">Evolution API conectado</span>
                         </>
                       ) : (
                         <>
-                          <svg viewBox="0 0 24 24" className="h-4 w-4 mr-2" fill="currentColor">
-                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.434 3.268"/>
-                          </svg>
-                          Enviar Mensaje
+                          <div className="w-2 h-2 bg-red-400 rounded-full"></div>
+                          <span className="text-red-400">Evolution API desconectado</span>
                         </>
                       )}
-                    </Button>
+                    </div>
                   </div>
                 </div>
               )}
             </div>
           </>
         )}
-        <DialogFooter className="mt-6 pt-4 border-t border-gray-200">
+        <DialogFooter className="mt-6 pt-4 border-t border-gray-700">
           <div className="flex justify-between items-center w-full">
-            <div className="flex items-center gap-2 text-xs text-gray-500">
+            <div className="flex items-center gap-2 text-xs text-gray-400">
               <Bot className="h-3 w-3" />
               <span>Contenido generado con IA</span>
             </div>
             <div className="flex gap-3">
               <DialogClose asChild>
-                <Button variant="outline" className="px-6 hover:bg-gray-50">
+                <Button variant="outline" className="px-6 border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white">
                   Cerrar
                 </Button>
               </DialogClose>
@@ -463,7 +618,7 @@ export default function LeadActionResultModal({
                     alert('Error generating new evaluation: ' + errorData.error);
                   }
                 }}
-                className="bg-blue-500 text-white px-4 py-2 rounded"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
               >
                 Generar Nueva Evaluación
               </Button>

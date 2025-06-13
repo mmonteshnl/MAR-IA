@@ -20,10 +20,10 @@ interface ContentViewProps {
   isLoading?: boolean;
 }
 
-const CARD_STYLES = "border border-gray-200 p-6 rounded-lg bg-gradient-to-br from-gray-50 to-white shadow-sm";
-const AI_HEADER_STYLES = "flex items-center gap-2 mb-4 p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-100";
+const CARD_STYLES = "border border-gray-700 p-6 rounded-lg bg-gradient-to-br from-gray-800 to-gray-900 shadow-sm";
+const AI_HEADER_STYLES = "flex items-center gap-2 mb-4 p-3 bg-gradient-to-r from-gray-800 to-gray-700 rounded-lg border border-gray-600";
 const AI_BADGE_STYLES = "inline-flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs rounded-full font-medium";
-const CONTENT_SECTION_STYLES = "p-4 rounded-lg border border-gray-100 bg-white shadow-sm";
+const CONTENT_SECTION_STYLES = "p-4 rounded-lg border border-gray-600 bg-gray-800 shadow-sm";
 
 // WhatsApp SVG Icon Component
 const WhatsAppIcon = ({ className }: { className?: string }) => (
@@ -57,7 +57,7 @@ export const ContentView = ({
       {isEditing ? (
         <div className="space-y-4">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-medium text-gray-900 flex items-center gap-2">
+            <h3 className="font-medium text-white flex items-center gap-2">
               <Edit3 className="h-4 w-4" />
               Editando Contenido
             </h3>
@@ -67,7 +67,7 @@ export const ContentView = ({
                   size="sm"
                   variant="outline"
                   onClick={() => onCopy(editedContent)}
-                  className="bg-white hover:bg-gray-50"
+                  className="bg-gray-700 hover:bg-gray-600 border-gray-600 text-gray-200"
                 >
                   <Copy className="h-4 w-4 mr-1" />
                   Copiar
@@ -100,6 +100,7 @@ export const ContentView = ({
                 size="sm"
                 variant="outline"
                 onClick={onCancel}
+                className="border-gray-600 text-gray-300 hover:bg-gray-700"
               >
                 <RotateCcw className="h-4 w-4 mr-1" />
                 Cancelar
@@ -109,7 +110,7 @@ export const ContentView = ({
           <Textarea
             value={editedContent}
             onChange={(e) => onContentChange(e.target.value)}
-            className="min-h-[200px] text-sm leading-relaxed"
+            className="min-h-[200px] text-sm leading-relaxed bg-gray-700 border-gray-600 text-white placeholder-gray-400"
             placeholder="Edita el contenido aquí..."
           />
         </div>
@@ -120,10 +121,10 @@ export const ContentView = ({
           {'message' in actionResult && actionResult.message && (
             <div className={CONTENT_SECTION_STYLES}>
               <div className="flex items-center gap-2 mb-3">
-                <Bot className="h-4 w-4 text-blue-600" />
-                <h4 className="font-medium text-gray-900">Mensaje de Bienvenida</h4>
+                <Bot className="h-4 w-4 text-blue-400" />
+                <h4 className="font-medium text-white">Mensaje de Bienvenida</h4>
               </div>
-              <div className="whitespace-pre-wrap text-gray-700 leading-relaxed text-sm">
+              <div className="whitespace-pre-wrap text-gray-300 leading-relaxed text-sm">
                 {actionResult.message}
               </div>
             </div>
@@ -132,10 +133,10 @@ export const ContentView = ({
           {'evaluation' in actionResult && actionResult.evaluation && (
             <div className={CONTENT_SECTION_STYLES}>
               <div className="flex items-center gap-2 mb-3">
-                <Target className="h-4 w-4 text-green-600" />
-                <h4 className="font-medium text-gray-900">Evaluación del Negocio</h4>
+                <Target className="h-4 w-4 text-green-400" />
+                <h4 className="font-medium text-white">Evaluación del Negocio</h4>
               </div>
-              <div className="whitespace-pre-wrap text-gray-700 leading-relaxed text-sm">
+              <div className="whitespace-pre-wrap text-gray-300 leading-relaxed text-sm">
                 {actionResult.evaluation}
               </div>
             </div>
@@ -145,17 +146,17 @@ export const ContentView = ({
             <div className="space-y-4">
               <div className={CONTENT_SECTION_STYLES}>
                 <div className="flex items-center gap-2 mb-3">
-                  <Mail className="h-4 w-4 text-purple-600" />
-                  <h4 className="font-medium text-gray-900">Email de Configuración de Solución</h4>
+                  <Mail className="h-4 w-4 text-purple-400" />
+                  <h4 className="font-medium text-white">Email de Configuración de Solución</h4>
                 </div>
                 <div className="space-y-3">
                   <div>
-                    <h5 className="font-medium text-gray-800 mb-1 text-sm">Asunto:</h5>
-                    <p className="text-gray-700 text-sm bg-gray-50 p-2 rounded border-l-3 border-l-purple-500">{actionResult.email_subject}</p>
+                    <h5 className="font-medium text-gray-200 mb-1 text-sm">Asunto:</h5>
+                    <p className="text-gray-300 text-sm bg-gray-700 p-2 rounded border-l-3 border-l-purple-500">{actionResult.email_subject}</p>
                   </div>
                   <div>
-                    <h5 className="font-medium text-gray-800 mb-1 text-sm">Mensaje:</h5>
-                    <div className="whitespace-pre-wrap text-gray-700 leading-relaxed text-sm bg-gray-50 p-3 rounded border-l-3 border-l-purple-500">
+                    <h5 className="font-medium text-gray-200 mb-1 text-sm">Mensaje:</h5>
+                    <div className="whitespace-pre-wrap text-gray-300 leading-relaxed text-sm bg-gray-700 p-3 rounded border-l-3 border-l-purple-500">
                       {actionResult.email_body}
                     </div>
                   </div>
@@ -167,19 +168,19 @@ export const ContentView = ({
           {'recommendations' in actionResult && actionResult.recommendations && (
             <div className={CONTENT_SECTION_STYLES}>
               <div className="flex items-center gap-2 mb-4">
-                <Target className="h-4 w-4 text-orange-600" />
-                <h4 className="font-medium text-gray-900">Recomendaciones de Ventas</h4>
+                <Target className="h-4 w-4 text-orange-400" />
+                <h4 className="font-medium text-white">Recomendaciones de Ventas</h4>
               </div>
               <div className="space-y-3">
                 {actionResult.recommendations.map((rec, index) => (
-                  <div key={index} className="p-3 rounded-lg bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-100">
+                  <div key={index} className="p-3 rounded-lg bg-gradient-to-r from-orange-900/30 to-yellow-900/30 border border-orange-700">
                     <div className="flex items-start gap-3">
                       <div className="flex-shrink-0 w-6 h-6 bg-gradient-to-r from-orange-500 to-yellow-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
                         {index + 1}
                       </div>
                       <div className="flex-1">
-                        <h5 className="font-semibold text-gray-900 mb-1 text-sm">{rec.area}</h5>
-                        <p className="text-gray-700 text-sm leading-relaxed">{rec.suggestion}</p>
+                        <h5 className="font-semibold text-white mb-1 text-sm">{rec.area}</h5>
+                        <p className="text-gray-300 text-sm leading-relaxed">{rec.suggestion}</p>
                       </div>
                     </div>
                   </div>

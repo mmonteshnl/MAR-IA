@@ -34,6 +34,7 @@ import LeadActionResultModal from '@/components/leads/LeadActionResultModal';
 import LeadSourceFilterModal from '@/components/leads/LeadSourceFilterModal';
 import QuoteGeneratorModal from '@/components/QuoteGeneratorModal';
 import BillingQuoteModal from '@/components/BillingQuoteModal';
+import HybridQuoteModal from '@/components/HybridQuoteModal';
 
 // Import utilities
 import { LEAD_STAGES, LOCAL_STORAGE_LEADS_KEY_PREFIX, LOCAL_FALLBACK_SOURCE, formatFirestoreTimestamp, isFieldMissing, type LeadStage } from '@/lib/leads-utils';
@@ -90,6 +91,10 @@ export default function LeadsPage() {
   // Billing quote modal state
   const [isBillingQuoteModalOpen, setIsBillingQuoteModalOpen] = useState(false);
   const [selectedLeadForBillingQuote, setSelectedLeadForBillingQuote] = useState<Lead | null>(null);
+  
+  // Hybrid quote modal state
+  const [isHybridQuoteModalOpen, setIsHybridQuoteModalOpen] = useState(false);
+  const [selectedLeadForHybridQuote, setSelectedLeadForHybridQuote] = useState<Lead | null>(null);
 
   // Local storage key helper
   const getLocalStorageKey = useCallback(() => {
@@ -476,6 +481,11 @@ export default function LeadsPage() {
     setIsBillingQuoteModalOpen(true);
   };
 
+  const handleGenerateHybridQuote = (lead: Lead) => {
+    setSelectedLeadForHybridQuote(lead);
+    setIsHybridQuoteModalOpen(true);
+  };
+
   // Import handlers
   const handleImportComplete = (importedLeads: Lead[]) => {
     setLeads(prevLeads => [...importedLeads, ...prevLeads]);
@@ -821,6 +831,7 @@ export default function LeadsPage() {
               onGenerateSolutionEmail={handleGenerateSolutionEmail}
               onGenerateQuote={handleGenerateQuote}
               onGenerateBillingQuote={handleGenerateBillingQuote}
+              onGenerateHybridQuote={handleGenerateHybridQuote}
               currentActionLead={currentActionLead}
               isActionLoading={isActionLoading}
               currentActionType={currentActionType}
@@ -841,6 +852,7 @@ export default function LeadsPage() {
               onGenerateSolutionEmail={handleGenerateSolutionEmail}
               onGenerateQuote={handleGenerateQuote}
               onGenerateBillingQuote={handleGenerateBillingQuote}
+              onGenerateHybridQuote={handleGenerateHybridQuote}
               currentActionLead={currentActionLead}
               isActionLoading={isActionLoading}
               currentActionType={currentActionType}
@@ -909,6 +921,16 @@ export default function LeadsPage() {
           name: selectedLeadForBillingQuote.fullName || selectedLeadForBillingQuote.name,
           email: selectedLeadForBillingQuote.email,
           businessType: getBusinessTypeFromMetaLead(selectedLeadForBillingQuote)
+        } : null}
+      />
+
+      <HybridQuoteModal
+        open={isHybridQuoteModalOpen}
+        onOpenChange={setIsHybridQuoteModalOpen}
+        currentLead={selectedLeadForHybridQuote ? {
+          name: selectedLeadForHybridQuote.fullName || selectedLeadForHybridQuote.name,
+          email: selectedLeadForHybridQuote.email,
+          businessType: getBusinessTypeFromMetaLead(selectedLeadForHybridQuote)
         } : null}
       />
     </div>
