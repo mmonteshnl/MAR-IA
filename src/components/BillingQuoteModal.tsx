@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useOrganization } from "@/hooks/useOrganization";
 import { ORGANIZED_CATALOG, PRODUCT_CATEGORIES, type ProductItem } from '@/data/pricing';
 
 interface BillingQuoteModalProps {
@@ -88,6 +89,7 @@ export default function BillingQuoteModal({
   
   const { toast } = useToast();
   const { user } = useAuth();
+  const { currentOrganization } = useOrganization();
 
   // Reset state when modal closes
   useEffect(() => {
@@ -207,10 +209,10 @@ export default function BillingQuoteModal({
 
   // Generate quote
   const generateQuote = async () => {
-    if (!user) {
+    if (!user || !currentOrganization) {
       toast({
         title: "Error de autenticación",
-        description: "Debes estar autenticado para generar cotizaciones",
+        description: "Debes estar autenticado y tener una organización seleccionada",
         variant: "destructive"
       });
       return;
@@ -230,25 +232,28 @@ export default function BillingQuoteModal({
 
     try {
       const token = await user.getIdToken();
-      const endpoint = templateType === 'monthly' 
-        ? '/api/billing/generate-quote-monthly'
-        : '/api/billing/generate-quote';
 
-      const response = await fetch(endpoint, {
+      // Use the new billing-quotes API that automatically saves to database
+      const response = await fetch('/api/billing-quotes', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          cliente: clientName,
-          correo: clientEmail,
-          productos: selectedProducts.map(p => ({
+          clientName,
+          clientEmail,
+          businessType: currentLead?.businessType || undefined,
+          leadId: currentLead ? 'lead-id-placeholder' : undefined, // TODO: Use real lead ID
+          templateType,
+          organizationId: currentOrganization.id,
+          products: selectedProducts.map(p => ({
             name: p.name,
             cantidad: p.cantidad,
             descuento: p.descuento,
             paymentType: p.paymentType
-          }))
+          })),
+          priority: 'medium'
         })
       });
 
@@ -258,13 +263,26 @@ export default function BillingQuoteModal({
         setResult({
           success: true,
           documentId: data.documentId,
-          viewUrl: data.viewUrl
+          viewUrl: data.viewUrl || data.pandaDocUrl
         });
         setStep('result');
         
         toast({
-          title: "✅ Cotización generada",
-          description: `Cotización enviada a ${clientEmail} vía PandaDoc`,
+          title: "✅ Cotización creada",
+          description: `Cotización guardada y enviada a ${clientEmail} vía PandaDoc`,
+        });
+      } else if (response.status === 207) {
+        // Partial success - saved to database but PandaDoc failed
+        setResult({
+          success: false,
+          error: `${data.error}: ${data.details}`
+        });
+        setStep('result');
+        
+        toast({
+          title: "⚠️ Cotización guardada parcialmente",
+          description: "Se guardó en la base de datos pero falló el envío a PandaDoc",
+          variant: "destructive"
         });
       } else {
         setResult({
@@ -272,6 +290,12 @@ export default function BillingQuoteModal({
           error: data.error || 'Error al generar cotización'
         });
         setStep('result');
+        
+        toast({
+          title: "❌ Error",
+          description: data.error || 'Error al generar cotización',
+          variant: "destructive"
+        });
       }
     } catch (error) {
       console.error('Error:', error);
@@ -280,6 +304,12 @@ export default function BillingQuoteModal({
         error: 'Error de conexión'
       });
       setStep('result');
+      
+      toast({
+        title: "❌ Error de conexión",
+        description: "No se pudo conectar con el servidor",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }

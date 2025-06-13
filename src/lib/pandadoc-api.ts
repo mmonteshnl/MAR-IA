@@ -94,7 +94,7 @@ export function calculateQuoteTotals(productos: ProductQuoteItem[]): QuoteCalcul
   let pago_mensual_total = 0;
 
   for (const producto of productos) {
-    const precio_unitario = PRICING_CATALOG[producto.name] || 0;
+    const precio_unitario = PRICING_CATALOG[producto.name as keyof typeof PRICING_CATALOG] || 0;
     const cantidad = producto.cantidad;
     const descuento = producto.descuento;
     const tipo_pago = producto.paymentType;
@@ -146,7 +146,7 @@ export function generatePandaDocPayload(request: QuoteRequest): PandaDocPayload 
   
   // Generate pricing table rows
   const rows = productos.map(producto => {
-    const precio_unitario = PRICING_CATALOG[producto.name] || 0;
+    const precio_unitario = PRICING_CATALOG[producto.name as keyof typeof PRICING_CATALOG] || 0;
     
     return {
       data: {

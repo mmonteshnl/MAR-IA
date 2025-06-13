@@ -112,5 +112,28 @@ service cloud.firestore {
          request.auth.uid in get(/databases/$(database)/documents/organizations/$(request.resource.data.organizationId)).data.memberIds)
       );
     }
+    
+    // Billing Quotes rules (PandaDoc Quotes)
+    match /billing_quotes/{quoteId} {
+      // Users can access billing quotes if they belong to the same organization
+      allow read, write: if request.auth != null && (
+        // User owns the billing quote
+        request.auth.uid == resource.data.userId ||
+        // User is member of the organization
+        (resource.data.organizationId != null && 
+         exists(/databases/$(database)/documents/organizations/$(resource.data.organizationId)) &&
+         request.auth.uid in get(/databases/$(database)/documents/organizations/$(resource.data.organizationId)).data.memberIds)
+      );
+      
+      // Allow creation if user is member of the organization
+      allow create: if request.auth != null && (
+        // User creating their own billing quote
+        request.auth.uid == request.resource.data.userId &&
+        // User is member of the organization
+        (request.resource.data.organizationId != null && 
+         exists(/databases/$(database)/documents/organizations/$(request.resource.data.organizationId)) &&
+         request.auth.uid in get(/databases/$(database)/documents/organizations/$(request.resource.data.organizationId)).data.memberIds)
+      );
+    }
   }
 }
