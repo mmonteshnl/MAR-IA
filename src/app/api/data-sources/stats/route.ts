@@ -45,28 +45,43 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('📊 Obteniendo estadísticas de fuentes de datos para:', organizationId);
+    console.log('📁 Fuentes configuradas:', Object.keys(DATA_SOURCE_CONFIG));
 
     const stats: DataSourceStats[] = [];
 
     // Para cada fuente de datos, obtener estadísticas
     for (const [source, config] of Object.entries(DATA_SOURCE_CONFIG)) {
+      console.log(`🔍 Procesando fuente: ${source} -> ${config.collection}`);
       try {
         // Contar total de leads en la colección fuente
-        const sourceQuery = firestoreDbAdmin
-          .collection(config.collection)
-          .where('organizationId', '==', organizationId);
+        let totalLeads = 0;
+        let transferredLeads = 0;
         
-        const sourceSnapshot = await sourceQuery.get();
-        const totalLeads = sourceSnapshot.size;
+        try {
+          const sourceQuery = firestoreDbAdmin
+            .collection(config.collection)
+            .where('organizationId', '==', organizationId);
+          
+          const sourceSnapshot = await sourceQuery.get();
+          totalLeads = sourceSnapshot.size;
+        } catch (collectionError) {
+          console.log(`ℹ️ Colección ${config.collection} no existe, asumiendo 0 leads`);
+          totalLeads = 0;
+        }
 
         // Contar leads ya transferidos al flujo desde esta fuente
-        const flowQuery = firestoreDbAdmin
-          .collection('leads-flow')
-          .where('organizationId', '==', organizationId)
-          .where('sourceCollection', '==', config.collection);
-        
-        const flowSnapshot = await flowQuery.get();
-        const transferredLeads = flowSnapshot.size;
+        try {
+          const flowQuery = firestoreDbAdmin
+            .collection('leads-flow')
+            .where('organizationId', '==', organizationId)
+            .where('sourceCollection', '==', config.collection);
+          
+          const flowSnapshot = await flowQuery.get();
+          transferredLeads = flowSnapshot.size;
+        } catch (flowError) {
+          console.log(`ℹ️ No hay leads transferidos para ${config.collection}, asumiendo 0`);
+          transferredLeads = 0;
+        }
 
         const pendingLeads = Math.max(0, totalLeads - transferredLeads);
 

@@ -27,7 +27,7 @@ import {
   BreadcrumbList,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
-import { ListChecks, Search, LogOut, PackageSearch, FileUp, Send, Cable, Zap, UserCircle, LayoutDashboard, Bell, TrendingUp, Settings, MessageSquare, Phone, Tags, FileText, Users, Briefcase, ShieldCheck, Palette, ConciergeBell, Calculator, Brain, User, Building2, Database } from 'lucide-react';
+import { ListChecks, Search, LogOut, PackageSearch, FileUp, Send, Cable, Zap, UserCircle, LayoutDashboard, Bell, TrendingUp, Settings, MessageSquare, Phone, Tags, FileText, Users, Briefcase, ShieldCheck, Palette, ConciergeBell, Calculator, Brain, User, Building2, Database, PlusCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useFirebaseInit } from '@/hooks/useFirebaseInit';
 import { useOrganization } from '@/hooks/useOrganization';
@@ -108,34 +108,40 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
 
   const menuSections = [
     {
-      title: 'OVERVIEW',
+      title: 'PRINCIPAL',
       items: [
         { href: '/business-finder', label: 'Dashboard', icon: LayoutDashboard, currentPathMatcher: (p: string) => p === '/business-finder' || p === '/' },
-        { href: '/data-sources', label: 'Fuentes de Datos', icon: Database, currentPathMatcher: (p: string) => p === '/data-sources' },
         { href: '/leads', label: 'Flujo de Leads', icon: ListChecks, currentPathMatcher: (p: string, sp: URLSearchParams) => p.startsWith('/leads') && sp.get('action') !== 'import-xml' },
       ]
     },
     {
-      title: 'GESTIÓN',
+      title: 'LEADS',
+      items: [
+        { href: '/lead-sources', label: 'Obtener Leads', icon: Search, currentPathMatcher: (p: string) => p.startsWith('/lead-sources') },
+        { href: '/leads/manage', label: 'Agregar Leads', icon: PlusCircle, currentPathMatcher: (p: string) => p.startsWith('/leads/manage') },
+      ]
+    },
+    {
+      title: 'NEGOCIO',
       items: [
         { href: '/products', label: 'Mi Catálogo', icon: PackageSearch, currentPathMatcher: (p: string) => p === '/products' },
         { href: '/services', label: 'Mis Servicios', icon: Briefcase, currentPathMatcher: (p: string) => p === '/services' },
-        { href: '/channels', label: 'Canales', icon: Cable, currentPathMatcher: (p: string) => p === '/channels' },
+        { href: '/valuation', label: 'Valoración', icon: Calculator, currentPathMatcher: (p: string) => p === '/valuation' },
       ]
     },
     {
       title: 'COMUNICACIÓN',
       items: [
         { href: '/email-campaigns', label: 'Campañas de Email', icon: Send, currentPathMatcher: (p: string) => p === '/email-campaigns' },
+        { href: '/channels', label: 'Canales', icon: Cable, currentPathMatcher: (p: string) => p === '/channels' },
       ]
     },
-     {
-      title: 'HERRAMIENTAS Y AUTOMATIZACIÓN',
+    {
+      title: 'CONFIGURACIÓN',
       items: [
-                { href: '/ai-prompts', label: 'Configuración de IA', icon: Brain, currentPathMatcher: (p: string) => p === '/ai-prompts' },
-        { href: '/valuation', label: 'Configurar Valoración', icon: Calculator, currentPathMatcher: (p: string) => p === '/valuation' },
-        { href: '/config', label: 'Configuración General', icon: Settings, currentPathMatcher: (p: string) => p === '/config' },
+        { href: '/ai-prompts', label: 'IA y Prompts', icon: Brain, currentPathMatcher: (p: string) => p === '/ai-prompts' },
         { href: '/automations', label: 'Automatizaciones', icon: Zap, currentPathMatcher: (p: string) => p === '/automations' },
+        { href: '/config', label: 'General', icon: Settings, currentPathMatcher: (p: string) => p === '/config' },
       ]
     }
   ];

@@ -662,7 +662,7 @@ export default function LeadsPage() {
                 <Button 
                   variant="default" 
                   className="bg-primary text-primary-foreground hover:bg-primary/90 h-10 text-sm w-full sm:w-auto" 
-                  onClick={() => toast({title: "Próximamente", description: "La creación manual de leads estará disponible pronto."})}
+                  onClick={() => router.push('/leads/create')}
                 >
                   <PlusCircle className="mr-2 h-4 w-4" /> Crear Lead
                 </Button>

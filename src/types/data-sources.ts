@@ -1,9 +1,7 @@
 // Unified data sources configuration
 export enum DataSource {
   META_ADS = 'meta-ads',
-  GOOGLE_PLACES = 'google-places', 
-  XML_IMPORT = 'xml-import',
-  CSV_IMPORT = 'csv-import',
+  FILE_IMPORT = 'file-import',
   MANUAL = 'manual'
 }
 
@@ -17,31 +15,13 @@ export const DATA_SOURCE_CONFIG = {
     fields: ['fullName', 'email', 'phoneNumber', 'campaignName', 'adName', 'platform'],
     autoSync: true
   },
-  [DataSource.GOOGLE_PLACES]: {
-    name: 'Google Places',
-    description: 'Negocios encontrados en Google Places',
-    collection: 'google-places-leads', 
-    color: 'bg-green-900/20 text-green-300 border-green-600',
-    icon: '🌍',
-    fields: ['name', 'address', 'phone', 'website', 'businessType', 'rating'],
-    autoSync: false
-  },
-  [DataSource.XML_IMPORT]: {
-    name: 'XML Import',
-    description: 'Leads importados desde archivos XML',
-    collection: 'xml-import-leads',
+  [DataSource.FILE_IMPORT]: {
+    name: 'CSV/JSON/XML',
+    description: 'Leads importados desde archivos CSV/JSON/XML',
+    collection: 'imported-leads',
     color: 'bg-purple-900/20 text-purple-300 border-purple-600', 
     icon: '📄',
-    fields: ['name', 'email', 'phone', 'company', 'source'],
-    autoSync: false
-  },
-  [DataSource.CSV_IMPORT]: {
-    name: 'CSV Import', 
-    description: 'Leads importados desde archivos CSV',
-    collection: 'csv-import-leads',
-    color: 'bg-orange-900/20 text-orange-300 border-orange-600',
-    icon: '📊',
-    fields: ['name', 'email', 'phone', 'company', 'source'],
+    fields: ['name', 'email', 'phone', 'company', 'source', 'fileType'],
     autoSync: false
   },
   [DataSource.MANUAL]: {

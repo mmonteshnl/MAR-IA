@@ -1,6 +1,6 @@
 
 import {NextRequest, NextResponse} from 'next/server';
-import {Client, PlaceData} from '@googlemaps/google-maps-services-js';
+import {Client, PlaceData, Language} from '@googlemaps/google-maps-services-js';
 
 const client = new Client({});
 const GOOGLE_PLACES_API_KEY = "AIzaSyCdAibVnXQdNG4oRizcWCI1fXijx4mBLGY"; // Asegúrate que esta clave esté aquí o se cargue de forma segura
@@ -21,9 +21,9 @@ export async function GET(request: NextRequest) {
     const apiResponse = await client.placeDetails({
       params: {
         place_id: placeId,
-        fields: ['name', 'formatted_address', 'international_phone_number', 'website', 'opening_hours', 'types', 'rating', 'place_id', 'vicinity'],
+        fields: ['name', 'formatted_address', 'international_phone_number', 'formatted_phone_number', 'website', 'opening_hours', 'types', 'rating', 'place_id', 'vicinity', 'url', 'utc_offset', 'photos', 'price_level', 'user_ratings_total', 'reviews', 'geometry'],
         key: GOOGLE_PLACES_API_KEY,
-        language: 'es', // Opcional: para obtener resultados en español si están disponibles
+        language: Language.es, // Opcional: para obtener resultados en español si están disponibles
       },
     });
 
