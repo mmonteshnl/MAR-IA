@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { BrainCircuit, Lightbulb, PackageSearch, Mail, Sparkles, Loader2, ChevronDown, AlertTriangle, Calculator } from 'lucide-react';
+import { BrainCircuit, Lightbulb, PackageSearch, Mail, Sparkles, Loader2, ChevronDown, AlertTriangle, Calculator, Building2 } from 'lucide-react';
 import type { ExtendedLead as Lead } from '@/types';
 import { isFieldMissing } from '@/lib/leads-utils';
 
@@ -14,6 +14,7 @@ interface LeadActionButtonsProps {
   onGenerateSalesRecommendations: (lead: Lead) => void;
   onGenerateSolutionEmail: (lead: Lead) => void;
   onGenerateQuote: (lead: Lead) => void;
+  onGenerateBillingQuote?: (lead: Lead) => void;
   currentActionLead: Lead | null; // Allow null for initial state
   isActionLoading: boolean;
   currentActionType: string | null; // Allow null for initial state
@@ -26,6 +27,7 @@ export default function LeadActionButtons({
   onGenerateSalesRecommendations,
   onGenerateSolutionEmail,
   onGenerateQuote,
+  onGenerateBillingQuote,
   currentActionLead,
   isActionLoading,
   currentActionType,
@@ -84,6 +86,16 @@ export default function LeadActionButtons({
       onClick: onGenerateQuote,
       disabled: isCurrentlyProcessing,
       color: 'text-orange-400',
+      availableStages: [ 'Nuevo','Contactado','Calificado','Propuesta Enviada','Negociación','Ganado','Perdido','Prospecto','Interesado','Propuesta','Vendido']
+    },
+    {
+      id: 'billing-quote',
+      label: 'Cotización PandaDoc',
+      description: 'Genera cotización usando PandaDoc',
+      icon: Building2,
+      onClick: onGenerateBillingQuote || (() => {}),
+      disabled: !onGenerateBillingQuote || isCurrentlyProcessing,
+      color: 'text-cyan-400',
       availableStages: [ 'Nuevo','Contactado','Calificado','Propuesta Enviada','Negociación','Ganado','Perdido','Prospecto','Interesado','Propuesta','Vendido']
     }
   ];

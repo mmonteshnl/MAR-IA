@@ -33,6 +33,7 @@ import { InsightsSkeleton, KanbanSkeleton, TableSkeleton, StatsSkeleton, Filters
 import LeadActionResultModal from '@/components/leads/LeadActionResultModal';
 import LeadSourceFilterModal from '@/components/leads/LeadSourceFilterModal';
 import QuoteGeneratorModal from '@/components/QuoteGeneratorModal';
+import BillingQuoteModal from '@/components/BillingQuoteModal';
 
 // Import utilities
 import { LEAD_STAGES, LOCAL_STORAGE_LEADS_KEY_PREFIX, LOCAL_FALLBACK_SOURCE, formatFirestoreTimestamp, isFieldMissing, type LeadStage } from '@/lib/leads-utils';
@@ -85,6 +86,10 @@ export default function LeadsPage() {
   // Quote generator modal state
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [selectedLeadForQuote, setSelectedLeadForQuote] = useState<Lead | null>(null);
+  
+  // Billing quote modal state
+  const [isBillingQuoteModalOpen, setIsBillingQuoteModalOpen] = useState(false);
+  const [selectedLeadForBillingQuote, setSelectedLeadForBillingQuote] = useState<Lead | null>(null);
 
   // Local storage key helper
   const getLocalStorageKey = useCallback(() => {
@@ -466,6 +471,11 @@ export default function LeadsPage() {
     setIsQuoteModalOpen(true);
   };
 
+  const handleGenerateBillingQuote = (lead: Lead) => {
+    setSelectedLeadForBillingQuote(lead);
+    setIsBillingQuoteModalOpen(true);
+  };
+
   // Import handlers
   const handleImportComplete = (importedLeads: Lead[]) => {
     setLeads(prevLeads => [...importedLeads, ...prevLeads]);
@@ -810,6 +820,7 @@ export default function LeadsPage() {
               onGenerateSalesRecommendations={handleGenerateSalesRecommendations}
               onGenerateSolutionEmail={handleGenerateSolutionEmail}
               onGenerateQuote={handleGenerateQuote}
+              onGenerateBillingQuote={handleGenerateBillingQuote}
               currentActionLead={currentActionLead}
               isActionLoading={isActionLoading}
               currentActionType={currentActionType}
@@ -829,6 +840,7 @@ export default function LeadsPage() {
               onGenerateSalesRecommendations={handleGenerateSalesRecommendations}
               onGenerateSolutionEmail={handleGenerateSolutionEmail}
               onGenerateQuote={handleGenerateQuote}
+              onGenerateBillingQuote={handleGenerateBillingQuote}
               currentActionLead={currentActionLead}
               isActionLoading={isActionLoading}
               currentActionType={currentActionType}
@@ -887,6 +899,16 @@ export default function LeadsPage() {
           name: selectedLeadForQuote.fullName || selectedLeadForQuote.name,
           phone: selectedLeadForQuote.phoneNumber || selectedLeadForQuote.phone,
           businessType: getBusinessTypeFromMetaLead(selectedLeadForQuote)
+        } : null}
+      />
+
+      <BillingQuoteModal
+        open={isBillingQuoteModalOpen}
+        onOpenChange={setIsBillingQuoteModalOpen}
+        currentLead={selectedLeadForBillingQuote ? {
+          name: selectedLeadForBillingQuote.fullName || selectedLeadForBillingQuote.name,
+          email: selectedLeadForBillingQuote.email,
+          businessType: getBusinessTypeFromMetaLead(selectedLeadForBillingQuote)
         } : null}
       />
     </div>
