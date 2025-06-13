@@ -27,6 +27,7 @@ interface TableViewProps {
   onEvaluateBusiness: (lead: Lead) => void;
   onGenerateSalesRecommendations: (lead: Lead) => void;
   onGenerateSolutionEmail: (lead: Lead) => void;
+  onGenerateQuote: (lead: Lead) => void;
   currentActionLead: Lead | null;
   isActionLoading: boolean;
   currentActionType: string | null;
@@ -40,6 +41,7 @@ export default function TableView({
   onEvaluateBusiness,
   onGenerateSalesRecommendations,
   onGenerateSolutionEmail,
+  onGenerateQuote,
   currentActionLead,
   isActionLoading,
   currentActionType,
@@ -168,6 +170,7 @@ export default function TableView({
                             onEvaluateBusiness={onEvaluateBusiness}
                             onGenerateSalesRecommendations={onGenerateSalesRecommendations}
                             onGenerateSolutionEmail={onGenerateSolutionEmail}
+                            onGenerateQuote={onGenerateQuote}
                             currentActionLead={currentActionLead}
                             isActionLoading={isActionLoading}
                             currentActionType={currentActionType}

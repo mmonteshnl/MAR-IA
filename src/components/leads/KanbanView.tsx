@@ -30,6 +30,7 @@ interface KanbanViewProps {
   onEvaluateBusiness: (lead: Lead) => void;
   onGenerateSalesRecommendations: (lead: Lead) => void;
   onGenerateSolutionEmail: (lead: Lead) => void;
+  onGenerateQuote: (lead: Lead) => void;
   currentActionLead: Lead | null;
   isActionLoading: boolean;
   currentActionType: string | null;
@@ -44,6 +45,7 @@ export default function KanbanView({
   onEvaluateBusiness,
   onGenerateSalesRecommendations,
   onGenerateSolutionEmail,
+  onGenerateQuote,
   currentActionLead,
   isActionLoading,
   currentActionType,
@@ -255,6 +257,7 @@ export default function KanbanView({
   onEvaluateBusiness={() => onEvaluateBusiness(lead)}
   onGenerateSalesRecommendations={() => onGenerateSalesRecommendations(lead)}
   onGenerateSolutionEmail={() => onGenerateSolutionEmail(lead)}
+  onGenerateQuote={() => onGenerateQuote(lead)}
   isActionLoading={isActionLoading && currentActionLead?.id === lead.id}
   currentActionLead={currentActionLead}
   currentActionType={currentActionType}

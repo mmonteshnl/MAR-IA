@@ -32,6 +32,7 @@ import { LeadInsights } from '@/components/leads/LeadInsights';
 import { InsightsSkeleton, KanbanSkeleton, TableSkeleton, StatsSkeleton, FiltersSkeleton } from '@/components/leads/LeadsSkeleton';
 import LeadActionResultModal from '@/components/leads/LeadActionResultModal';
 import LeadSourceFilterModal from '@/components/leads/LeadSourceFilterModal';
+import QuoteGeneratorModal from '@/components/QuoteGeneratorModal';
 
 // Import utilities
 import { LEAD_STAGES, LOCAL_STORAGE_LEADS_KEY_PREFIX, LOCAL_FALLBACK_SOURCE, formatFirestoreTimestamp, isFieldMissing, type LeadStage } from '@/lib/leads-utils';
@@ -80,6 +81,10 @@ export default function LeadsPage() {
   const [selectedStage, setSelectedStage] = useState('');
   const [isSourceFilterModalOpen, setIsSourceFilterModalOpen] = useState(false);
   const [selectedSources, setSelectedSources] = useState<LeadSource[]>([]);
+  
+  // Quote generator modal state
+  const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
+  const [selectedLeadForQuote, setSelectedLeadForQuote] = useState<Lead | null>(null);
 
   // Local storage key helper
   const getLocalStorageKey = useCallback(() => {
@@ -456,6 +461,11 @@ export default function LeadsPage() {
     }
   };
 
+  const handleGenerateQuote = (lead: Lead) => {
+    setSelectedLeadForQuote(lead);
+    setIsQuoteModalOpen(true);
+  };
+
   // Import handlers
   const handleImportComplete = (importedLeads: Lead[]) => {
     setLeads(prevLeads => [...importedLeads, ...prevLeads]);
@@ -799,6 +809,7 @@ export default function LeadsPage() {
               onEvaluateBusiness={handleEvaluateBusiness}
               onGenerateSalesRecommendations={handleGenerateSalesRecommendations}
               onGenerateSolutionEmail={handleGenerateSolutionEmail}
+              onGenerateQuote={handleGenerateQuote}
               currentActionLead={currentActionLead}
               isActionLoading={isActionLoading}
               currentActionType={currentActionType}
@@ -817,6 +828,7 @@ export default function LeadsPage() {
               onEvaluateBusiness={handleEvaluateBusiness}
               onGenerateSalesRecommendations={handleGenerateSalesRecommendations}
               onGenerateSolutionEmail={handleGenerateSolutionEmail}
+              onGenerateQuote={handleGenerateQuote}
               currentActionLead={currentActionLead}
               isActionLoading={isActionLoading}
               currentActionType={currentActionType}
@@ -866,6 +878,16 @@ export default function LeadsPage() {
         selectedSources={selectedSources}
         onSourcesChange={setSelectedSources}
         availableSources={availableLeadSources}
+      />
+
+      <QuoteGeneratorModal
+        open={isQuoteModalOpen}
+        onOpenChange={setIsQuoteModalOpen}
+        currentLead={selectedLeadForQuote ? {
+          name: selectedLeadForQuote.fullName || selectedLeadForQuote.name,
+          phone: selectedLeadForQuote.phoneNumber || selectedLeadForQuote.phone,
+          businessType: getBusinessTypeFromMetaLead(selectedLeadForQuote)
+        } : null}
       />
     </div>
   );

@@ -5,8 +5,8 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { AlertCircle, BrainCircuit, Lightbulb, PackageSearch, Mail, Sparkles, Bot, Target, Check } from 'lucide-react';
-import { useMemo, useCallback, useEffect } from 'react';
+import { AlertCircle, BrainCircuit, Lightbulb, PackageSearch, Mail, Sparkles, Bot, Target, Check, MessageCircle, Wifi, WifiOff } from 'lucide-react';
+import { useMemo, useCallback, useEffect, useState } from 'react';
 import { ActionResult } from '@/types/actionResult';
 import { useFormattedContent } from '@/hooks/useFormattedContent';
 import { useModalState } from '@/hooks/useModalState';
@@ -24,6 +24,7 @@ interface LeadActionResultModalProps {
   currentLead?: {
     name: string;
     phone?: string | null;
+    businessType?: string | null;
   } | null;
 }
 
@@ -38,6 +39,14 @@ export default function LeadActionResultModal({
 }: LeadActionResultModalProps) {
   const { state, actions } = useModalState();
   const contentText = useFormattedContent(actionResult);
+  
+  // Estados para WhatsApp
+  const [whatsappStatus, setWhatsappStatus] = useState<{
+    connected: boolean;
+    checking: boolean;
+    autoSending: boolean;
+    autoSent: boolean;
+  }>({ connected: false, checking: false, autoSending: false, autoSent: false });
 
   // Memoized values
   const hasPhoneNumber = useMemo(() => 
@@ -89,6 +98,78 @@ export default function LeadActionResultModal({
     }
   }, [resolveText, actions]);
   
+  // Verificar estado de WhatsApp
+  const checkWhatsAppStatus = useCallback(async () => {
+    setWhatsappStatus(prev => ({ ...prev, checking: true }));
+    
+    try {
+      const response = await fetch('/api/whatsapp/status');
+      const result = await response.json();
+      
+      setWhatsappStatus(prev => ({
+        ...prev,
+        connected: result.connected,
+        checking: false
+      }));
+    } catch (error) {
+      console.error('Error checking WhatsApp status:', error);
+      setWhatsappStatus(prev => ({
+        ...prev,
+        connected: false,
+        checking: false
+      }));
+    }
+  }, []);
+
+  // Auto-envío de mensaje de bienvenida
+  const handleAutoSendWelcomeMessage = useCallback(async () => {
+    if (!currentLead?.phone || !currentLead?.name || whatsappStatus.autoSending || whatsappStatus.autoSent) {
+      return;
+    }
+
+    setWhatsappStatus(prev => ({ ...prev, autoSending: true }));
+
+    try {
+      const response = await fetch('/api/whatsapp/send-welcome', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phone: currentLead.phone,
+          leadName: currentLead.name,
+          businessType: currentLead.businessType,
+          message: contentText // Usar el mensaje generado por IA
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setWhatsappStatus(prev => ({
+          ...prev,
+          autoSending: false,
+          autoSent: true
+        }));
+        
+        // Mostrar notificación de éxito
+        setTimeout(() => {
+          alert(`✅ Mensaje de bienvenida enviado automáticamente a ${currentLead.name}`);
+        }, 500);
+      } else {
+        throw new Error(result.error || 'Error al enviar mensaje');
+      }
+    } catch (error) {
+      console.error('Error en auto-envío:', error);
+      setWhatsappStatus(prev => ({
+        ...prev,
+        autoSending: false
+      }));
+      
+      alert(`❌ Error al enviar mensaje automático: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    }
+  }, [currentLead, contentText, whatsappStatus.autoSending, whatsappStatus.autoSent]);
+
   const handleWhatsAppSend = useCallback(async (customText?: string) => {
     if (!hasPhoneNumber) {
       alert('❌ No hay número de teléfono disponible para este contacto');
@@ -141,6 +222,21 @@ export default function LeadActionResultModal({
   const handleStartEdit = useCallback(() => {
     actions.startEdit(contentText);
   }, [actions, contentText]);
+
+  // Verificar estado de WhatsApp al abrir modal
+  useEffect(() => {
+    if (open) {
+      checkWhatsAppStatus();
+    }
+  }, [open]);
+
+  // Auto-envío para mensajes de bienvenida
+  useEffect(() => {
+    if (open && currentActionType === 'welcome' && actionResult && !actionResult.error && 
+        hasPhoneNumber && whatsappStatus.connected && !whatsappStatus.autoSent) {
+      handleAutoSendWelcomeMessage();
+    }
+  }, [open, currentActionType, actionResult, hasPhoneNumber, whatsappStatus.connected]);
 
   // Reset timers on unmount
   useEffect(() => {
@@ -237,6 +333,56 @@ export default function LeadActionResultModal({
                 isLoading={isActionLoading && !actionResult}
               />
 
+              {/* Estado de WhatsApp */}
+              <div className="p-3 bg-gray-50 border rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {whatsappStatus.checking ? (
+                      <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                    ) : whatsappStatus.connected ? (
+                      <Wifi className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <WifiOff className="h-4 w-4 text-red-600" />
+                    )}
+                    <span className="text-sm font-medium">
+                      WhatsApp: {whatsappStatus.checking ? 'Verificando...' : whatsappStatus.connected ? 'Conectado' : 'Desconectado'}
+                    </span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={checkWhatsAppStatus}
+                    disabled={whatsappStatus.checking}
+                  >
+                    Verificar
+                  </Button>
+                </div>
+                
+                {/* Auto-envío de mensaje de bienvenida */}
+                {currentActionType === 'welcome' && whatsappStatus.connected && hasPhoneNumber && (
+                  <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded">
+                    <div className="flex items-center gap-2 text-sm">
+                      {whatsappStatus.autoSending ? (
+                        <>
+                          <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                          <span className="text-blue-800">Enviando mensaje de bienvenida automáticamente...</span>
+                        </>
+                      ) : whatsappStatus.autoSent ? (
+                        <>
+                          <Check className="h-3 w-3 text-green-600" />
+                          <span className="text-green-800">Mensaje de bienvenida enviado automáticamente ✅</span>
+                        </>
+                      ) : (
+                        <>
+                          <MessageCircle className="h-3 w-3 text-blue-600" />
+                          <span className="text-blue-800">Mensaje de bienvenida se enviará automáticamente</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {actionResult && !actionResult.error && hasPhoneNumber && !state.isEditing && (
                 <div className="p-4 bg-white border-2 border-[#25D366] rounded-lg">
                   <div className="flex items-center justify-between">
@@ -247,7 +393,7 @@ export default function LeadActionResultModal({
                         </svg>
                       </div>
                       <div>
-                        <h4 className="font-medium text-gray-900">Enviar por WhatsApp</h4>
+                        <h4 className="font-medium text-gray-900">Enviar por WhatsApp (Manual)</h4>
                         <p className="text-sm text-gray-600">
                           {state.isSending ? 'Preparando mensaje...' : `Enviar a ${currentLead?.name}`}
                         </p>
@@ -255,7 +401,7 @@ export default function LeadActionResultModal({
                     </div>
                     <Button
                       onClick={() => handleWhatsAppSend()}
-                      disabled={state.isSending || state.justSent}
+                      disabled={state.isSending || state.justSent || !whatsappStatus.connected}
                       className="bg-[#25D366] hover:bg-[#128C7E] text-white px-6"
                       aria-label="Enviar mensaje por WhatsApp"
                     >

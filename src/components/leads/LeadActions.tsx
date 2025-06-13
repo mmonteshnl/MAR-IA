@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { Phone, MessageSquareText, Globe, Mail as MailIconLucide, BrainCircuit, Lightbulb, Zap, MoreVertical, Trash2, Edit2, Eye, PackageSearch, Mail } from 'lucide-react';
+import { Phone, MessageSquareText, Globe, Mail as MailIconLucide, BrainCircuit, Lightbulb, Zap, MoreVertical, Trash2, Edit2, Eye, PackageSearch, Mail, Calculator } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { ExtendedLead as Lead } from '@/types';
 
@@ -17,6 +17,7 @@ interface LeadActionsProps {
   onEvaluateBusiness: (lead: Lead) => void;
   onGenerateSalesRecommendations: (lead: Lead) => void;
   onGenerateSolutionEmail: (lead: Lead) => void;
+  onGenerateQuote: (lead: Lead) => void;
   isProcessing?: boolean;
 }
 
@@ -29,6 +30,7 @@ export default function LeadActions({
   onEvaluateBusiness,
   onGenerateSalesRecommendations,
   onGenerateSolutionEmail,
+  onGenerateQuote,
   isProcessing = false
 }: LeadActionsProps) {
   const { toast } = useToast();
@@ -170,6 +172,13 @@ export default function LeadActions({
             >
               <Mail className="h-4 w-4 mr-2" />
               Generar email configuración TPV
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={() => onGenerateQuote(lead)}
+              disabled={isProcessing}
+            >
+              <Calculator className="h-4 w-4 mr-2" />
+              Generar cotización
             </DropdownMenuItem>
             
             <DropdownMenuSeparator />

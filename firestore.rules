@@ -89,5 +89,28 @@ service cloud.firestore {
       allow create: if request.auth != null && 
         request.auth.uid == request.resource.data.userId;
     }
+    
+    // Quotes rules
+    match /quotes/{quoteId} {
+      // Users can access quotes if they belong to the same organization
+      allow read, write: if request.auth != null && (
+        // User owns the quote
+        request.auth.uid == resource.data.userId ||
+        // User is member of the organization
+        (resource.data.organizationId != null && 
+         exists(/databases/$(database)/documents/organizations/$(resource.data.organizationId)) &&
+         request.auth.uid in get(/databases/$(database)/documents/organizations/$(resource.data.organizationId)).data.memberIds)
+      );
+      
+      // Allow creation if user is member of the organization
+      allow create: if request.auth != null && (
+        // User creating their own quote
+        request.auth.uid == request.resource.data.userId &&
+        // User is member of the organization
+        (request.resource.data.organizationId != null && 
+         exists(/databases/$(database)/documents/organizations/$(request.resource.data.organizationId)) &&
+         request.auth.uid in get(/databases/$(database)/documents/organizations/$(request.resource.data.organizationId)).data.memberIds)
+      );
+    }
   }
 }

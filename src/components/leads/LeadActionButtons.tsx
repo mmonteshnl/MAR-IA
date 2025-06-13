@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { BrainCircuit, Lightbulb, PackageSearch, Mail, Sparkles, Loader2, ChevronDown, AlertTriangle } from 'lucide-react';
+import { BrainCircuit, Lightbulb, PackageSearch, Mail, Sparkles, Loader2, ChevronDown, AlertTriangle, Calculator } from 'lucide-react';
 import type { ExtendedLead as Lead } from '@/types';
 import { isFieldMissing } from '@/lib/leads-utils';
 
@@ -13,6 +13,7 @@ interface LeadActionButtonsProps {
   onEvaluateBusiness: (lead: Lead) => void;
   onGenerateSalesRecommendations: (lead: Lead) => void;
   onGenerateSolutionEmail: (lead: Lead) => void;
+  onGenerateQuote: (lead: Lead) => void;
   currentActionLead: Lead | null; // Allow null for initial state
   isActionLoading: boolean;
   currentActionType: string | null; // Allow null for initial state
@@ -24,6 +25,7 @@ export default function LeadActionButtons({
   onEvaluateBusiness,
   onGenerateSalesRecommendations,
   onGenerateSolutionEmail,
+  onGenerateQuote,
   currentActionLead,
   isActionLoading,
   currentActionType,
@@ -72,6 +74,16 @@ export default function LeadActionButtons({
       onClick: onGenerateSolutionEmail,
       disabled: isCurrentlyProcessing,
       color: 'text-purple-400',
+      availableStages: [ 'Nuevo','Contactado','Calificado','Propuesta Enviada','Negociación','Ganado','Perdido','Prospecto','Interesado','Propuesta','Vendido']
+    },
+    {
+      id: 'quote',
+      label: 'Generar Cotización',
+      description: 'Crea cotización inteligente con IA',
+      icon: Calculator,
+      onClick: onGenerateQuote,
+      disabled: isCurrentlyProcessing,
+      color: 'text-orange-400',
       availableStages: [ 'Nuevo','Contactado','Calificado','Propuesta Enviada','Negociación','Ganado','Perdido','Prospecto','Interesado','Propuesta','Vendido']
     }
   ];

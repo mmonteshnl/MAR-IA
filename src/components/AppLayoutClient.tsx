@@ -132,6 +132,7 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
     {
       title: 'COMUNICACIÓN',
       items: [
+        { href: '/quotes', label: 'Cotizaciones', icon: Calculator, currentPathMatcher: (p: string) => p === '/quotes' },
         { href: '/email-campaigns', label: 'Campañas de Email', icon: Send, currentPathMatcher: (p: string) => p === '/email-campaigns' },
         { href: '/channels', label: 'Canales', icon: Cable, currentPathMatcher: (p: string) => p === '/channels' },
       ]
