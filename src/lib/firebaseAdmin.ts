@@ -40,4 +40,4 @@ const authAdmin = admin.auth();
 const firebaseAdmin = { firestoreDbAdmin, authAdmin };
 export default firebaseAdmin;
 
-export { firestoreDbAdmin, authAdmin };
+export { admin, firestoreDbAdmin, authAdmin };

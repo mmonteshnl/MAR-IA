@@ -140,15 +140,150 @@ function correctKeywords(keywords: string, businessType: string): string {
   return [...new Set(corrected)].join(', ');
 }
 
+// Función para generar keywords basadas en el catálogo
+function generateKeywordsFromCatalog({
+  businessType,
+  location,
+  country,
+  catalog
+}: {
+  businessType: string;
+  location: string;
+  country: string;
+  catalog: {
+    products: string[];
+    services: string[];
+    targetAudience: string[];
+  };
+}) {
+  const suggestions = [];
+
+  // Generar keywords basadas en productos
+  for (const product of catalog.products) {
+    const keywords = extractKeywordsFromText(product);
+    for (const keyword of keywords) {
+      suggestions.push({
+        keyword: keyword.toLowerCase(),
+        reason: `Relacionado con tu producto: "${product}"`,
+        category: 'product',
+        confidence: 0.85 + Math.random() * 0.15
+      });
+    }
+  }
+
+  // Generar keywords basadas en servicios
+  for (const service of catalog.services) {
+    const keywords = extractKeywordsFromText(service);
+    for (const keyword of keywords) {
+      suggestions.push({
+        keyword: keyword.toLowerCase(),
+        reason: `Basado en tu servicio: "${service}"`,
+        category: 'service',
+        confidence: 0.80 + Math.random() * 0.15
+      });
+    }
+  }
+
+  // Generar keywords basadas en audiencia objetivo
+  for (const audience of catalog.targetAudience) {
+    suggestions.push({
+      keyword: audience.toLowerCase(),
+      reason: `Dirigido a tu audiencia objetivo: "${audience}"`,
+      category: 'target',
+      confidence: 0.75 + Math.random() * 0.15
+    });
+  }
+
+  // Agregar keywords específicas del tipo de negocio
+  const businessData = keywordDatabase[businessType.toLowerCase()];
+  if (businessData) {
+    Object.entries(businessData).forEach(([category, keywords]) => {
+      keywords.slice(0, 3).forEach(keyword => {
+        suggestions.push({
+          keyword,
+          reason: `Específico para negocios tipo "${businessType}" (${category})`,
+          category: 'business',
+          confidence: 0.90 + Math.random() * 0.10
+        });
+      });
+    });
+  }
+
+  // Agregar keywords de ubicación si están disponibles
+  if (location) {
+    suggestions.push({
+      keyword: `cerca de ${location}`,
+      reason: `Búsquedas locales en "${location}"`,
+      category: 'location',
+      confidence: 0.85
+    });
+    
+    suggestions.push({
+      keyword: location.toLowerCase(),
+      reason: `Enfoque geográfico específico`,
+      category: 'location',
+      confidence: 0.80
+    });
+  }
+
+  // Remover duplicados y ordenar por confianza
+  const uniqueSuggestions = suggestions
+    .filter((item, index, self) => 
+      index === self.findIndex(t => t.keyword === item.keyword)
+    )
+    .filter(item => item.keyword.length > 2) // Filtrar keywords muy cortas
+    .sort((a, b) => b.confidence - a.confidence)
+    .slice(0, 20); // Limitar a 20 sugerencias
+
+  return uniqueSuggestions;
+}
+
+function extractKeywordsFromText(text: string): string[] {
+  // Extraer palabras clave significativas del texto
+  const words = text.toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .split(/\s+/)
+    .filter(word => word.length > 2);
+
+  const stopWords = ['de', 'la', 'el', 'en', 'y', 'a', 'que', 'para', 'con', 'por', 'un', 'una', 'del', 'las', 'los'];
+  
+  return words.filter(word => !stopWords.includes(word));
+}
+
 export async function POST(request: NextRequest) {
   try {
     console.log('🤖 Keyword suggestions API called');
-    const { action, businessType, location, context, keywords } = await request.json();
+    const { action, businessType, location, context, keywords, catalog, country } = await request.json();
     
-    console.log('📥 Request data:', { action, businessType, location, keywords });
+    console.log('📥 Request data:', { action, businessType, location, keywords, catalog });
 
-    if (action === 'suggest') {
-      // Generar nuevas sugerencias
+    if (action === 'generate_from_catalog') {
+      // Generar palabras clave basadas en el catálogo
+      if (!catalog) {
+        return NextResponse.json(
+          { error: 'catalog es requerido para generar sugerencias desde catálogo' },
+          { status: 400 }
+        );
+      }
+
+      const suggestions = generateKeywordsFromCatalog({
+        businessType,
+        location,
+        country,
+        catalog
+      });
+
+      console.log('✨ Generated catalog-based suggestions:', suggestions.length);
+
+      return NextResponse.json({
+        suggestions,
+        businessType,
+        location,
+        catalogUsed: true
+      });
+
+    } else if (action === 'suggest') {
+      // Generar nuevas sugerencias (funcionalidad existente)
       if (!businessType) {
         return NextResponse.json(
           { error: 'businessType es requerido para generar sugerencias' },
@@ -188,7 +323,7 @@ export async function POST(request: NextRequest) {
 
     } else {
       return NextResponse.json(
-        { error: 'Acción no válida. Usa "suggest" o "correct"' },
+        { error: 'Acción no válida. Usa "suggest", "correct", o "generate_from_catalog"' },
         { status: 400 }
       );
     }

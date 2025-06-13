@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Globe, MapPin, Building2, Tag, Search as SearchIcon, Loader2, Lightbulb, Filter, Sparkles, Wand2, RefreshCw } from "lucide-react";
+import { Globe, MapPin, Building2, Tag, Search as SearchIcon, Loader2, Lightbulb, Filter, Sparkles, Wand2, RefreshCw, Brain } from "lucide-react";
+import AIKeywordsModal from "./AIKeywordsModal";
 
 interface SearchFormProps {
   country: string;
@@ -34,7 +35,6 @@ export default function SearchForm({
   onKeywordsChange,
   onSubmit,
 }: SearchFormProps) {
-  const [suggestionsEnabled, setSuggestionsEnabled] = useState(false);
   const [minRating, setMinRating] = useState("all");
   const [priceLevel, setPriceLevel] = useState("all");
   const [openNow, setOpenNow] = useState("all");
@@ -43,6 +43,7 @@ export default function SearchForm({
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   const [loadingAI, setLoadingAI] = useState(false);
   const [showAISuggestions, setShowAISuggestions] = useState(false);
+  const [showAIModal, setShowAIModal] = useState(false);
 
   // Países comunes
   const countries = [
@@ -136,6 +137,20 @@ export default function SearchForm({
     }
   };
 
+  // Función para manejar keywords seleccionadas del modal IA
+  const handleAIKeywordsSelected = (selectedKeywords: string[]) => {
+    const currentKeywords = keywords.split(',').map(k => k.trim()).filter(k => k);
+    const newKeywords = [...currentKeywords];
+    
+    selectedKeywords.forEach(keyword => {
+      if (!newKeywords.includes(keyword)) {
+        newKeywords.push(keyword);
+      }
+    });
+    
+    onKeywordsChange(newKeywords.join(', '));
+  };
+
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div className="space-y-2">
@@ -170,46 +185,39 @@ export default function SearchForm({
         />
       </div>
       <div className="space-y-2">
-        <Label className="text-sm font-medium text-foreground flex items-center justify-between">
-          <span className="flex items-center">
-            <Building2 className="mr-2 h-4 w-4 text-muted-foreground" />
-            Tipo de Negocio
-          </span>
-          <div className="flex items-center space-x-2">
-            <Label htmlFor="suggestions-toggle" className="text-xs text-muted-foreground">
-              Sugerencias
-            </Label>
-            <Switch
-              id="suggestions-toggle"
-              checked={suggestionsEnabled}
-              onCheckedChange={setSuggestionsEnabled}
-              className="scale-75"
-            />
-            <Lightbulb className={`h-3 w-3 ${suggestionsEnabled ? 'text-yellow-500' : 'text-muted-foreground'}`} />
-          </div>
+        <Label className="text-sm font-medium text-foreground flex items-center">
+          <Building2 className="mr-2 h-4 w-4 text-muted-foreground" />
+          Tipo de Negocio
         </Label>
-        {suggestionsEnabled ? (
-          <Select value={businessTypeInput} onValueChange={onBusinessTypeChange}>
-            <SelectTrigger className="h-10">
-              <SelectValue placeholder="Seleccionar tipo de negocio" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos los tipos</SelectItem>
-              {businessTypes.map((type) => (
-                <SelectItem key={type} value={type}>
-                  {type.charAt(0).toUpperCase() + type.slice(1)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
+        
+        {/* Selector con opciones predefinidas */}
+        <Select value={businessTypeInput} onValueChange={onBusinessTypeChange}>
+          <SelectTrigger className="h-10">
+            <SelectValue placeholder="Seleccionar tipo de negocio" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos los tipos</SelectItem>
+            {businessTypes.map((type) => (
+              <SelectItem key={type} value={type}>
+                {type.charAt(0).toUpperCase() + type.slice(1)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        
+        {/* Input manual adicional */}
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground flex items-center">
+            <Lightbulb className="mr-1 h-3 w-3" />
+            O escribe manualmente
+          </Label>
           <Input
             value={businessTypeInput}
             onChange={e => onBusinessTypeChange(e.target.value)}
-            placeholder="restaurante, tienda, gimnasio..."
+            placeholder="ej: restaurante vegano, boutique de ropa, clínica dental..."
             className="h-10 border-input bg-background focus:border-primary focus:ring-1 focus:ring-primary"
           />
-        )}
+        </div>
       </div>
       <div className="space-y-2">
         <Label className="text-sm font-medium text-foreground flex items-center justify-between">
@@ -218,6 +226,21 @@ export default function SearchForm({
             Palabras Clave
           </span>
           <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              onClick={() => setShowAIModal(true)}
+              disabled={loadingAI || !businessTypeInput || businessTypeInput === 'todos'}
+              className="h-7 px-2 text-xs bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+            >
+              {loadingAI ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Brain className="h-3 w-3" />
+              )}
+              IA
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -231,7 +254,7 @@ export default function SearchForm({
               ) : (
                 <Sparkles className="h-3 w-3" />
               )}
-              IA
+              Rápido
             </Button>
             <Button
               type="button"
@@ -370,6 +393,16 @@ export default function SearchForm({
           </>
         )}
       </Button>
+
+      {/* Modal de IA para generar keywords */}
+      <AIKeywordsModal
+        open={showAIModal}
+        onOpenChange={setShowAIModal}
+        onKeywordsSelected={handleAIKeywordsSelected}
+        businessType={businessTypeInput}
+        location={place}
+        country={country}
+      />
     </form>
   );
 }

@@ -111,8 +111,8 @@ export default function ProductsPage() {
           name: data.name,
           category: data.category,
           description: data.description || undefined,
-          price_usd: data.price_usd,
-          original_price_usd: data.original_price_usd || undefined,
+          price: data.price_usd, // Map Firestore price_usd to Product.price
+          original_price: data.original_price_usd || undefined, // Map Firestore original_price_usd to Product.original_price
           createdAt: data.createdAt, 
           updatedAt: data.updatedAt, 
           images: data.images || [], // Ensure images array is initialized
