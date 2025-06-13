@@ -1,6 +1,155 @@
 import { NextRequest, NextResponse } from 'next/server';
+import OpenAI from 'openai';
 
-// Sugerencias inteligentes predefinidas por tipo de negocio
+// Log initialization
+console.log('🚀 Initializing OpenAI client...');
+console.log('🔧 API Key available:', !!process.env.OPENAI_API_KEY);
+console.log('🔧 Assistant ID available:', !!process.env.OPENAI_ASSISTANT_ID);
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+const ASSISTANT_ID = process.env.OPENAI_ASSISTANT_ID;
+
+console.log('✅ OpenAI client initialized successfully');
+
+// Función para generar keywords con OpenAI Assistant
+async function generateKeywordsWithAI({
+  businessType,
+  location,
+  country,
+  catalog
+}: {
+  businessType: string;
+  location: string;
+  country: string;
+  catalog: {
+    products: string[];
+    services: string[];
+    targetAudience: string[];
+  };
+}) {
+  try {
+    // Validar que tenemos las variables de entorno necesarias
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY not found in environment variables');
+    }
+    if (!ASSISTANT_ID) {
+      throw new Error('OPENAI_ASSISTANT_ID not found in environment variables');
+    }
+
+    // Create a fresh OpenAI client instance for this specific call
+    console.log('🔄 Creating fresh OpenAI client...');
+    const freshOpenAI = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+    console.log('✅ Fresh OpenAI client created');
+
+    // Crear el mini-prompt para el Assistant
+    const miniPrompt = `TAREA: keyword_suggestions
+
+DATOS:
+- Productos: ${catalog.products.length > 0 ? catalog.products.join(', ') : 'No especificados'}
+- Servicios: ${catalog.services.length > 0 ? catalog.services.join(', ') : 'No especificados'}
+- Audiencia: ${catalog.targetAudience.length > 0 ? catalog.targetAudience.join(', ') : 'General'}
+- Buscar: ${businessType} en ${location}, ${country}
+
+GENERAR: 15-20 keywords estratégicas para encontrar ${businessType} que necesiten estos productos/servicios. Enfócate en términos que indiquen intención de compra o necesidad de soluciones.`;
+
+    console.log('🤖 Enviando prompt a OpenAI Assistant:', miniPrompt);
+    console.log('🔧 Assistant ID:', ASSISTANT_ID);
+
+    // Crear thread
+    console.log('🔄 Creando thread...');
+    const thread = await freshOpenAI.beta.threads.create();
+    console.log('🔍 Thread object:', JSON.stringify(thread, null, 2));
+    
+    if (!thread || !thread.id) {
+      throw new Error(`Thread creation failed - thread: ${JSON.stringify(thread)}`);
+    }
+    
+    console.log('✅ Thread creado:', thread.id);
+
+    // Enviar mensaje
+    console.log('📤 Enviando mensaje...');
+    const message = await freshOpenAI.beta.threads.messages.create(thread.id, {
+      role: "user",
+      content: miniPrompt
+    });
+    console.log('✅ Mensaje enviado:', message.id);
+
+    // Ejecutar Assistant
+    console.log('🚀 Ejecutando Assistant...');
+    const run = await freshOpenAI.beta.threads.runs.create(thread.id, {
+      assistant_id: ASSISTANT_ID,
+    });
+    console.log('✅ Run creado:', run.id);
+
+    // Esperar respuesta
+    console.log('⏳ Esperando respuesta...');
+    let runStatus = await freshOpenAI.beta.threads.runs.retrieve(thread.id, run.id);
+    let attempts = 0;
+    const maxAttempts = 30; // 30 segundos máximo
+
+    while (runStatus.status !== 'completed' && attempts < maxAttempts) {
+      console.log(`🔄 Status: ${runStatus.status} (attempt ${attempts + 1}/${maxAttempts})`);
+      
+      if (runStatus.status === 'failed' || runStatus.status === 'cancelled') {
+        console.error('❌ Run failed:', runStatus);
+        throw new Error(`Assistant run failed with status: ${runStatus.status}`);
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      runStatus = await freshOpenAI.beta.threads.runs.retrieve(thread.id, run.id);
+      attempts++;
+    }
+
+    if (runStatus.status !== 'completed') {
+      console.error('⏰ Run timed out after', maxAttempts, 'seconds');
+      throw new Error('Assistant run timed out');
+    }
+
+    console.log('✅ Run completed successfully');
+
+    // Obtener respuesta
+    console.log('📥 Obteniendo mensajes...');
+    const messages = await freshOpenAI.beta.threads.messages.list(thread.id);
+    const assistantMessage = messages.data.find(msg => msg.role === 'assistant');
+    
+    if (!assistantMessage || !assistantMessage.content[0] || assistantMessage.content[0].type !== 'text') {
+      console.error('❌ No valid response from assistant');
+      throw new Error('No valid response from assistant');
+    }
+
+    const responseText = assistantMessage.content[0].text.value;
+    console.log('🤖 Respuesta cruda del Assistant:', responseText);
+
+    // Parsear respuesta JSON
+    let parsedResponse;
+    try {
+      parsedResponse = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('❌ Error parseando JSON:', parseError);
+      console.error('📄 Raw response:', responseText);
+      throw new Error('Invalid JSON response from assistant');
+    }
+    
+    if (parsedResponse.type !== 'keyword_suggestions' || !parsedResponse.data || !parsedResponse.data.suggestions) {
+      console.error('❌ Invalid response format:', parsedResponse);
+      throw new Error('Invalid response format from assistant');
+    }
+
+    console.log('✅ Keywords generadas con IA:', parsedResponse.data.suggestions.length);
+    return parsedResponse.data.suggestions;
+
+  } catch (error) {
+    console.error('❌ Error con OpenAI Assistant:', error);
+    throw error;
+  }
+}
+
+// Sugerencias inteligentes predefinidas por tipo de negocio (fallback)
 const keywordDatabase = {
   restaurante: {
     characteristics: ["vegano", "gourmet", "familiar", "económico", "buffet", "comida rápida", "mariscos", "carnes", "internacional"],
@@ -258,7 +407,7 @@ export async function POST(request: NextRequest) {
     console.log('📥 Request data:', { action, businessType, location, keywords, catalog });
 
     if (action === 'generate_from_catalog') {
-      // Generar palabras clave basadas en el catálogo
+      // Generar palabras clave basadas en el catálogo usando IA
       if (!catalog) {
         return NextResponse.json(
           { error: 'catalog es requerido para generar sugerencias desde catálogo' },
@@ -266,21 +415,48 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const suggestions = generateKeywordsFromCatalog({
-        businessType,
-        location,
-        country,
-        catalog
-      });
+      try {
+        console.log('🤖 Iniciando generación con OpenAI Assistant...');
+        
+        // Intentar generar con IA primero
+        const aiSuggestions = await generateKeywordsWithAI({
+          businessType,
+          location,
+          country,
+          catalog
+        });
 
-      console.log('✨ Generated catalog-based suggestions:', suggestions.length);
+        console.log('✨ Generated AI-based suggestions:', aiSuggestions.length);
 
-      return NextResponse.json({
-        suggestions,
-        businessType,
-        location,
-        catalogUsed: true
-      });
+        return NextResponse.json({
+          suggestions: aiSuggestions,
+          businessType,
+          location,
+          catalogUsed: true,
+          aiGenerated: true
+        });
+
+      } catch (aiError) {
+        console.error('❌ Error con IA, usando fallback:', aiError);
+        
+        // Fallback a la función anterior si la IA falla
+        const fallbackSuggestions = generateKeywordsFromCatalog({
+          businessType,
+          location,
+          country,
+          catalog
+        });
+
+        return NextResponse.json({
+          suggestions: fallbackSuggestions,
+          businessType,
+          location,
+          catalogUsed: true,
+          aiGenerated: false,
+          fallbackUsed: true,
+          aiError: aiError.message
+        });
+      }
 
     } else if (action === 'suggest') {
       // Generar nuevas sugerencias (funcionalidad existente)

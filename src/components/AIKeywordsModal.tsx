@@ -146,19 +146,37 @@ export default function AIKeywordsModal({
       const data = await response.json();
       setSuggestions(data.suggestions || []);
       setStep('selecting');
+
+      // Mostrar mensaje si se usó IA real o fallback
+      if (data.aiGenerated) {
+        toast({
+          title: "✨ IA Activada",
+          description: `Se generaron ${data.suggestions?.length || 0} keywords usando OpenAI Assistant`,
+        });
+      } else if (data.fallbackUsed) {
+        toast({
+          title: "⚠️ Fallback Usado",
+          description: "Se usó generación local debido a un error con OpenAI",
+          variant: "default"
+        });
+      }
     } catch (error) {
       console.error('Error generating suggestions:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron generar sugerencias. Intenta de nuevo.",
+        variant: "destructive"
+      });
       
-      // Fallback: generar sugerencias simuladas
+      // Fallback local en caso de error completo
       const simulatedSuggestions: KeywordSuggestion[] = [
         { keyword: "software", reason: "Relacionado con tus productos principales", category: 'product', confidence: 0.95 },
         { keyword: "gestión", reason: "Palabra clave de tu catálogo de servicios", category: 'service', confidence: 0.90 },
         { keyword: "pequeñas empresas", reason: "Audiencia objetivo identificada", category: 'target', confidence: 0.85 },
         { keyword: "automatización", reason: "Servicio principal en tu catálogo", category: 'service', confidence: 0.88 },
-        { keyword: "CRM", reason: "Producto específico de tu oferta", category: 'product', confidence: 0.92 },
-        { keyword: "marketing digital", reason: "Servicio complementario", category: 'service', confidence: 0.87 },
-        { keyword: "análisis", reason: "Capacidad técnica destacada", category: 'service', confidence: 0.83 },
-        { keyword: "startup", reason: "Segmento de mercado objetivo", category: 'target', confidence: 0.80 }
+        { keyword: "punto de venta", reason: "Producto específico de tu oferta", category: 'product', confidence: 0.92 },
+        { keyword: "restaurante", reason: "Tipo de negocio objetivo", category: 'business', confidence: 0.87 },
+        { keyword: location?.toLowerCase() || "local", reason: "Enfoque geográfico", category: 'location', confidence: 0.83 }
       ];
       
       setSuggestions(simulatedSuggestions);
@@ -330,12 +348,28 @@ export default function AIKeywordsModal({
           {/* Paso 2: Generando */}
           {step === 'generating' && (
             <div className="flex flex-col items-center justify-center py-12 space-y-4">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <h3 className="font-medium">Analizando tu catálogo...</h3>
-              <p className="text-sm text-muted-foreground text-center">
-                La IA está generando palabras clave inteligentes basadas en tus productos, 
-                servicios y audiencia objetivo.
-              </p>
+              <div className="relative">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <Sparkles className="h-4 w-4 text-blue-500 absolute -top-1 -right-1 animate-pulse" />
+              </div>
+              <h3 className="font-medium">🤖 OpenAI Assistant Analizando...</h3>
+              <div className="text-center space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Enviando tu catálogo al Assistant de OpenAI para generar keywords inteligentes
+                </p>
+                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                  <span>Procesando productos y servicios</span>
+                </div>
+                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse animation-delay-300"></div>
+                  <span>Analizando mercado objetivo</span>
+                </div>
+                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse animation-delay-600"></div>
+                  <span>Generando keywords estratégicas</span>
+                </div>
+              </div>
             </div>
           )}
 
