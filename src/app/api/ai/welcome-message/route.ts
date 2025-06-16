@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     //   return NextResponse.json({ error: authResult.error }, { status: 401 });
     // }
 
-    const body: WelcomeMessageInput & { leadId?: string; organizationId?: string } = await request.json();
+    const body: WelcomeMessageInput & { leadId?: string; organizationId?: string; currentUser?: any } = await request.json();
     
     console.log('Welcome message API called with:', body);
     
@@ -34,7 +34,14 @@ export async function POST(request: NextRequest) {
         const orgDoc = await db.collection('organizations').doc(body.organizationId).get();
         const orgData = orgDoc.data();
 
-        if (orgData?.catalogUrl) {
+        console.log(`🔍 Organización encontrada: ${orgDoc.exists}`);
+        console.log(`📋 Datos de organización:`, orgData);
+        console.log(`🔗 catalogUrl en orgData:`, orgData?.catalogUrl);
+
+        // Usar catalogUrl de la organización o la URL configurada en las variables de entorno
+        const destinationUrl = orgData?.catalogUrl || process.env.CATALOG_PRUDUCTS_URL || 'https://www.antarestech.io/shop';
+        
+        if (destinationUrl) {
           // Generar link de tracking
           const trackingId = uuidv4();
           
@@ -44,7 +51,7 @@ export async function POST(request: NextRequest) {
             organizationId: body.organizationId,
             type: 'catalogo',
             title: `Catálogo - ${body.leadName}`,
-            destinationUrl: orgData.catalogUrl,
+            destinationUrl: destinationUrl,
             campaignName: 'welcome_message',
             trackingUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/track/${trackingId}`,
             createdAt: admin.firestore().FieldValue.serverTimestamp(),
@@ -69,6 +76,7 @@ export async function POST(request: NextRequest) {
 
           catalogUrl = trackingLink.trackingUrl;
           console.log(`✅ Tracking link creado: ${trackingId} para lead: ${body.leadId}`);
+          console.log(`🔗 Tracking URL generada: ${catalogUrl}`);
         }
       } catch (error) {
         console.error('Error creando tracking link:', error);
@@ -81,8 +89,12 @@ export async function POST(request: NextRequest) {
       ...body,
       companyName: body.companyName || 'nuestra empresa',
       companyDescription: body.companyDescription || 'nos especializamos en soluciones tecnológicas para impulsar tu negocio',
+      senderName: body.currentUser?.displayName || body.currentUser?.email?.split('@')[0] || 'nuestro equipo',
       catalogUrl
     };
+    
+    console.log(`📝 Input para generar mensaje:`, messageInput);
+    console.log(`🔗 catalogUrl que se enviará al AI:`, catalogUrl);
     
     const result = await generateWelcomeMessage(messageInput);
     

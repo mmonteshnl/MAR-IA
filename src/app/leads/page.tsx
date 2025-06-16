@@ -269,13 +269,17 @@ export default function LeadsPage() {
     setCurrentActionType('welcome');
     
     try {
-      const input: WelcomeMessageInput & { leadId?: string; organizationId?: string } = {
+      const input: WelcomeMessageInput & { leadId?: string; organizationId?: string; currentUser?: any } = {
         leadName: lead.fullName || lead.name,
         businessType: getBusinessTypeFromMetaLead(lead) || 'negocio',
         leadId: lead.id,
         organizationId: currentOrganization?.id,
         companyName: currentOrganization?.name || 'nuestra empresa',
-        companyDescription: currentOrganization?.description || 'nos especializamos en soluciones tecnológicas para impulsar tu negocio'
+        companyDescription: currentOrganization?.description || 'nos especializamos en soluciones tecnológicas para impulsar tu negocio',
+        currentUser: {
+          displayName: user?.displayName,
+          email: user?.email
+        }
       };
       
       console.log('Generating welcome message with input:', input);

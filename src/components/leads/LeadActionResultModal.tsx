@@ -124,7 +124,7 @@ export default function LeadActionResultModal({
         }
       });
       
-      
+
       if (response.ok) {
         const result = await response.json();
         const isConnected = result.instance?.state === 'open';
@@ -294,7 +294,7 @@ export default function LeadActionResultModal({
       const normalizedPhone = normalizePhoneNumber(phoneToUse);
       
       // Usar Evolution API para enviar mensaje
-      const response = await fetch('http://localhost:8081/message/sendText/h', {
+      const response = await fetch('http://localhost:8081/message/sendText/u', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

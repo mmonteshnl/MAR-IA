@@ -74,7 +74,7 @@ sendTextMessage();
 
 ### **2.3 Envío con cURL**
 ```bash
-curl -X POST "http://localhost:8081/message/sendText/h" \
+curl -X POST "http://localhost:8081/message/sendText/u" \
   -H "apikey: evolution_api_key_2024" \
   -H "Content-Type: application/json" \
   -d '{
@@ -85,7 +85,7 @@ curl -X POST "http://localhost:8081/message/sendText/h" \
 
 ### **2.4 Envío con Postman**
 ```
-POST http://localhost:8081/message/sendText/h
+POST http://localhost:8081/message/sendText/u
 
 Headers:
 apikey: evolution_api_key_2024
@@ -127,7 +127,7 @@ async function sendImageMessage() {
 
 ### **3.2 Con cURL**
 ```bash
-curl -X POST "http://localhost:8081/message/sendMedia/h" \
+curl -X POST "http://localhost:8081/message/sendMedia/u" \
   -H "apikey: evolution_api_key_2024" \
   -H "Content-Type: application/json" \
   -d '{
@@ -217,7 +217,7 @@ async function sendButtonMessage() {
 
 ### **4.2 Con cURL**
 ```bash
-curl -X POST "http://localhost:8081/message/sendButtons/h" \
+curl -X POST "http://localhost:8081/message/sendButtons/u" \
   -H "apikey: evolution_api_key_2024" \
   -H "Content-Type: application/json" \
   -d '{

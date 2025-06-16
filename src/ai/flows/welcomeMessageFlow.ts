@@ -16,6 +16,7 @@ const WelcomeMessageInputSchema = z.object({
   companyName: z.string().optional().describe('El nombre de nuestra empresa.'),
   companyDescription: z.string().optional().describe('Breve descripción de nuestra empresa y servicios.'),
   catalogUrl: z.string().optional().describe('URL del catálogo de productos/servicios (con tracking).'),
+  senderName: z.string().optional().describe('El nombre de la persona que envía el mensaje.'),
 });
 export type WelcomeMessageInput = z.infer<typeof WelcomeMessageInputSchema>;
 
@@ -47,10 +48,18 @@ INFORMACIÓN DE NUESTRA EMPRESA:
 {{#if companyDescription}}
 - Descripción: {{{companyDescription}}}
 {{/if}}
+{{#if senderName}}
+- Nombre del remitente: {{{senderName}}}
+{{/if}}
 
 INSTRUCCIONES ESPECÍFICAS:
 1. Inicia el mensaje con "Hola {leadName}," de forma natural y humana
+{{#if senderName}}
+2. Presenta tu nombre: "soy {senderName}" o "me llamo {senderName}"
+3. Menciona que te diriges desde {companyName} (si se proporciona)
+{{else}}
 2. Menciona que te diriges desde {companyName} (si se proporciona)
+{{/if}}
 3. Incluye una presentación breve de la empresa usando {companyDescription}
 4. Haz referencia sutil al tipo de negocio del lead si es relevante
 5. Invita de manera natural a conocer nuestro catálogo de productos y servicios
