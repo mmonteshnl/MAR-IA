@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
             title: `Catálogo - ${body.leadName}`,
             destinationUrl: destinationUrl,
             campaignName: 'welcome_message',
-            trackingUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/track/${trackingId}`,
+            trackingUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3047'}/track/${trackingId}`,
             createdAt: FieldValue.serverTimestamp(),
             createdBy: 'system', // TODO: Fix when auth is re-enabled
             clickCount: 0,

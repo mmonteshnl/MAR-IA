@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { admin } from '@/lib/firebase-admin';
+import { admin, db } from '@/lib/firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 
 interface ClickData {
   timestamp: string;
@@ -24,7 +25,7 @@ export async function POST(
       );
     }
 
-    const db = admin.firestore();
+    // Usar db directamente de la importación
     
     // Buscar el tracking link en todas las organizaciones
     const allOrgsSnapshot = await db.collection('organizations').get();
@@ -65,7 +66,7 @@ export async function POST(
       trackingId,
       leadId: trackingData.leadId,
       organizationId,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      timestamp: FieldValue.serverTimestamp(),
       clickData: {
         ...clickData,
         ipAddress: request.headers.get('x-forwarded-for') || 
@@ -84,34 +85,33 @@ export async function POST(
 
     // Actualizar el contador en el tracking link
     await trackingLinkDoc.ref.update({
-      clickCount: admin.firestore.FieldValue.increment(1),
-      lastClickAt: admin.firestore.FieldValue.serverTimestamp()
+      clickCount: FieldValue.increment(1),
+      lastClickAt: FieldValue.serverTimestamp()
     });
 
     // Actualizar el estado del lead si es un click de catálogo
     if (trackingData.type === 'catalogo') {
       const leadRef = db
-        .collection('organizations')
-        .doc(organizationId)
-        .collection('leads')
+        .collection('leads-flow')
         .doc(trackingData.leadId);
 
       const leadDoc = await leadRef.get();
       if (leadDoc.exists) {
-        const currentStatus = leadDoc.data()?.status;
+        const currentStage = leadDoc.data()?.currentStage || leadDoc.data()?.stage;
         
-        // Solo actualizar si está en estado "contactado" o "nuevo"
-        if (currentStatus === 'contactado' || currentStatus === 'nuevo') {
+        // Solo actualizar si está en estado "Nuevo" o "Contactado"
+        if (currentStage === 'Nuevo' || currentStage === 'Contactado') {
           await leadRef.update({
-            status: 'contactado',
-            responseStatus: 'visito_catalogo',
-            lastActivityAt: admin.firestore.FieldValue.serverTimestamp(),
-            catalogVisitedAt: admin.firestore.FieldValue.serverTimestamp(),
-            notes: admin.firestore.FieldValue.arrayUnion({
+            currentStage: 'Contactado',
+            stage: 'Contactado', // Para compatibilidad
+            lastActivityAt: FieldValue.serverTimestamp(),
+            catalogVisitedAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+            interactions: FieldValue.arrayUnion({
               id: Date.now().toString(),
-              text: `Cliente visitó el catálogo: ${trackingData.title}`,
-              timestamp: new Date().toISOString(),
               type: 'catalog_visit',
+              timestamp: new Date().toISOString(),
+              description: `Cliente visitó el catálogo: ${trackingData.title}`,
               metadata: {
                 trackingId,
                 linkTitle: trackingData.title,

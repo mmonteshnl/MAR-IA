@@ -94,3 +94,65 @@ export interface Service {
   updatedAt: Timestamp | string;
   // No images for services for now, can be added later if needed
 }
+
+// Tracking Links Types
+export interface TrackingLink {
+  id: string;
+  leadId: string;
+  organizationId: string;
+  type: 'catalogo' | 'landing' | 'producto' | 'servicio';
+  title: string;
+  destinationUrl: string;
+  campaignName: string;
+  trackingUrl: string;
+  createdAt: Timestamp | string;
+  createdBy: string;
+  clickCount: number;
+  lastClickAt: Timestamp | string | null;
+  isActive: boolean;
+  metadata: {
+    source?: string;
+    leadName?: string;
+    businessType?: string;
+    userAgent?: string;
+    ipAddress?: string;
+  };
+}
+
+export interface TrackingClick {
+  id?: string;
+  trackingId: string;
+  leadId: string;
+  organizationId: string;
+  timestamp: Timestamp | string;
+  clickData: {
+    timestamp: string;
+    userAgent: string;
+    referrer: string;
+    screenResolution: string;
+    language: string;
+    ipAddress: string;
+    country?: string;
+  };
+}
+
+export interface TrackingAnalytics {
+  linkDetails: {
+    id: string;
+    title: string;
+    type: string;
+    destinationUrl: string;
+    clickCount: number;
+    createdAt: Timestamp | string;
+    lastClickAt: Timestamp | string | null;
+  };
+  clicks: TrackingClick[];
+  analytics: {
+    clicksByHour: { [hour: string]: number };
+    clicksByDay: { [day: string]: number };
+    deviceTypes: { [device: string]: number };
+    browsers: { [browser: string]: number };
+    countries: { [country: string]: number };
+    referrers: { [referrer: string]: number };
+  };
+}
