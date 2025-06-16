@@ -124,6 +124,7 @@ export default function LeadActionResultModal({
         }
       });
       
+      
       if (response.ok) {
         const result = await response.json();
         const isConnected = result.instance?.state === 'open';
