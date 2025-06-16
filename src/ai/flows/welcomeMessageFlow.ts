@@ -15,7 +15,6 @@ const WelcomeMessageInputSchema = z.object({
   businessType: z.string().optional().describe('El tipo o categoría del negocio (ej: restaurante, software, etc.).'),
   companyName: z.string().optional().describe('El nombre de nuestra empresa.'),
   companyDescription: z.string().optional().describe('Breve descripción de nuestra empresa y servicios.'),
-  catalogUrl: z.string().optional().describe('URL del catálogo de productos/servicios (con tracking).'),
   senderName: z.string().optional().describe('El nombre de la persona que envía el mensaje.'),
 });
 export type WelcomeMessageInput = z.infer<typeof WelcomeMessageInputSchema>;
@@ -63,9 +62,7 @@ INSTRUCCIONES ESPECÍFICAS:
 3. Incluye una presentación breve de la empresa usando {companyDescription}
 4. Haz referencia sutil al tipo de negocio del lead si es relevante
 5. Invita de manera natural a conocer nuestro catálogo de productos y servicios
-{{#if catalogUrl}}
-6. INCLUYE EXACTAMENTE esta frase al final: "Te invitamos a ver nuestro catálogo completo: {{{catalogUrl}}}"
-{{/if}}
+6. NO incluyas links o URLs, la plataforma los agregará automáticamente
 
 ESTILO:
 - Tono humano, cálido y profesional

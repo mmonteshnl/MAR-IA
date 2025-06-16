@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { evaluateBusinessFeatures, type EvaluateBusinessInput } from '@/ai/flows/evaluateBusinessFlow';
+import { withAICache } from '@/lib/ai-cache-manager';
+import { admin } from '@/lib/firebase-admin';
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,21 +29,40 @@ export async function POST(request: NextRequest) {
     
     console.log('Calling evaluateBusinessFeatures with:', body);
     
-    let result; 
-const { firestoreDbAdmin } = require('@/lib/firebaseAdmin'); // Import Firestore
-
-async function saveEvaluationToDatabase(evaluationData: any) {
-  try {
-    const evaluationsRef = firestoreDbAdmin.collection('evaluations'); // Reference to the evaluations collection
-    await evaluationsRef.add(evaluationData); // Save the evaluation data
-    console.log('Evaluation saved to database successfully');
-  } catch (error) {
-    console.error('Error saving evaluation to database:', error);
-    throw new Error('Error saving evaluation to database');
-  }
-}
+    // Intentar obtener el leadId de la URL o del body
+    const url = new URL(request.url);
+    const leadIdFromUrl = url.searchParams.get('leadId');
+    const leadId = body.leadId || leadIdFromUrl;
+    
+    // Obtener el lead actual para verificar cache
+    let currentLead = null;
     try {
-      result = await evaluateBusinessFeatures(body);
+      if (leadId) {
+        const leadDoc = await admin.firestore().collection('leads-flow').doc(leadId).get();
+        currentLead = leadDoc.exists ? leadDoc.data() : null;
+      }
+    } catch (error) {
+      console.warn('Error obteniendo lead para cache:', error);
+    }
+    
+    let result;
+    try {
+      // Usar cache si tenemos leadId y datos del lead
+      if (leadId && currentLead) {
+        console.log(`🔍 Verificando cache para evaluación del lead ${leadId}`);
+        const cacheResult = await withAICache(
+          leadId,
+          'businessEvaluation',
+          () => evaluateBusinessFeatures(body),
+          body,
+          currentLead.aiContent
+        );
+        result = cacheResult.content;
+        console.log(`✅ Evaluación ${cacheResult.fromCache ? 'obtenida del cache' : 'generada por IA'}`);
+      } else {
+        console.log('⚠️ Generando evaluación sin cache (no leadId disponible)');
+        result = await evaluateBusinessFeatures(body);
+      }
       console.log('evaluateBusinessFeatures completed successfully:', result);
     } catch (aiError) {
       console.error('AI Flow error:', aiError);

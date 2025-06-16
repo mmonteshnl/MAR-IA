@@ -60,6 +60,11 @@ export default function LeadActionResultModal({
   // Estado para editar número de teléfono
   const [editingPhone, setEditingPhone] = useState(false);
   const [editedPhone, setEditedPhone] = useState('');
+  
+  // Estados para cotización inteligente
+  const [isGeneratingQuote, setIsGeneratingQuote] = useState(false);
+  const [generatedQuote, setGeneratedQuote] = useState<string | null>(null);
+  const [quoteGenerated, setQuoteGenerated] = useState(false);
 
   // Memoized values
   const hasPhoneNumber = useMemo(() => 
@@ -350,6 +355,138 @@ export default function LeadActionResultModal({
     actions.startEdit(contentText);
   }, [actions, contentText]);
 
+  // Función para generar cotización inteligente basada en la evaluación
+  const handleGenerateIntelligentQuote = useCallback(async () => {
+    if (!currentLead) return;
+    
+    setIsGeneratingQuote(true);
+    
+    try {
+      // Usar la API de cotización híbrida (IA + PandaDoc)
+      const response = await fetch('/api/quotes/generate-intelligent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          leadName: currentLead.name,
+          businessType: currentLead.businessType,
+          evaluation: contentText, // Usar la evaluación como contexto
+          requestedServices: extractServicesFromEvaluation(contentText), // Extraer servicios recomendados
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setGeneratedQuote(result.quotationUrl || result.documentUrl);
+        setQuoteGenerated(true);
+        
+        toast({
+          title: "✅ Cotización Generada",
+          description: "Cotización inteligente creada con éxito usando PandaDoc",
+          duration: 5000,
+        });
+      } else {
+        throw new Error(result.error || 'Error al generar cotización');
+      }
+    } catch (error) {
+      console.error('Error generating intelligent quote:', error);
+      toast({
+        title: "❌ Error",
+        description: `Error al generar cotización: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+        variant: "destructive",
+        duration: 5000,
+      });
+    } finally {
+      setIsGeneratingQuote(false);
+    }
+  }, [currentLead, contentText, toast]);
+
+  // Función auxiliar para extraer servicios recomendados de la evaluación
+  const extractServicesFromEvaluation = (evaluation: string) => {
+    const services = [];
+    if (evaluation.includes('CRM')) services.push('CRM y Gestión de Leads');
+    if (evaluation.includes('WhatsApp')) services.push('WhatsApp Business Automation');
+    if (evaluation.includes('Tracking')) services.push('Tracking y Analytics');
+    if (evaluation.includes('IA') || evaluation.includes('Inteligencia')) services.push('Inteligencia Artificial');
+    if (evaluation.includes('Web') || evaluation.includes('sitio')) services.push('Desarrollo Web');
+    if (evaluation.includes('Marketing')) services.push('Marketing Digital');
+    if (evaluation.includes('TPV')) services.push('Sistemas TPV');
+    return services;
+  };
+
+  // Función para enviar cotización por WhatsApp
+  const handleSendQuoteViaWhatsApp = useCallback(async () => {
+    if (!generatedQuote || !currentLead) return;
+    
+    const phoneToUse = editedPhone || currentLead.phone;
+    if (!phoneToUse) {
+      toast({
+        title: "❌ Error",
+        description: "No hay número de teléfono disponible",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    actions.startSending();
+    
+    try {
+      const normalizedPhone = normalizePhoneNumber(phoneToUse);
+      
+      const quoteMessage = `Hola ${currentLead.name},
+
+Basándome en la evaluación de tu negocio, he preparado una cotización personalizada con las soluciones que mejor se adaptan a tus necesidades.
+
+📋 *Cotización Personalizada:* ${generatedQuote}
+
+Esta propuesta incluye los servicios específicos que identificamos como oportunidades de crecimiento para tu empresa.
+
+¿Te gustaría que conversemos sobre los detalles de implementación?
+
+Saludos,
+Equipo HNL-MAR-IA`;
+
+      const response = await fetch('http://localhost:8081/message/sendText/u', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': 'evolution_api_key_2024'
+        },
+        body: JSON.stringify({
+          number: normalizedPhone,
+          text: quoteMessage
+        })
+      });
+
+      if (response.ok) {
+        actions.sendSuccess();
+        
+        toast({
+          title: "✅ Cotización Enviada",
+          description: `Cotización enviada exitosamente a ${currentLead.name}`,
+          duration: 5000,
+        });
+        
+        setTimeout(() => actions.sendReset(), 3000);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error al enviar cotización');
+      }
+      
+    } catch (error) {
+      console.error('Error sending quote via WhatsApp:', error);
+      toast({
+        title: "❌ Error",
+        description: `Error al enviar cotización: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+        variant: "destructive",
+      });
+    } finally {
+      actions.sendReset();
+    }
+  }, [generatedQuote, currentLead, editedPhone, normalizePhoneNumber, actions, toast]);
+
   // Verificar estado de WhatsApp al abrir modal
   useEffect(() => {
     if (open) {
@@ -513,7 +650,106 @@ export default function LeadActionResultModal({
                 )}
               </div>
 
-              {actionResult && !actionResult.error && !state.isEditing && (
+              {/* Sección especial para evaluaciones de negocio */}
+              {actionResult && !actionResult.error && currentActionType === 'evaluate' && (
+                <div className="p-4 bg-gradient-to-br from-purple-900/30 to-blue-900/30 border-2 border-purple-600/50 rounded-lg">
+                  <div className="space-y-4">
+                    {/* Header para evaluación */}
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg">
+                        <svg viewBox="0 0 24 24" className="h-5 w-5 text-white" fill="currentColor">
+                          <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-medium text-white">Evaluación Completada - Siguiente Paso</h4>
+                        <p className="text-sm text-gray-300">
+                          Genera una cotización personalizada basada en el análisis
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Botón para generar cotización inteligente */}
+                    <div className="space-y-3">
+                      <Button
+                        onClick={handleGenerateIntelligentQuote}
+                        disabled={isGeneratingQuote || quoteGenerated}
+                        className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white transition-all duration-200"
+                      >
+                        {isGeneratingQuote ? (
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Generando Cotización Inteligente...
+                          </div>
+                        ) : quoteGenerated ? (
+                          <div className="flex items-center gap-2">
+                            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+                              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </svg>
+                            Cotización Generada ✓
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+                              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+                            </svg>
+                            Crear Cotización con PandaDoc
+                          </div>
+                        )}
+                      </Button>
+
+                      {/* Mostrar enlace a cotización si está generada */}
+                      {quoteGenerated && generatedQuote && (
+                        <div className="p-3 bg-green-900/30 border border-green-600/50 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-green-600 rounded-lg">
+                              <svg viewBox="0 0 24 24" className="h-4 w-4 text-white" fill="currentColor">
+                                <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                              </svg>
+                            </div>
+                            <div className="flex-1">
+                              <h5 className="font-medium text-green-300">Cotización Creada</h5>
+                              <a 
+                                href={generatedQuote} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-sm text-green-200 hover:text-green-100 underline"
+                              >
+                                Ver Cotización en PandaDoc →
+                              </a>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Botón para enviar por WhatsApp (solo habilitado si hay cotización) */}
+                      {quoteGenerated && (
+                        <Button
+                          onClick={handleSendQuoteViaWhatsApp}
+                          disabled={state.isSending || !editedPhone}
+                          className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white transition-all duration-200"
+                        >
+                          {state.isSending ? (
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              Enviando Cotización...
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.434 3.268"/>
+                              </svg>
+                              Enviar Cotización por WhatsApp
+                            </div>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {actionResult && !actionResult.error && !state.isEditing && currentActionType !== 'evaluate' && (
                 <div className="p-4 bg-gray-800 border-2 border-[#25D366] rounded-lg">
                   <div className="space-y-3">
                     {/* Header con información del destinatario */}

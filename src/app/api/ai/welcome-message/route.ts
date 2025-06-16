@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateWelcomeMessage, type WelcomeMessageInput } from '@/ai/flows/welcomeMessageFlow';
 import { verifyAuthToken } from '@/lib/auth-utils';
 import { admin, db } from '@/lib/firebase-admin';
+import { withAICache } from '@/lib/ai-cache-manager';
 import { v4 as uuidv4 } from 'uuid';
 import { FieldValue } from 'firebase-admin/firestore';
 
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
     //   return NextResponse.json({ error: authResult.error }, { status: 401 });
     // }
 
-    const body: WelcomeMessageInput & { leadId?: string; organizationId?: string; currentUser?: any } = await request.json();
+    const body: WelcomeMessageInput & { leadId?: string; organizationId?: string; currentUser?: any; catalogUrl?: string } = await request.json();
     
     console.log('Welcome message API called with:', body);
     
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
             destinationUrl: destinationUrl,
             campaignName: 'welcome_message',
             trackingUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/track/${trackingId}`,
-            createdAt: admin.firestore().FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
             createdBy: 'system', // TODO: Fix when auth is re-enabled
             clickCount: 0,
             lastClickAt: null,
@@ -84,24 +85,59 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Preparar datos para el mensaje con información de empresa por defecto
+    // Preparar datos para el mensaje con información de empresa por defecto (SIN catalogUrl)
     const messageInput = {
-      ...body,
+      leadName: body.leadName,
+      businessType: body.businessType,
       companyName: body.companyName || 'nuestra empresa',
       companyDescription: body.companyDescription || 'nos especializamos en soluciones tecnológicas para impulsar tu negocio',
-      senderName: body.currentUser?.displayName || body.currentUser?.email?.split('@')[0] || 'nuestro equipo',
-      catalogUrl
+      senderName: body.currentUser?.displayName || body.currentUser?.email?.split('@')[0] || 'nuestro equipo'
     };
     
     console.log(`📝 Input para generar mensaje:`, messageInput);
-    console.log(`🔗 catalogUrl que se enviará al AI:`, catalogUrl);
     
-    const result = await generateWelcomeMessage(messageInput);
+    // Obtener el lead actual para verificar cache
+    let currentLead = null;
+    try {
+      if (body.leadId) {
+        const leadDoc = await db.collection('leads-flow').doc(body.leadId).get();
+        currentLead = leadDoc.exists ? leadDoc.data() : null;
+      }
+    } catch (error) {
+      console.warn('Error obteniendo lead para cache:', error);
+    }
     
-    console.log('Welcome message API result:', result);
+    // Generar el mensaje con IA usando cache
+    const cacheResult = body.leadId && currentLead 
+      ? await withAICache(
+          body.leadId,
+          'welcomeMessage',
+          () => generateWelcomeMessage(messageInput),
+          messageInput,
+          currentLead.aiContent
+        )
+      : { 
+          content: await generateWelcomeMessage(messageInput), 
+          fromCache: false, 
+          generatedAt: new Date(),
+          requestId: `no-cache-${Date.now()}`
+        };
+    
+    const result = cacheResult.content;
+    
+    console.log(`🤖 Mensaje ${cacheResult.fromCache ? 'obtenido del cache' : 'generado por IA'}:`, result);
+    
+    // Agregar el tracking link al final del mensaje generado
+    let finalMessage = result.message;
+    if (catalogUrl) {
+      finalMessage += `\n\nTe invitamos a ver nuestro catálogo completo: ${catalogUrl}`;
+      console.log(`🔗 Tracking link agregado: ${catalogUrl}`);
+    }
+    
+    console.log('📱 Mensaje final con tracking:', finalMessage);
     
     return NextResponse.json({
-      ...result,
+      message: finalMessage,
       trackingUrl: catalogUrl // Incluir la URL de tracking en la respuesta
     });
   } catch (error) {

@@ -53,6 +53,10 @@ export interface ExtendedLead extends MetaLeadAdsModel {
   images?: LeadImage[];
   featured_image_url?: string; // Denormalized for quick display
   
+  // AI Content Cache
+  aiContent?: import('./ai-content-cache').AIContentCache;
+  aiCacheStats?: import('./ai-content-cache').CacheStats;
+  
   // Computed/derived fields for backward compatibility
   name: string; // Maps to fullName
   email: string; // Direct mapping

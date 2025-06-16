@@ -329,7 +329,22 @@ export default function LeadsPage() {
         leadName: lead.fullName || lead.name,
         businessType: getBusinessTypeFromMetaLead(lead) || '',
         website: lead.website || '',
-        address: lead.address || ''
+        address: lead.address || '',
+        // Información de nuestra empresa
+        companyName: currentOrganization?.name || 'HNL-MAR-IA',
+        companyDescription: currentOrganization?.description || 'Especialistas en soluciones tecnológicas para impulsar negocios',
+        companyServices: `
+• CRM y Gestión de Leads - Sistema avanzado de administración de clientes y seguimiento de oportunidades
+• WhatsApp Business Automation - Automatización de mensajes y gestión de conversaciones
+• Tracking y Analytics - Sistemas de seguimiento de interacciones y métricas de engagement  
+• Inteligencia Artificial - Generación de contenido, evaluaciones de negocio y recomendaciones personalizadas
+• Desarrollo Web - Sitios web profesionales y plataformas digitales
+• Marketing Digital - Estrategias de presencia online y optimización de conversiones
+• Sistemas TPV - Puntos de venta y gestión de transacciones
+• Cotizaciones Inteligentes - Generación automática de propuestas comerciales
+• Integración de APIs - Conexión entre sistemas y automatización de procesos
+• Consultoría Digital - Asesoría en transformación digital y optimización de procesos
+        `.trim()
       };
       
       console.log('Evaluating business with input:', input);

@@ -1,11 +1,11 @@
 "use client";
 
+import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { BrainCircuit, Lightbulb, PackageSearch, Mail, Sparkles, Loader2, ChevronDown, AlertTriangle, Calculator, Building2, Zap } from 'lucide-react';
+import { Sparkles, Loader2 } from 'lucide-react';
 import type { ExtendedLead as Lead } from '@/types';
-import { isFieldMissing } from '@/lib/leads-utils';
+import AIActionsModal from './AIActionsModal';
 
 interface LeadActionButtonsProps {
   lead: Lead;
@@ -34,196 +34,70 @@ export default function LeadActionButtons({
   isActionLoading,
   currentActionType,
 }: LeadActionButtonsProps) {
-  const isContactDisabled = isFieldMissing(lead.phone) && isFieldMissing(lead.website) && isFieldMissing(lead.email);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const isCurrentlyProcessing = currentActionLead?.id === lead.id && isActionLoading;
 
-  console.log("lead:", lead);
-
-  const actions = [
-    {
-      id: 'welcome',
-      label: 'Mensaje de Bienvenida',
-      description: 'Genera mensaje personalizado de primer contacto',
-      icon: BrainCircuit,
-      onClick: onGenerateWelcomeMessage,
-      disabled: isContactDisabled || isCurrentlyProcessing,
-      color: 'text-blue-400',
-      availableStages: [ 'Nuevo','Contactado','Calificado','Propuesta Enviada','Negociación','Ganado','Perdido','Prospecto','Interesado','Propuesta','Vendido']
-    },
-    {
-      id: 'evaluate',
-      label: 'Evaluar Negocio',
-      description: 'Analiza potencial y oportunidades',
-      icon: Lightbulb,
-      onClick: onEvaluateBusiness,
-      disabled: isCurrentlyProcessing,
-      color: 'text-amber-400',
-      availableStages: [ 'Nuevo','Contactado','Calificado','Propuesta Enviada','Negociación','Ganado','Perdido','Prospecto','Interesado','Propuesta','Vendido']
-    },
-    {
-      id: 'recommend',
-      label: 'Recomendaciones',
-      description: 'Sugiere productos específicos',
-      icon: PackageSearch,
-      onClick: onGenerateSalesRecommendations,
-      disabled: isCurrentlyProcessing,
-      color: 'text-green-400',
-      availableStages: [ 'Nuevo','Contactado','Calificado','Propuesta Enviada','Negociación','Ganado','Perdido','Prospecto','Interesado','Propuesta','Vendido']
-    },
-    {
-      id: 'solution-email',
-      label: 'Email de Configuración',
-      description: 'Crea email técnico TPV',
-      icon: Mail,
-      onClick: onGenerateSolutionEmail,
-      disabled: isCurrentlyProcessing,
-      color: 'text-purple-400',
-      availableStages: [ 'Nuevo','Contactado','Calificado','Propuesta Enviada','Negociación','Ganado','Perdido','Prospecto','Interesado','Propuesta','Vendido']
-    },
-    {
-      id: 'quote',
-      label: 'Generar Cotización',
-      description: 'Crea cotización inteligente con IA',
-      icon: Calculator,
-      onClick: onGenerateQuote,
-      disabled: isCurrentlyProcessing,
-      color: 'text-orange-400',
-      availableStages: [ 'Nuevo','Contactado','Calificado','Propuesta Enviada','Negociación','Ganado','Perdido','Prospecto','Interesado','Propuesta','Vendido']
-    },
-    {
-      id: 'billing-quote',
-      label: 'Cotización PandaDoc',
-      description: 'Genera cotización usando PandaDoc',
-      icon: Building2,
-      onClick: onGenerateBillingQuote || (() => {}),
-      disabled: !onGenerateBillingQuote || isCurrentlyProcessing,
-      color: 'text-cyan-400',
-      availableStages: [ 'Nuevo','Contactado','Calificado','Propuesta Enviada','Negociación','Ganado','Perdido','Prospecto','Interesado','Propuesta','Vendido']
-    },
-    {
-      id: 'hybrid-quote',
-      label: 'Cotización Híbrida IA+PandaDoc',
-      description: 'Combina análisis IA con documentos PandaDoc',
-      icon: Zap,
-      onClick: onGenerateHybridQuote || (() => {}),
-      disabled: !onGenerateHybridQuote || isCurrentlyProcessing,
-      color: 'text-purple-400',
-      availableStages: [ 'Nuevo','Contactado','Calificado','Propuesta Enviada','Negociación','Ganado','Perdido','Prospecto','Interesado','Propuesta','Vendido']
-    }
-  ];
-
   const getCurrentAction = () => {
-    return actions.find(action => action.id === currentActionType );
+    const actions = [
+      { id: 'welcome', label: 'Mensaje de Bienvenida' },
+      { id: 'evaluate', label: 'Evaluar Negocio' },
+      { id: 'recommend', label: 'Recomendaciones' },
+      { id: 'solution-email', label: 'Email de Configuración' },
+      { id: 'quote', label: 'Generar Cotización' },
+      { id: 'billing-quote', label: 'Cotización PandaDoc' },
+      { id: 'hybrid-quote', label: 'Cotización Híbrida' }
+    ];
+    return actions.find(action => action.id === currentActionType);
   };
 
   const currentAction = getCurrentAction();
 
   return (
     <div className="space-y-2">
-     
-      
-      {/* Dropdown Menu */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            className={`w-full h-8 text-xs transition-all duration-200 ${
-              isCurrentlyProcessing 
-                ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white border-transparent shadow-md' 
-                : 'hover:bg-gray-700'
-            }`}
-            disabled={isCurrentlyProcessing && !currentAction}
-          >
-            {isCurrentlyProcessing && currentAction ? (
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                <span className="truncate">{currentAction.label}</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 w-full">
-                 {/* AI Badge */}
-  
-                <Sparkles className="  text-blue-700 border-purple-200 h-3 w-3" />
-                <span className="flex-1 truncate">Acciones IA</span>
-                <ChevronDown className="h-3 w-3" />
-              </div>
-            )}
-          </Button>
-        </DropdownMenuTrigger>
-        
-        <DropdownMenuContent align="center" className="w-56">
-          {/* Warning for disabled contact */}
-          {isContactDisabled && (
-            <>
-              <div className="px-3 py-2 text-xs text-amber-800 bg-amber-100 border border-amber-300 rounded-sm mx-1 mb-1">
-                <div className="flex items-center gap-1.5">
-                  <AlertTriangle className="h-3 w-3 text-amber-700" />
-                  <span>Sin datos de contacto disponibles</span>
-                </div>
-              </div>
-              <DropdownMenuSeparator />
-            </>
-          )}
-          
-          {actions.filter(action => action.availableStages.includes(lead.stage)).map((action) => {
-            const Icon = action.icon;
-            const isProcessing = isCurrentlyProcessing && currentActionType === action.id;
-            
-            return (
-              <DropdownMenuItem
-                key={action.id}
-                className={`cursor-pointer transition-colors ${
-                  action.disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
-                } ${isProcessing ? 'bg-gradient-to-r from-blue-50 to-purple-50' : ''}`}
-                disabled={action.disabled}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (!action.disabled) {
-                    action.onClick(lead);
-                  }
-                }}
-              >
-                <div className="flex items-center gap-3 w-full">
-                  <div className="flex-shrink-0">
-                    {isProcessing ? (
-                      <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                    ) : (
-                      <Icon className={`h-4 w-4 ${action.color}`} />
-                    )}
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className={`font-medium text-sm ${isProcessing ? 'text-blue-900' : 'text-white'}`}>
-                      {action.label}
-                    </div>
-                    <div className={`text-xs ${isProcessing ? 'text-blue-700' : 'text-gray-300'}`}>
-                      {action.description}
-                    </div>
-                  </div>
-                </div>
-              </DropdownMenuItem>
-            );
-          })}
-          
-          {/* Processing indicator */}
-          {isCurrentlyProcessing && (
-            <>
-              <DropdownMenuSeparator />
-              <div className="px-3 py-2 text-xs text-blue-900 bg-blue-100 rounded-sm mx-1 mt-1">
-                <div className="flex items-center gap-2">
-                  <div className="flex gap-1">
-                    <div className="w-1 h-1 bg-blue-600 rounded-full animate-bounce"></div>
-                    <div className="w-1 h-1 bg-blue-600 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                    <div className="w-1 h-1 bg-blue-600 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-                  </div>
-                  <span>Procesando con IA...</span>
-                </div>
-              </div>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {/* Botón principal que abre el modal */}
+      <Button
+        variant="outline"
+        size="sm"
+        className={`w-full h-8 text-xs transition-all duration-200 ${
+          isCurrentlyProcessing 
+            ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white border-transparent shadow-md' 
+            : 'hover:bg-gray-700'
+        }`}
+        onClick={(e) => {
+          e.stopPropagation(); // Evitar que se abra el modal de detalles
+          setIsModalOpen(true);
+        }}
+        disabled={isCurrentlyProcessing}
+      >
+        {isCurrentlyProcessing && currentAction ? (
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span className="truncate">{currentAction.label}</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 w-full justify-center">
+            <Sparkles className="text-blue-400 h-3 w-3" />
+            <span>Acciones IA</span>
+          </div>
+        )}
+      </Button>
+
+      {/* Modal de acciones de IA */}
+      <AIActionsModal
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        lead={lead}
+        onGenerateWelcomeMessage={onGenerateWelcomeMessage}
+        onEvaluateBusiness={onEvaluateBusiness}
+        onGenerateSalesRecommendations={onGenerateSalesRecommendations}
+        onGenerateSolutionEmail={onGenerateSolutionEmail}
+        onGenerateQuote={onGenerateQuote}
+        onGenerateBillingQuote={onGenerateBillingQuote}
+        onGenerateHybridQuote={onGenerateHybridQuote}
+        currentActionLead={currentActionLead}
+        isActionLoading={isActionLoading}
+        currentActionType={currentActionType}
+      />
     </div>
   );
 }
