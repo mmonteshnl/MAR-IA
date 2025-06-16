@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, Loader2 } from 'lucide-react';
 import type { ExtendedLead as Lead } from '@/types';
+import { stageColors, stageIndicatorColors } from '@/lib/leads-utils';
 import AIActionsModal from './AIActionsModal';
 
 interface LeadActionButtonsProps {
@@ -58,10 +59,10 @@ export default function LeadActionButtons({
       <Button
         variant="outline"
         size="sm"
-        className={`w-full h-8 text-xs transition-all duration-200 ${
+        className={`w-full h-8 text-xs transition-all duration-200 border-2 ${
           isCurrentlyProcessing 
             ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white border-transparent shadow-md' 
-            : 'hover:bg-gray-700'
+            : `bg-gradient-to-r ${stageColors[lead.stage as keyof typeof stageColors]} border-transparent shadow-sm hover:shadow-md hover:scale-[1.02]`
         }`}
         onClick={(e) => {
           e.stopPropagation(); // Evitar que se abra el modal de detalles
@@ -76,8 +77,8 @@ export default function LeadActionButtons({
           </div>
         ) : (
           <div className="flex items-center gap-2 w-full justify-center">
-            <Sparkles className="text-blue-400 h-3 w-3" />
-            <span>Acciones IA</span>
+            <Sparkles className="h-3 w-3 drop-shadow-sm" />
+            <span className="font-medium">Acciones IA</span>
           </div>
         )}
       </Button>

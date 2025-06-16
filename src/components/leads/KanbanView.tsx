@@ -13,7 +13,7 @@ import type { ExtendedLead as Lead } from '@/types';
 
 // Define LeadStage type based on LEAD_STAGES if not exported from '@/types'
 type LeadStage = (typeof LEAD_STAGES)[number];
-import { LEAD_STAGES, stageColors, LOCAL_FALLBACK_SOURCE } from '@/lib/leads-utils';
+import { LEAD_STAGES, stageColors, stageIndicatorColors, stageColumnColors, stageBorderColors, stageCardBackgrounds, LOCAL_FALLBACK_SOURCE } from '@/lib/leads-utils';
 import LeadActionButtons from './LeadActionButtons'; 
 import { isFieldMissing, generateWhatsAppLink } from '@/lib/leads-utils';
 import { useValuationConfig } from '@/hooks/useValuationConfig';
@@ -133,14 +133,14 @@ export default function KanbanView({
         })}
         onDragEnd={handleDragEnd}
         className={`
-          ${isSelected ? 'bg-secondary' : 'bg-muted'} 
-          text-foreground border 
-          ${isImportedIncomplete ? 'border-dashed border-orange-500/50' : (isSelected ? 'border-primary/70' : 'border-border/20')}
-          rounded-[var(--radius)] transition-all duration-150 cursor-pointer shadow-sm hover:shadow-md
-          ${currentActionLead?.id === lead.id ? 'ring-1 ring-primary/70' : ''}
+          bg-gradient-to-b ${stageCardBackgrounds[lead.stage as LeadStage]} 
+          text-foreground border-2 
+          ${isImportedIncomplete ? 'border-dashed border-orange-500/50' : (isSelected ? 'border-primary/70' : `${stageBorderColors[lead.stage as LeadStage]}`)}
+          rounded-[var(--radius)] transition-all duration-200 cursor-pointer shadow-sm hover:shadow-lg
+          ${currentActionLead?.id === lead.id ? 'ring-2 ring-primary/70' : ''}
           ${isMobile ? 'mb-3' : ''}
           ${draggedItem?.id === lead.id ? 'opacity-50 scale-95' : ''}
-          ${!isMobile ? 'cursor-grab active:cursor-grabbing' : ''}
+          ${!isMobile ? 'cursor-grab active:cursor-grabbing hover:scale-[1.02]' : ''}
         `}
         onClick={() => onOpenLeadDetails(lead)}
       >
@@ -150,7 +150,7 @@ export default function KanbanView({
             <div className="flex items-center gap-2">
               <Select value={lead.stage} onValueChange={(newStage) => onStageChange(lead.id, newStage as LeadStage)}>
                 <SelectTrigger 
-                  className={`w-auto min-w-[100px] ${isMobile ? 'h-8' : 'h-7'} ${isMobile ? 'text-sm' : 'text-xs'} bg-gradient-to-r ${stageColors[lead.stage as LeadStage]} text-white border-none shadow-sm font-medium`}
+                  className={`w-auto min-w-[100px] ${isMobile ? 'h-8' : 'h-7'} ${isMobile ? 'text-sm' : 'text-xs'} bg-gradient-to-r ${stageColors[lead.stage as LeadStage]} border-none shadow-sm font-medium`}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center gap-2">
@@ -162,7 +162,7 @@ export default function KanbanView({
                   {LEAD_STAGES.map(s => (
                     <SelectItem key={s} value={s} className={`${isMobile ? 'text-sm' : 'text-xs'}`}>
                       <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${stageColors[s].split(' ')[0]}`}></div>
+                        <div className={`w-2 h-2 rounded-full ${stageIndicatorColors[s]}`}></div>
                         {s}
                       </div>
                     </SelectItem>
@@ -239,16 +239,16 @@ export default function KanbanView({
             
             {/* Valor unitario del lead */}
             {activeConfig && (
-              <div className="mb-2.5 p-2 bg-gradient-to-r from-primary/5 to-accent/10 rounded-md border border-primary/20 backdrop-blur-sm">
+              <div className={`mb-2.5 p-2 bg-gradient-to-r ${stageCardBackgrounds[lead.stage as LeadStage]} rounded-md border ${stageBorderColors[lead.stage as LeadStage].split(' ')[0]} backdrop-blur-sm`}>
                 <div className="flex items-center gap-1">
                   <button 
                     onClick={(e) => toggleValueLabel(lead.id, e)}
-                    className={`${isMobile ? 'text-xs' : 'text-[10px]'} font-medium text-muted-foreground hover:text-primary transition-colors cursor-pointer`}
+                    className={`${isMobile ? 'text-xs' : 'text-[10px]'} font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer`}
                     title={showFullLabel[lead.id] ? "Clic para mostrar acrónimo" : "Clic para mostrar nombre completo"}
                   >
                     {showFullLabel[lead.id] ? "Valor Unitario:" : "VU:"}
                   </button>
-                  <span className={`${isMobile ? 'text-xs' : 'text-[10px]'} font-semibold text-primary`}>
+                  <span className={`${isMobile ? 'text-xs' : 'text-[10px]'} font-semibold text-foreground`}>
                     {calculateLeadValuation(lead, activeConfig).formattedValue}
                   </span>
                 </div>
@@ -335,7 +335,7 @@ export default function KanbanView({
   // Desktop view (original)
   return (
     <ScrollArea className="w-full whitespace-nowrap">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-6 gap-x-5 gap-y-5 px-1 pb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-5 gap-y-5 px-1 pb-4">
         {LEAD_STAGES.map(stage => (
           <div 
             key={stage} 
@@ -346,14 +346,14 @@ export default function KanbanView({
             onDrop={(e) => handleDrop(e, stage, handleLeadDrop)}
           >
             <Card className={`
-              bg-card border-border/30 shadow-none min-h-[300px] max-h-[80vh] flex flex-col rounded-[var(--radius)]
+              bg-gradient-to-b ${stageColumnColors[stage]} border-border/30 shadow-none min-h-[300px] max-h-[80vh] flex flex-col rounded-[var(--radius)]
               ${dropTarget === stage ? 'ring-2 ring-primary/50 bg-primary/5' : ''}
               transition-all duration-200
             `}>
-              <CardHeader className="pb-3 pt-4 px-4 sticky top-0 bg-card z-10 border-b border-border/20 rounded-t-[var(--radius)]">
+              <CardHeader className={`pb-3 pt-4 px-4 sticky top-0 bg-gradient-to-b ${stageColumnColors[stage]} z-10 border-b border-border/20 rounded-t-[var(--radius)]`}>
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center">
-                    <span className={`mr-2.5 h-2.5 w-2.5 rounded-full ${stageColors[stage].split(' ')[0]}`}></span>
+                    <span className={`mr-2.5 h-2.5 w-2.5 rounded-full ${stageIndicatorColors[stage]}`}></span>
                     <CardTitle className="text-base font-semibold text-foreground">{stage}</CardTitle>
                   </div>
                   <span className="text-sm font-normal text-muted-foreground">
