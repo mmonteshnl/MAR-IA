@@ -27,7 +27,7 @@ import {
   BreadcrumbList,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
-import { ListChecks, Search, LogOut, PackageSearch, FileUp, Send, Cable, Zap, UserCircle, LayoutDashboard, Bell, TrendingUp, Settings, MessageSquare, Phone, Tags, FileText, Users, Briefcase, ShieldCheck, Palette, ConciergeBell, Calculator, Brain, User, Building2, Database, PlusCircle } from 'lucide-react';
+import { ListChecks, Search, LogOut, PackageSearch, FileUp, Send, Cable, Zap, UserCircle, LayoutDashboard, Bell, TrendingUp, Settings, MessageSquare, Phone, Tags, FileText, Users, Briefcase, ShieldCheck, Palette, ConciergeBell, Calculator, Brain, User, Building2, Database, PlusCircle, Link2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useFirebaseInit } from '@/hooks/useFirebaseInit';
 import { useOrganization } from '@/hooks/useOrganization';
@@ -134,6 +134,7 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
       items: [
         { href: '/quotes', label: 'Cotizaciones IA', icon: Calculator, currentPathMatcher: (p: string) => p === '/quotes' },
         { href: '/billing-quotes', label: 'Cotizaciones PandaDoc', icon: Building2, currentPathMatcher: (p: string) => p === '/billing-quotes' },
+        { href: '/tracking-links', label: 'Tracking Links', icon: Link2, currentPathMatcher: (p: string) => p === '/tracking-links' },
         { href: '/email-campaigns', label: 'Campañas de Email', icon: Send, currentPathMatcher: (p: string) => p === '/email-campaigns' },
         { href: '/channels', label: 'Canales', icon: Cable, currentPathMatcher: (p: string) => p === '/channels' },
       ]

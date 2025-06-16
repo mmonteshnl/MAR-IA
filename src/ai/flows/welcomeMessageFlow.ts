@@ -13,6 +13,9 @@ import {z} from 'genkit';
 const WelcomeMessageInputSchema = z.object({
   leadName: z.string().describe('El nombre del negocio o contacto principal del lead.'),
   businessType: z.string().optional().describe('El tipo o categoría del negocio (ej: restaurante, software, etc.).'),
+  companyName: z.string().optional().describe('El nombre de nuestra empresa.'),
+  companyDescription: z.string().optional().describe('Breve descripción de nuestra empresa y servicios.'),
+  catalogUrl: z.string().optional().describe('URL del catálogo de productos/servicios (con tracking).'),
 });
 export type WelcomeMessageInput = z.infer<typeof WelcomeMessageInputSchema>;
 
@@ -29,22 +32,40 @@ const prompt = ai.definePrompt({
   name: 'welcomeMessagePrompt',
   input: {schema: WelcomeMessageInputSchema},
   output: {schema: WelcomeMessageOutputSchema},
-  prompt: `Eres un asistente de ventas amigable y profesional. Tu tarea es redactar un mensaje de bienvenida corto y personalizado para un nuevo lead.
+  prompt: `Eres un asistente de ventas amigable y profesional. Tu tarea es redactar un mensaje de bienvenida personalizado para WhatsApp.
 
-Nombre del Lead: {{{leadName}}}
+INFORMACIÓN DEL LEAD:
+- Nombre: {{{leadName}}}
 {{#if businessType}}
-Tipo de Negocio: {{{businessType}}}
+- Tipo de Negocio: {{{businessType}}}
 {{/if}}
 
-Considera lo siguiente para el mensaje:
-- Sé cordial y entusiasta.
-- Menciona el nombre del lead.
-- Si se proporciona el tipo de negocio, puedes hacer una referencia sutil a él.
-- El objetivo es iniciar una conversación y mostrar interés genuino en explorar cómo tus servicios/productos podrían ayudarle.
-- Evita ser demasiado genérico o insistente.
-- Mantén el mensaje breve, ideal para un primer contacto (email corto o mensaje directo).
+INFORMACIÓN DE NUESTRA EMPRESA:
+{{#if companyName}}
+- Nombre de la empresa: {{{companyName}}}
+{{/if}}
+{{#if companyDescription}}
+- Descripción: {{{companyDescription}}}
+{{/if}}
 
-Genera solo el cuerpo del mensaje.`,
+INSTRUCCIONES ESPECÍFICAS:
+1. Inicia el mensaje con "Hola {leadName}," de forma natural y humana
+2. Menciona que te diriges desde {companyName} (si se proporciona)
+3. Incluye una presentación breve de la empresa usando {companyDescription}
+4. Haz referencia sutil al tipo de negocio del lead si es relevante
+5. Invita de manera natural a conocer nuestro catálogo de productos y servicios
+{{#if catalogUrl}}
+6. INCLUYE EXACTAMENTE esta frase al final: "Te invitamos a ver nuestro catálogo completo: {{{catalogUrl}}}"
+{{/if}}
+
+ESTILO:
+- Tono humano, cálido y profesional
+- Como si fuera una persona real escribiendo
+- Evita sonar como bot o muy comercial
+- Máximo 3-4 oraciones
+- Usa emojis con moderación (máximo 2)
+
+Genera solo el mensaje completo de WhatsApp.`,
 });
 
 const welcomeMessageFlow = ai.defineFlow(

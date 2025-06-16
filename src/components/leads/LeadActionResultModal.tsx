@@ -13,6 +13,9 @@ import { useModalState } from '@/hooks/useModalState';
 import { QuickActions } from './components/QuickActions';
 import { ContentView } from './components/ContentView';
 import { isFieldMissing } from '@/lib/leads-utils';
+import { useAuth } from '@/hooks/use-auth';
+import { useOrganization } from '@/hooks/useOrganization';
+import { useToast } from '@/hooks/use-toast';
 
 interface LeadActionResultModalProps {
   open: boolean;
@@ -22,10 +25,12 @@ interface LeadActionResultModalProps {
   onClose: () => void;
   isActionLoading?: boolean;
   currentLead?: {
+    id?: string;
     name: string;
     phone?: string | null;
     businessType?: string | null;
   } | null;
+  onLeadUpdate?: () => void; // Callback para actualizar la lista de leads
 }
 
 export default function LeadActionResultModal({
@@ -35,10 +40,14 @@ export default function LeadActionResultModal({
   currentActionType,
   onClose,
   isActionLoading = false,
-  currentLead
+  currentLead,
+  onLeadUpdate
 }: LeadActionResultModalProps) {
   const { state, actions } = useModalState();
   const contentText = useFormattedContent(actionResult);
+  const { user } = useAuth();
+  const { currentOrganization } = useOrganization();
+  const { toast } = useToast();
   
   // Estados para WhatsApp
   const [whatsappStatus, setWhatsappStatus] = useState<{
@@ -108,7 +117,7 @@ export default function LeadActionResultModal({
     
     try {
       // Usar Evolution API endpoint
-      const response = await fetch('http://localhost:8081/instance/connectionState/h', {
+      const response = await fetch('http://localhost:8081/instance/connectionState/u', {
         method: 'GET',
         headers: {
           'apikey': 'evolution_api_key_2024'
@@ -141,6 +150,49 @@ export default function LeadActionResultModal({
     }
   }, []);
 
+  // Función para actualizar el estado del lead después de enviar mensaje de bienvenida
+  const updateLeadStatusAfterWelcomeMessage = useCallback(async () => {
+    if (!currentLead?.id || !user || !currentOrganization) {
+      console.log('No se puede actualizar lead: faltan datos requeridos');
+      return;
+    }
+
+    try {
+      const token = await user.getIdToken();
+      
+      const response = await fetch('/api/leads/update-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          leadId: currentLead.id,
+          organizationId: currentOrganization.id,
+          newStatus: 'contactado',
+          contactMethod: 'whatsapp',
+          responseStatus: 'sin_respuesta',
+          notes: `Mensaje de bienvenida enviado via WhatsApp a ${editedPhone || currentLead.phone}`,
+          timestamp: new Date().toISOString()
+        })
+      });
+
+      if (response.ok) {
+        console.log('✅ Estado del lead actualizado a "contactado - sin respuesta"');
+        
+        // Llamar al callback para refrescar la lista de leads
+        if (onLeadUpdate) {
+          onLeadUpdate();
+        }
+      } else {
+        const errorData = await response.json();
+        console.error('❌ Error al actualizar estado del lead:', errorData);
+      }
+    } catch (error) {
+      console.error('Error al actualizar estado del lead:', error);
+    }
+  }, [currentLead, user, currentOrganization, editedPhone, onLeadUpdate]);
+
   // Auto-envío de mensaje de bienvenida
   const handleAutoSendWelcomeMessage = useCallback(async () => {
     if (!currentLead?.phone || !currentLead?.name || whatsappStatus.autoSending || whatsappStatus.autoSent) {
@@ -172,9 +224,16 @@ export default function LeadActionResultModal({
           autoSent: true
         }));
         
+        // Actualizar estado del lead después del auto-envío
+        await updateLeadStatusAfterWelcomeMessage();
+        
         // Mostrar notificación de éxito
         setTimeout(() => {
-          alert(`✅ Mensaje de bienvenida enviado automáticamente a ${currentLead.name}`);
+          toast({
+            title: "✅ Mensaje de Bienvenida Enviado",
+            description: `Enviado a ${currentLead.name}. Lead movido a "Contactado - Sin respuesta"`,
+            duration: 5000,
+          });
         }, 500);
       } else {
         throw new Error(result.error || 'Error al enviar mensaje');
@@ -188,7 +247,7 @@ export default function LeadActionResultModal({
       
       alert(`❌ Error al enviar mensaje automático: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
-  }, [currentLead, contentText, whatsappStatus.autoSending, whatsappStatus.autoSent]);
+  }, [currentLead, contentText, whatsappStatus.autoSending, whatsappStatus.autoSent, updateLeadStatusAfterWelcomeMessage]);
 
   // Función para normalizar número de teléfono
   const normalizePhoneNumber = useCallback((phone: string) => {
@@ -250,8 +309,28 @@ export default function LeadActionResultModal({
         const result = await response.json();
         console.log('✅ Mensaje enviado exitosamente:', result);
         actions.sendSuccess();
+        
+        // Si es un mensaje de bienvenida, actualizar el estado del lead
+        if (currentActionType === 'welcome' && currentLead) {
+          await updateLeadStatusAfterWelcomeMessage();
+        }
+        
         setTimeout(() => actions.sendReset(), 3000);
-        alert(`✅ Mensaje enviado exitosamente a ${normalizedPhone}`);
+        
+        // Mensaje específico para mensaje de bienvenida
+        if (currentActionType === 'welcome') {
+          toast({
+            title: "✅ Mensaje de Bienvenida Enviado",
+            description: `Enviado a ${normalizedPhone}. Lead movido a "Contactado - Sin respuesta"`,
+            duration: 5000,
+          });
+        } else {
+          toast({
+            title: "✅ Mensaje Enviado",
+            description: `Mensaje enviado exitosamente a ${normalizedPhone}`,
+            duration: 3000,
+          });
+        }
       } else {
         const errorData = await response.json();
         console.error('❌ Error al enviar mensaje:', errorData);
@@ -285,7 +364,7 @@ export default function LeadActionResultModal({
         hasPhoneNumber && whatsappStatus.connected && !whatsappStatus.autoSent) {
       handleAutoSendWelcomeMessage();
     }
-  }, [open, currentActionType, actionResult, hasPhoneNumber, whatsappStatus.connected]);
+  }, [open, currentActionType, actionResult, hasPhoneNumber, whatsappStatus.connected, whatsappStatus.autoSent, handleAutoSendWelcomeMessage]);
 
   // Reset timers on unmount
   useEffect(() => {

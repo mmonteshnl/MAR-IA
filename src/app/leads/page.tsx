@@ -269,9 +269,13 @@ export default function LeadsPage() {
     setCurrentActionType('welcome');
     
     try {
-      const input: WelcomeMessageInput = {
+      const input: WelcomeMessageInput & { leadId?: string; organizationId?: string } = {
         leadName: lead.fullName || lead.name,
-        businessType: getBusinessTypeFromMetaLead(lead) || 'negocio'
+        businessType: getBusinessTypeFromMetaLead(lead) || 'negocio',
+        leadId: lead.id,
+        organizationId: currentOrganization?.id,
+        companyName: currentOrganization?.name || 'nuestra empresa',
+        companyDescription: currentOrganization?.description || 'nos especializamos en soluciones tecnológicas para impulsar tu negocio'
       };
       
       console.log('Generating welcome message with input:', input);
@@ -280,6 +284,7 @@ export default function LeadsPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await user?.getIdToken()}`,
         },
         body: JSON.stringify(input),
       });
@@ -891,9 +896,12 @@ export default function LeadsPage() {
         onClose={handleActionResultModalClose}
         isActionLoading={isActionLoading}
         currentLead={currentActionLead ? {
+          id: currentActionLead.id,
           name: currentActionLead.fullName || currentActionLead.name,
-          phone: currentActionLead.phoneNumber || currentActionLead.phone
+          phone: currentActionLead.phoneNumber || currentActionLead.phone,
+          businessType: getBusinessTypeFromMetaLead(currentActionLead)
         } : null}
+        onLeadUpdate={loadLeads}
       />
 
       <LeadSourceFilterModal
