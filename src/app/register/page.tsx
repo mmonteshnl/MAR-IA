@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Mail, Lock, User, Chrome, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import LoadingComponent from '@/components/LoadingComponent';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 export default function RegisterPage() {
   const router = useRouter();

@@ -244,7 +244,7 @@ export default function EmailCampaignsPage() {
               <div className="text-center py-20 text-muted-foreground">
                 <Mail className="mx-auto h-12 w-12 mb-4 text-muted-foreground/50" />
                 <p className="text-lg font-medium">Aún no has creado ninguna campaña.</p>
-                <p className="text-sm mt-1">Haz clic en "Crear Nueva Campaña" para empezar.</p>
+                <p className="text-sm mt-1">Haz clic en &quot;Crear Nueva Campaña&quot; para empezar.</p>
               </div>
             </CardContent>
           </Card>
