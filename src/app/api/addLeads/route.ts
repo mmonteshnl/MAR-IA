@@ -7,9 +7,9 @@ import { LeadFormatterFactory, type GooglePlacesLeadData } from '@/types/formatt
 
 export async function POST(request: NextRequest) {
   if (!authAdmin || !firestoreDbAdmin) {
-    console.error("Firebase Admin SDK not initialized. Ensure FIREBASE_SERVICE_ACCOUNT_JSON environment variable is correctly set.");
+    console.error("Firebase Admin SDK not initialized. Ensure Firebase environment variables are correctly set.");
     return NextResponse.json({ 
-      message: 'Error del Servidor: Firebase Admin SDK no inicializado. Verifica la variable de entorno FIREBASE_SERVICE_ACCOUNT_JSON en la configuración del servidor.' 
+      message: 'Error del Servidor: Firebase Admin SDK no inicializado. Verifica las variables de entorno de Firebase en la configuración del servidor.' 
     }, { status: 500 });
   }
 

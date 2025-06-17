@@ -2,25 +2,30 @@ const admin = require('firebase-admin');
 
 console.log('🔍 Firebase Admin module imported:', typeof admin, !!admin);
 
-const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-
 if (!admin) {
   throw new Error('Firebase Admin SDK failed to import properly');
 }
 
 if (!admin.apps.length) {
-  if (!serviceAccountJson) {
-    console.error('FIREBASE_SERVICE_ACCOUNT_JSON env variable is not set.');
-    throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON env variable is not set.');
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+  if (!projectId || !clientEmail || !privateKey) {
+    console.error('Firebase environment variables are not set. Required: FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY');
+    throw new Error('Firebase environment variables are not set.');
   } else {
     try {
       console.log('🔥 Attempting to initialize Firebase Admin SDK...');
       console.log('Admin object:', !!admin, !!admin.initializeApp, !!admin.credential);
       
-      const serviceAccount = JSON.parse(serviceAccountJson);
       admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-        projectId: serviceAccount.project_id,
+        credential: admin.credential.cert({
+          projectId,
+          clientEmail,
+          privateKey: privateKey.replace(/\\n/g, '\n'),
+        }),
+        projectId,
       });
       console.log('✅ Firebase Admin SDK initialized successfully');
     } catch (error) {

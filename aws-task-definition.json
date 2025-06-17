@@ -1,0 +1,60 @@
+{
+  "family": "nextn-app",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::YOUR_ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::YOUR_ACCOUNT_ID:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "nextn-app",
+      "image": "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_REGION.amazonaws.com/nextn-app:latest",
+      "portMappings": [
+        {
+          "containerPort": 3047,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/nextn-app",
+          "awslogs-region": "YOUR_REGION",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "NEXT_TELEMETRY_DISABLED",
+          "value": "1"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "FIREBASE_PROJECT_ID",
+          "valueFrom": "arn:aws:secretsmanager:YOUR_REGION:YOUR_ACCOUNT_ID:secret:nextn-app/firebase:FIREBASE_PROJECT_ID::"
+        },
+        {
+          "name": "FIREBASE_PRIVATE_KEY",
+          "valueFrom": "arn:aws:secretsmanager:YOUR_REGION:YOUR_ACCOUNT_ID:secret:nextn-app/firebase:FIREBASE_PRIVATE_KEY::"
+        },
+        {
+          "name": "FIREBASE_CLIENT_EMAIL",
+          "valueFrom": "arn:aws:secretsmanager:YOUR_REGION:YOUR_ACCOUNT_ID:secret:nextn-app/firebase:FIREBASE_CLIENT_EMAIL::"
+        },
+        {
+          "name": "OPENAI_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:YOUR_REGION:YOUR_ACCOUNT_ID:secret:nextn-app/openai:OPENAI_API_KEY::"
+        }
+      ]
+    }
+  ]
+}
