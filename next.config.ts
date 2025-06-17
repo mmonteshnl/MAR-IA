@@ -10,15 +10,22 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  experimental: {
-    esmExternals: 'loose',
-  },
   webpack: (config, { isServer }) => {
     // Add resolve aliases to ensure proper module resolution
     config.resolve.alias = {
       ...config.resolve.alias,
       '@': path.resolve(__dirname, 'src'),
     };
+
+    // Suppress specific warnings
+    config.ignoreWarnings = [
+      {
+        module: /node_modules\/@opentelemetry\/instrumentation/,
+      },
+      {
+        module: /node_modules\/handlebars/,
+      },
+    ];
 
     if (!isServer) {
       config.externals = config.externals || [];

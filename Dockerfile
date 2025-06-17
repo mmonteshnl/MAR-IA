@@ -17,10 +17,19 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Set environment variables for build
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NEXT_TELEMETRY_DISABLED=1
 
-# Copy environment file for build process
-COPY ./env/.env.production ./.env.local
+# Copy environment files
+COPY ./env/ ./env/
+
+# Set up environment file for build (use production if available, otherwise default)
+RUN if [ -f "./env/.env.production" ]; then \
+        cp ./env/.env.production ./.env.local; \
+    elif [ -f "./.env.local" ]; then \
+        echo "Using existing .env.local"; \
+    else \
+        echo "No environment file found, using defaults"; \
+    fi
 
 # Build the application
 RUN npm run build
@@ -29,8 +38,8 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -44,7 +53,7 @@ USER nextjs
 
 EXPOSE 3047
 
-ENV PORT 3047
-ENV HOSTNAME "0.0.0.0"
+ENV PORT=3047
+ENV HOSTNAME=0.0.0.0
 
 CMD ["node", "server.js"]

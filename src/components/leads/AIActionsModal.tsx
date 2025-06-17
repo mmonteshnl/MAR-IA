@@ -63,15 +63,15 @@ export default function AIActionsModal({
     }
   }, [isActionLoading, currentActionType]);
 
+  // Información de cache - debe estar antes del return condicional
+  const cacheInfo = useMemo(() => {
+    return lead ? AICacheManager.getCacheInfo(lead.aiContent) : null;
+  }, [lead?.aiContent]);
+
   if (!lead) return null;
 
   const isContactDisabled = isFieldMissing(lead.phone) && isFieldMissing(lead.website) && isFieldMissing(lead.email);
   const isCurrentlyProcessing = currentActionLead?.id === lead.id && isActionLoading;
-
-  // Información de cache
-  const cacheInfo = useMemo(() => {
-    return AICacheManager.getCacheInfo(lead.aiContent);
-  }, [lead.aiContent]);
 
   // Mapeo de tipos de contenido a IDs de acciones
   const contentTypeToActionId = {
