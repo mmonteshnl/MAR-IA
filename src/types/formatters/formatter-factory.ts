@@ -27,7 +27,13 @@ export class LeadFormatterFactory {
   ): FormatterResult {
     try {
       const formatter = this.createFormatter(source, uid, organizationId);
-      return formatter.format(data);
+      const normalizedSource = typeof source === 'string' ? getLeadSourceFromString(source) : source;
+      
+      if (normalizedSource === LeadSource.GOOGLE_PLACES) {
+        return formatter.format(data as GooglePlacesLeadData);
+      } else {
+        return formatter.format(data as ImportLeadData);
+      }
     } catch (error: any) {
       return {
         success: false,

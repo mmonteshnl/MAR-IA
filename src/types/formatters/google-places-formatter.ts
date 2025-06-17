@@ -36,9 +36,9 @@ export class GooglePlacesFormatter extends BaseLeadFormatter {
         source: this.source,
         name: data.name,
         company: data.name,
-        address: data.formatted_address || data.vicinity || null,
-        phone: data.international_phone_number || null,
-        website: data.website || null,
+        address: data.formatted_address || data.vicinity || undefined,
+        phone: data.international_phone_number || undefined,
+        website: data.website || undefined,
         businessType,
         notes,
         email: '' // Google Places no proporciona email

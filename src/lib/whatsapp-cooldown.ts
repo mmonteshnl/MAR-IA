@@ -1,5 +1,6 @@
 import { db } from '@/lib/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp as ClientTimestamp } from 'firebase/firestore';
 import type { WhatsAppCooldown, WhatsAppInstance } from '@/types';
 
 interface CooldownCheck {
@@ -48,8 +49,8 @@ export class WhatsAppCooldownService {
         const cooldownDoc = cooldownQuery.docs[0];
         const cooldownData = cooldownDoc.data() as WhatsAppCooldown;
         
-        const cooldownUntil = cooldownData.cooldownUntil.toDate();
-        const lastMessageAt = cooldownData.lastMessageAt.toDate();
+        const cooldownUntil = typeof cooldownData.cooldownUntil === 'string' ? new Date(cooldownData.cooldownUntil) : cooldownData.cooldownUntil.toDate();
+        const lastMessageAt = typeof cooldownData.lastMessageAt === 'string' ? new Date(cooldownData.lastMessageAt) : cooldownData.lastMessageAt.toDate();
 
         // Check if still in cooldown period
         if (cooldownUntil > now) {
@@ -119,7 +120,7 @@ export class WhatsAppCooldownService {
       if (!cooldownQuery.empty) {
         const cooldownDoc = cooldownQuery.docs[0];
         const cooldownData = cooldownDoc.data() as WhatsAppCooldown;
-        const lastMessageAt = cooldownData.lastMessageAt.toDate();
+        const lastMessageAt = typeof cooldownData.lastMessageAt === 'string' ? new Date(cooldownData.lastMessageAt) : cooldownData.lastMessageAt.toDate();
 
         // If last message was within the hour, increment count
         const messageCount = lastMessageAt > oneHourAgo ? cooldownData.messageCount + 1 : 1;
@@ -128,7 +129,7 @@ export class WhatsAppCooldownService {
           lastMessageAt: now,
           messageCount,
           cooldownUntil,
-          createdAt: now // Update creation time for this cooldown period
+          createdAt: now
         });
       } else {
         // Create new cooldown record
@@ -201,7 +202,7 @@ export class WhatsAppCooldownService {
         .collection('whatsapp_cooldowns');
 
       if (instanceId) {
-        query = query.where('instanceId', '==', instanceId);
+        query = query.where('instanceId', '==', instanceId) as any;
       }
 
       const snapshot = await query.get();
@@ -215,7 +216,7 @@ export class WhatsAppCooldownService {
         const data = doc.data() as WhatsAppCooldown;
         totalContacts++;
 
-        const cooldownUntil = data.cooldownUntil.toDate();
+        const cooldownUntil = typeof data.cooldownUntil === 'string' ? new Date(data.cooldownUntil) : data.cooldownUntil.toDate();
         if (cooldownUntil > now) {
           activeCooldowns++;
         }

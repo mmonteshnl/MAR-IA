@@ -30,7 +30,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useOrganization } from "@/hooks/useOrganization";
-import { getEvolutionAPI } from '@/lib/evolution-api';
+import { getEvolutionAPIClient } from '@/lib/evolution-api-client';
 
 interface QuoteGeneratorModalProps {
   open: boolean;
@@ -331,11 +331,15 @@ ${selectedPkg.items.length > 3 ? `• Y ${selectedPkg.items.length - 3} elemento
 
 ¿Te interesa conocer más detalles? ¡Hablemos! 📞`;
 
-      const evolutionAPI = getEvolutionAPI();
-      const result = await evolutionAPI.sendTextMessage({
-        number: currentLead.phone,
-        text: message
-      });
+      const evolutionAPI = getEvolutionAPIClient();
+      const result = await evolutionAPI.sendMessage(
+        organizationId || '',
+        'default', // instanceId - you may want to make this configurable
+        {
+          number: currentLead.phone,
+          text: message
+        }
+      );
 
       if (result.success) {
         toast({

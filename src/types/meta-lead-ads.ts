@@ -8,18 +8,24 @@ export interface MetaLeadAdsModel {
   campaignName: string;
   companyName: string;
   customDisclaimerResponses: string;
-  dateCreated: string; // Considera cambiar a `Date` si lo parseas
+  dateCreated: string;
   email: string;
   formId: string;
   fullName: string;
   homeListing: string;
-  isOrganic: string; // O puedes usar `boolean` si lo parseas
+  isOrganic: string;
   leadId: string;
   partnerName: string;
   phoneNumber: string;
   platformId: string;
   retailerItemId: string;
-  updatedAt: string; // Considera cambiar a `Date` si lo parseas
+  updatedAt: string;
   vehicle: string;
-  visitRequest: string; // Podría ser 'yes' | 'no' si es controlado
+  visitRequest: string;
+  // Additional properties for Lead compatibility
+  phone?: string;
+  address?: string;
+  website?: string;
+  businessType?: string;
+  stage?: string;
 }
