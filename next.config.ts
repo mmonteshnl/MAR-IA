@@ -17,6 +17,16 @@ const nextConfig: NextConfig = {
       '@': path.resolve(__dirname, 'src'),
     };
 
+    // Suppress specific warnings
+    config.ignoreWarnings = [
+      {
+        module: /node_modules\/@opentelemetry\/instrumentation/,
+      },
+      {
+        module: /node_modules\/handlebars/,
+      },
+    ];
+
     if (!isServer) {
       config.externals = config.externals || [];
       config.externals.push({

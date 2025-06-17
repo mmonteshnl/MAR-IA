@@ -111,15 +111,37 @@ fi
 
 # 9. Test de inicio rápido (opcional)
 log_info "Probando inicio del servidor de producción..."
-timeout 10s npm start &
+
+# Función para timeout multiplataforma
+timeout_cmd() {
+    local duration=$1
+    shift
+    if command -v timeout >/dev/null 2>&1; then
+        timeout "$duration" "$@"
+    elif command -v gtimeout >/dev/null 2>&1; then
+        gtimeout "$duration" "$@"
+    else
+        # Fallback para macOS sin timeout
+        "$@" &
+        local pid=$!
+        (sleep "${duration%s}" && kill $pid 2>/dev/null) &
+        local killer=$!
+        wait $pid 2>/dev/null
+        local result=$?
+        kill $killer 2>/dev/null
+        return $result
+    fi
+}
+
+timeout_cmd 10s npm start &
 SERVER_PID=$!
 sleep 5
 
 if kill -0 $SERVER_PID 2>/dev/null; then
     log_success "Servidor de producción inicia correctamente"
-    kill $SERVER_PID
+    kill $SERVER_PID 2>/dev/null
 else
-    log_warning "No se pudo verificar el inicio del servidor"
+    log_warning "No se pudo verificar el inicio del servidor (esto es normal en algunos sistemas)"
     ((WARNINGS++))
 fi
 
