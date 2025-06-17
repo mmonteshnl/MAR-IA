@@ -156,3 +156,158 @@ export interface TrackingAnalytics {
     referrers: { [referrer: string]: number };
   };
 }
+
+// WhatsApp Integration Types
+export interface WhatsAppInstance {
+  id: string;
+  organizationId: string;
+  instanceName: string;
+  webhookUrl: string;
+  apiKey: string;
+  isActive: boolean;
+  connectionStatus: 'connected' | 'disconnected' | 'connecting' | 'error';
+  lastStatusCheck: Timestamp | string;
+  phoneNumber?: string;
+  qrCode?: string;
+  createdAt: Timestamp | string;
+  updatedAt: Timestamp | string;
+  createdBy: string;
+  settings: {
+    autoReply: boolean;
+    businessHours: {
+      enabled: boolean;
+      timezone: string;
+      schedule: Array<{
+        day: string;
+        start: string;
+        end: string;
+        enabled: boolean;
+      }>;
+    };
+    antiSpam: {
+      enabled: boolean;
+      cooldownMinutes: number;
+      maxMessagesPerHour: number;
+    };
+  };
+}
+
+export interface WhatsAppConversation {
+  id: string;
+  organizationId: string;
+  instanceId: string;
+  leadId: string;
+  contactNumber: string;
+  contactName?: string;
+  status: 'active' | 'archived' | 'blocked';
+  lastMessageAt: Timestamp | string;
+  messageCount: number;
+  unreadCount: number;
+  tags: string[];
+  assignedTo?: string;
+  createdAt: Timestamp | string;
+  updatedAt: Timestamp | string;
+  metadata: {
+    firstContact: Timestamp | string;
+    lastActivity: Timestamp | string;
+    businessType?: string;
+    leadStage?: string;
+    customerSegment?: string;
+  };
+}
+
+export interface WhatsAppMessage {
+  id: string;
+  conversationId: string;
+  organizationId: string;
+  instanceId: string;
+  messageId: string; // Evolution API message ID
+  type: 'text' | 'image' | 'document' | 'audio' | 'video' | 'location' | 'contact';
+  direction: 'inbound' | 'outbound';
+  content: {
+    text?: string;
+    media?: {
+      url: string;
+      mimetype: string;
+      filename?: string;
+      caption?: string;
+    };
+    location?: {
+      latitude: number;
+      longitude: number;
+      address?: string;
+    };
+    contact?: {
+      name: string;
+      phone: string;
+      email?: string;
+    };
+  };
+  status: 'pending' | 'sent' | 'delivered' | 'read' | 'failed';
+  timestamp: Timestamp | string;
+  fromNumber: string;
+  toNumber: string;
+  isFromBot: boolean;
+  replyToMessageId?: string;
+  createdAt: Timestamp | string;
+  metadata: {
+    campaignId?: string;
+    templateName?: string;
+    userAgent?: string;
+    ipAddress?: string;
+    deliveredAt?: Timestamp | string;
+    readAt?: Timestamp | string;
+    failureReason?: string;
+  };
+}
+
+export interface WhatsAppCooldown {
+  id: string;
+  organizationId: string;
+  contactNumber: string;
+  instanceId: string;
+  lastMessageAt: Timestamp | string;
+  messageCount: number;
+  cooldownUntil: Timestamp | string;
+  createdAt: Timestamp | string;
+}
+
+// Extend CommunicationRecord to support WhatsApp
+export interface CommunicationRecord {
+  id: string;
+  leadId: string;
+  organizationId: string;
+  type: 'email' | 'phone' | 'whatsapp' | 'meeting' | 'note';
+  direction: 'inbound' | 'outbound';
+  content: string;
+  status: 'pending' | 'sent' | 'delivered' | 'read' | 'failed';
+  timestamp: Timestamp | string;
+  createdBy: string;
+  metadata: {
+    // Email specific
+    subject?: string;
+    to?: string[];
+    cc?: string[];
+    bcc?: string[];
+    
+    // Phone specific
+    duration?: number;
+    
+    // WhatsApp specific
+    whatsappMessageId?: string;
+    whatsappInstanceId?: string;
+    whatsappConversationId?: string;
+    messageType?: 'text' | 'image' | 'document' | 'audio' | 'video' | 'location' | 'contact';
+    
+    // Common
+    attachments?: Array<{
+      filename: string;
+      url: string;
+      mimetype: string;
+    }>;
+    tags?: string[];
+    isAutomated?: boolean;
+    campaignId?: string;
+    templateName?: string;
+  };
+}
