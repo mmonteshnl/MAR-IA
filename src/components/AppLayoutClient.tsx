@@ -143,6 +143,7 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
       title: 'CONFIGURACIÓN',
       items: [
         { href: '/ai-prompts', label: 'IA y Prompts', icon: Brain, currentPathMatcher: (p: string) => p === '/ai-prompts' },
+        { href: '/whatsapp-conversations', label: 'WhatsApp', icon: MessageSquare, currentPathMatcher: (p: string) => p === '/whatsapp-conversations' },
         { href: '/automations', label: 'Automatizaciones', icon: Zap, currentPathMatcher: (p: string) => p === '/automations' },
         { href: '/config', label: 'General', icon: Settings, currentPathMatcher: (p: string) => p === '/config' },
       ]

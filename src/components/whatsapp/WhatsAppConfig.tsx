@@ -8,6 +8,7 @@ import { MessageCircle, Plus, Loader2, AlertCircle } from 'lucide-react';
 import type { WhatsAppInstance } from '@/types';
 import { WhatsAppInstanceCard } from './WhatsAppInstanceCard';
 import { CreateInstanceModal } from './CreateInstanceModal';
+import { WhatsAppAlerts } from './WhatsAppAlerts';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { useOrganization } from '@/hooks/useOrganization';
@@ -18,7 +19,8 @@ export function WhatsAppConfig() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
-  const { organizationId } = useOrganization();
+  const { currentOrganization } = useOrganization();
+  const organizationId = currentOrganization?.id;
 
   const loadInstances = async () => {
     if (!user || !organizationId) return;
@@ -116,6 +118,9 @@ export function WhatsAppConfig() {
 
   return (
     <div className="space-y-6">
+      {/* Alertas de estado */}
+      <WhatsAppAlerts />
+      
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">

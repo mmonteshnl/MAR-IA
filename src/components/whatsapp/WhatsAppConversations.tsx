@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Avatar, AvatarFallback, AvatarInitials } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { MessageCircle, Search, Phone, Clock, User } from 'lucide-react';
 import type { WhatsAppConversation } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -23,15 +23,15 @@ export function WhatsAppConversations({ instanceId, leadId }: WhatsAppConversati
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
   const { user } = useAuth();
-  const { organizationId } = useOrganization();
+  const { currentOrganization } = useOrganization();
 
   const loadConversations = async () => {
-    if (!user || !organizationId) return;
+    if (!user || !currentOrganization?.id) return;
 
     try {
       const token = await user.getIdToken();
       const params = new URLSearchParams({
-        organizationId,
+        organizationId: currentOrganization.id,
         ...(instanceId && { instanceId }),
         ...(leadId && { leadId }),
         limit: '50'
@@ -73,8 +73,17 @@ export function WhatsAppConversations({ instanceId, leadId }: WhatsAppConversati
     );
   });
 
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleString('es-ES', {
+  // Accepts string or Timestamp (from Firestore)
+  const formatDate = (date: string | { seconds: number; nanoseconds?: number }) => {
+    let jsDate: Date;
+    if (typeof date === 'string') {
+      jsDate = new Date(date);
+    } else if (date && typeof date.seconds === 'number') {
+      jsDate = new Date(date.seconds * 1000);
+    } else {
+      return '';
+    }
+    return jsDate.toLocaleString('es-ES', {
       day: '2-digit',
       month: '2-digit',
       hour: '2-digit',
@@ -104,7 +113,7 @@ export function WhatsAppConversations({ instanceId, leadId }: WhatsAppConversati
 
   useEffect(() => {
     loadConversations();
-  }, [user, organizationId, instanceId, leadId]);
+  }, [user, currentOrganization, instanceId, leadId]);
 
   if (loading) {
     return (

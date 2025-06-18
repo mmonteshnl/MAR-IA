@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authAdmin, firestoreDbAdmin } from '@/lib/firebaseAdmin';
 import { GeneralConfig } from '@/types/general-config';
+import { safeTimestampToDate } from '@/lib/firestore-utils';
 
 const COLLECTION_NAME = 'generalConfigs';
 
@@ -85,11 +86,13 @@ export async function GET(request: NextRequest) {
     }
 
     const configDoc = configsSnapshot.docs[0];
+    const configData = configDoc.data();
+    
     const config = {
       id: configDoc.id,
-      ...configDoc.data(),
-      createdAt: configDoc.data().createdAt?.toDate(),
-      updatedAt: configDoc.data().updatedAt?.toDate(),
+      ...configData,
+      createdAt: safeTimestampToDate(configData.createdAt),
+      updatedAt: safeTimestampToDate(configData.updatedAt),
     } as GeneralConfig;
 
     return NextResponse.json({ config });
@@ -201,7 +204,7 @@ export async function PUT(request: NextRequest) {
     const finalConfig = {
       id: configDoc.id,
       ...updatedConfig,
-      createdAt: configDoc.data().createdAt?.toDate(),
+      createdAt: safeTimestampToDate(configDoc.data().createdAt),
     } as GeneralConfig;
 
     return NextResponse.json({ config: finalConfig });

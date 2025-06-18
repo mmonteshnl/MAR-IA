@@ -13,7 +13,8 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building2, Users, Plus, Mail, Crown, Settings, UserPlus, Copy, Share, Link } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Building2, Users, Plus, Mail, Crown, Settings, UserPlus, Copy, Share, Link, Trash2, AlertTriangle } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import PendingInvites from './PendingInvites';
 import OrganizationDebug from './OrganizationDebug';
@@ -27,6 +28,7 @@ export default function OrganizationManager() {
     error, 
     createOrganization, 
     addMember, 
+    deleteOrganization,
     switchOrganization 
   } = useOrganization();
   
@@ -47,6 +49,11 @@ export default function OrganizationManager() {
   // Invitation link result
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
+  
+  // Delete organization state
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteOrgId, setDeleteOrgId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleCreateOrganization = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,6 +121,34 @@ export default function OrganizationManager() {
         });
       }
     }
+  };
+
+  const handleDeleteOrganization = async () => {
+    if (!deleteOrgId) return;
+    
+    setIsDeleting(true);
+    try {
+      await deleteOrganization(deleteOrgId);
+      toast({
+        title: "Organización eliminada",
+        description: "La organización ha sido eliminada exitosamente."
+      });
+      setIsDeleteDialogOpen(false);
+      setDeleteOrgId(null);
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "No se pudo eliminar la organización.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const openDeleteDialog = (orgId: string) => {
+    setDeleteOrgId(orgId);
+    setIsDeleteDialogOpen(true);
   };
 
   if (loading) {
@@ -227,13 +262,14 @@ export default function OrganizationManager() {
                 </CardDescription>
               </div>
               
-              <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    Invitar Miembro
-                  </Button>
-                </DialogTrigger>
+              <div className="flex gap-2">
+                <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      Invitar Miembro
+                    </Button>
+                  </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Invitar Nuevo Miembro</DialogTitle>
@@ -278,6 +314,19 @@ export default function OrganizationManager() {
                   </form>
                 </DialogContent>
               </Dialog>
+              
+              {/* Delete Organization Button - Only for owner */}
+              {currentOrganization.ownerId === user?.uid && organizations.length > 1 && (
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={() => openDeleteDialog(currentOrganization.id)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Eliminar
+                </Button>
+              )}
+            </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -525,6 +574,69 @@ export default function OrganizationManager() {
             <Button onClick={copyInviteLink} className="flex-1">
               <Copy className="mr-2 h-4 w-4" />
               Copiar Enlace
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Organization Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-red-600 flex items-center">
+              <Trash2 className="mr-2 h-5 w-5" />
+              ¿Eliminar Organización?
+            </DialogTitle>
+            <DialogDescription>
+              Esta acción no se puede deshacer. Se eliminará permanentemente la organización 
+              y todos sus datos asociados.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Advertencia:</strong> Esta acción eliminará completamente:
+                <ul className="list-disc list-inside mt-2 space-y-1">
+                  <li>La organización y toda su configuración</li>
+                  <li>Todas las invitaciones pendientes</li>
+                  <li>Los datos compartidos de la organización</li>
+                </ul>
+              </AlertDescription>
+            </Alert>
+            
+            {deleteOrgId && (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <p className="text-sm font-medium text-gray-900 mb-1">Organización a eliminar:</p>
+                <p className="text-sm text-gray-700">
+                  {organizations.find(org => org.id === deleteOrgId)?.name}
+                </p>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsDeleteDialogOpen(false)}
+              disabled={isDeleting}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleDeleteOrganization}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <LoadingSpinner size="sm" />
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Eliminar Permanentemente
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

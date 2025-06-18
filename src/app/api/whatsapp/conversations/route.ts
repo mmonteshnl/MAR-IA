@@ -4,10 +4,11 @@ import { db } from '@/lib/firebase-admin';
 import { getAuth } from 'firebase-admin/auth';
 import { Timestamp } from 'firebase-admin/firestore';
 import type { WhatsAppConversation, WhatsAppMessage } from '@/types';
+import { safeTimestampToDate } from '@/lib/firestore-utils';
 
 export async function GET(request: NextRequest) {
   try {
-    const headersList = headers();
+    const headersList = await headers();
     const authorization = headersList.get('authorization');
     
     if (!authorization?.startsWith('Bearer ')) {
@@ -64,13 +65,13 @@ export async function GET(request: NextRequest) {
       conversations.push({
         id: doc.id,
         ...data,
-        createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
-        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
-        lastMessageAt: data.lastMessageAt?.toDate?.()?.toISOString() || data.lastMessageAt,
+        createdAt: safeTimestampToDate(data.createdAt),
+        updatedAt: safeTimestampToDate(data.updatedAt),
+        lastMessageAt: safeTimestampToDate(data.lastMessageAt),
         metadata: {
           ...data.metadata,
-          firstContact: data.metadata?.firstContact?.toDate?.()?.toISOString() || data.metadata?.firstContact,
-          lastActivity: data.metadata?.lastActivity?.toDate?.()?.toISOString() || data.metadata?.lastActivity,
+          firstContact: safeTimestampToDate(data.metadata?.firstContact),
+          lastActivity: safeTimestampToDate(data.metadata?.lastActivity),
         }
       } as WhatsAppConversation);
     });
@@ -97,7 +98,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const headersList = headers();
+    const headersList = await headers();
     const authorization = headersList.get('authorization');
     
     if (!authorization?.startsWith('Bearer ')) {
@@ -209,7 +210,7 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const headersList = headers();
+    const headersList = await headers();
     const authorization = headersList.get('authorization');
     
     if (!authorization?.startsWith('Bearer ')) {

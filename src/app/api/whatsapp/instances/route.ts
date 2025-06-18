@@ -7,7 +7,7 @@ import type { WhatsAppInstance } from '@/types';
 
 export async function GET(request: NextRequest) {
   try {
-    const headersList = headers();
+    const headersList = await headers();
     const authorization = headersList.get('authorization');
     
     if (!authorization?.startsWith('Bearer ')) {
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const headersList = headers();
+    const headersList = await headers();
     const authorization = headersList.get('authorization');
     
     if (!authorization?.startsWith('Bearer ')) {
@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const headersList = headers();
+    const headersList = await headers();
     const authorization = headersList.get('authorization');
     
     if (!authorization?.startsWith('Bearer ')) {
@@ -219,7 +219,7 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const headersList = headers();
+    const headersList = await headers();
     const authorization = headersList.get('authorization');
     
     if (!authorization?.startsWith('Bearer ')) {

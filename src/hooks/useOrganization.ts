@@ -256,6 +256,65 @@ export function useOrganization() {
     }
   }, [user]);
 
+  // Delete organization
+  const deleteOrganization = useCallback(async (orgId: string, password?: string) => {
+    if (!user?.uid) throw new Error('Usuario no autenticado');
+
+    try {
+      console.log('🗑️ Deleting organization:', orgId);
+      
+      const orgToDelete = organizations.find(org => org.id === orgId);
+      if (!orgToDelete) throw new Error('Organización no encontrada');
+      
+      // Only owner can delete organization
+      if (orgToDelete.ownerId !== user.uid) {
+        throw new Error('Solo el propietario puede eliminar la organización');
+      }
+
+      // If this is the current organization and there are other orgs, switch to another
+      const otherOrgs = organizations.filter(org => org.id !== orgId);
+      
+      // Create batch to delete organization and related data
+      const batch = writeBatch(db);
+      
+      // Delete organization document
+      batch.delete(doc(db, 'organizations', orgId));
+      
+      // Delete all invites for this organization
+      const invitesQuery = query(
+        collection(db, 'organizationInvites'),
+        where('organizationId', '==', orgId)
+      );
+      const invitesSnapshot = await getDocs(invitesQuery);
+      invitesSnapshot.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+
+      // Execute batch
+      await batch.commit();
+      
+      // Update local state
+      setOrganizations(prev => prev.filter(org => org.id !== orgId));
+      
+      // If deleting current organization, switch to another or clear
+      if (currentOrganization?.id === orgId) {
+        if (otherOrgs.length > 0) {
+          setCurrentOrganization(otherOrgs[0]);
+          localStorage.setItem('currentOrganizationId', otherOrgs[0].id);
+        } else {
+          setCurrentOrganization(null);
+          localStorage.removeItem('currentOrganizationId');
+        }
+      }
+      
+      console.log('✅ Organization deleted successfully');
+      return { success: true };
+    } catch (err) {
+      console.error('💥 Error deleting organization:', err);
+      throw new Error(err instanceof Error ? err.message : 'Error al eliminar organización');
+    }
+  }, [user, organizations, currentOrganization]);
+
   // Switch current organization
   const switchOrganization = useCallback((org: Organization) => {
     setCurrentOrganization(org);
@@ -285,6 +344,7 @@ export function useOrganization() {
     error,
     createOrganization,
     addMember,
+    deleteOrganization,
     switchOrganization,
     reload: loadUserOrganizations
   };
