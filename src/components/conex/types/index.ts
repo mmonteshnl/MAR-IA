@@ -11,6 +11,7 @@ export interface NodeSettingsProps {
   onUpdate: (config: any) => void;
   onClose: () => void;
   onDelete: () => void;
+  isOpen?: boolean;
 }
 
 export interface NodeConfigProps {

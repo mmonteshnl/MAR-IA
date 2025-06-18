@@ -1,4 +1,4 @@
-import { Zap, Link, RefreshCw, Monitor } from 'lucide-react';
+import { Zap, Link, RefreshCw, Monitor, Globe } from 'lucide-react';
 import { NodeType } from './index';
 
 export const NODE_TYPES: NodeType[] = [
@@ -13,6 +13,12 @@ export const NODE_TYPES: NodeType[] = [
     label: 'API Genérica', 
     icon: Link, 
     description: 'Realiza llamadas HTTP' 
+  },
+  { 
+    type: 'httpRequest', 
+    label: 'HTTP Request', 
+    icon: Globe, 
+    description: 'Peticiones HTTP avanzadas' 
   },
   { 
     type: 'dataTransform', 
@@ -32,6 +38,7 @@ export const getNodeLabel = (type: string): string => {
   const labels: Record<string, string> = {
     trigger: 'Disparador Manual',
     apiCall: 'Llamada API',
+    httpRequest: 'HTTP Request',
     dataTransform: 'Transformar Datos',
     monitor: 'Monitor',
   };
@@ -51,6 +58,17 @@ export const getDefaultNodeConfig = (type: string): any => {
       headers: {}, 
       body: {},
       connectionId: ''
+    },
+    httpRequest: { 
+      name: 'HTTP Request', 
+      method: 'GET', 
+      url: 'https://api.ejemplo.com/endpoint', 
+      headers: {
+        'Content-Type': 'application/json'
+      }, 
+      body: {},
+      timeout: 30,
+      retries: 1
     },
     dataTransform: { 
       name: 'Transformar Datos', 

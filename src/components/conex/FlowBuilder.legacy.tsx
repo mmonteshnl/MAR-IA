@@ -434,7 +434,7 @@ function PandaDocSettings({ config, onChange }: { config: any; onChange: (config
           placeholder="Ingresa tu API Key de PandaDoc"
           className="bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400"
         />
-        <p className="text-xs text-gray-400">Se enviará como "Authorization: API-Key {tu-key}"</p>
+        <p className="text-xs text-gray-400">Se enviará como "Authorization: API-Key {'{tu-key}'}"</p>
       </div>
 
       <div className="space-y-2">

@@ -26,16 +26,29 @@ export interface ExecutionContext {
   variables: Record<string, any>;
   connections: Record<string, ConnectionCredentials>;
   stepResults: Record<string, any>;
+  executionId?: string;
+  organizationId?: string;
+  status: 'running' | 'completed' | 'failed' | 'paused';
+  currentStep?: string;
+  startedAt: Date;
+  updatedAt: Date;
+  createdBy?: string;
 }
 
 export class FlowExecutor {
   private context: ExecutionContext;
 
-  constructor() {
+  constructor(organizationId?: string, createdBy?: string, executionId?: string) {
     this.context = {
       variables: {},
       connections: {},
-      stepResults: {}
+      stepResults: {},
+      executionId: executionId || `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      organizationId,
+      status: 'running',
+      startedAt: new Date(),
+      updatedAt: new Date(),
+      createdBy
     };
   }
 
@@ -62,13 +75,109 @@ export class FlowExecutor {
     }
   }
 
+  // Persist execution state to Firestore (Server-side only)
+  private async persistExecutionState(): Promise<void> {
+    if (!this.context.organizationId || !this.context.executionId) {
+      return; // Skip persistence if no organization context
+    }
+
+    // Only persist on server-side (when running in Node.js environment)
+    if (typeof window !== 'undefined') {
+      console.log('💾 Skipping persistence on client-side');
+      return;
+    }
+
+    try {
+      // Dynamic import to avoid bundling Firebase Admin on client
+      const { getFirestore } = await import('firebase-admin/firestore');
+      await import('@/lib/firebase-admin');
+      
+      const db = getFirestore();
+      const executionRef = db
+        .collection('organizations')
+        .doc(this.context.organizationId)
+        .collection('executions')
+        .doc(this.context.executionId);
+
+      this.context.updatedAt = new Date();
+
+      await executionRef.set({
+        executionId: this.context.executionId,
+        organizationId: this.context.organizationId,
+        status: this.context.status,
+        currentStep: this.context.currentStep,
+        startedAt: this.context.startedAt,
+        updatedAt: this.context.updatedAt,
+        createdBy: this.context.createdBy,
+        stepResults: this.context.stepResults,
+        variables: this.context.variables
+      }, { merge: true });
+
+      console.log(`💾 Execution state persisted: ${this.context.executionId}`);
+    } catch (error) {
+      console.error('Failed to persist execution state:', error);
+      // Don't throw - execution can continue without persistence
+    }
+  }
+
+  // Load execution state from Firestore (Server-side only)
+  static async loadExecutionState(organizationId: string, executionId: string): Promise<FlowExecutor | null> {
+    // Only load on server-side (when running in Node.js environment)
+    if (typeof window !== 'undefined') {
+      console.log('📂 Skipping state loading on client-side');
+      return null;
+    }
+
+    try {
+      // Dynamic import to avoid bundling Firebase Admin on client
+      const { getFirestore } = await import('firebase-admin/firestore');
+      await import('@/lib/firebase-admin');
+      
+      const db = getFirestore();
+      const executionDoc = await db
+        .collection('organizations')
+        .doc(organizationId)
+        .collection('executions')
+        .doc(executionId)
+        .get();
+
+      if (!executionDoc.exists) {
+        return null;
+      }
+
+      const data = executionDoc.data()!;
+      const executor = new FlowExecutor(organizationId, data.createdBy, executionId);
+      
+      // Restore context from persisted state
+      executor.context = {
+        ...executor.context,
+        status: data.status,
+        currentStep: data.currentStep,
+        startedAt: data.startedAt.toDate(),
+        updatedAt: data.updatedAt.toDate(),
+        stepResults: data.stepResults || {},
+        variables: data.variables || {}
+      };
+
+      console.log(`📂 Execution state loaded: ${executionId}`);
+      return executor;
+    } catch (error) {
+      console.error('Failed to load execution state:', error);
+      return null;
+    }
+  }
+
   // Execute a complete flow
   async executeFlow(definition: FlowDefinition): Promise<{
     success: boolean;
     results: Record<string, any>;
     error?: string;
+    executionId?: string;
   }> {
     try {
+      // Persist initial execution state
+      await this.persistExecutionState();
+
       const { nodes, edges } = definition;
       
       // Find trigger node (should be the starting point)
@@ -86,32 +195,51 @@ export class FlowExecutor {
         if (!node) continue;
 
         try {
+          // Update current step and persist
+          this.context.currentStep = nodeId;
+          await this.persistExecutionState();
+
           const result = await this.executeNode(node);
           results[nodeId] = result;
           this.context.stepResults[nodeId] = result;
           
           // Update context variables with step results
           this.context.variables[`step_${nodeId}`] = result;
+
+          // Persist after each step
+          await this.persistExecutionState();
           
         } catch (error) {
+          this.context.status = 'failed';
+          await this.persistExecutionState();
+          
           return {
             success: false,
             results,
-            error: `Error in node ${node.data.name}: ${error}`
+            error: `Error in node ${node.data.name}: ${error}`,
+            executionId: this.context.executionId
           };
         }
       }
 
+      this.context.status = 'completed';
+      await this.persistExecutionState();
+
       return {
         success: true,
-        results
+        results,
+        executionId: this.context.executionId
       };
 
     } catch (error) {
+      this.context.status = 'failed';
+      await this.persistExecutionState();
+      
       return {
         success: false,
         results: {},
-        error: error instanceof Error ? error.message : 'Unknown execution error'
+        error: error instanceof Error ? error.message : 'Unknown execution error',
+        executionId: this.context.executionId
       };
     }
   }
@@ -124,6 +252,9 @@ export class FlowExecutor {
       
       case 'apiCall':
         return this.executeApiCallNode(node);
+      
+      case 'httpRequest':
+        return this.executeHttpRequestNode(node);
       
       case 'dataTransform':
         return this.executeDataTransformNode(node);
@@ -222,6 +353,123 @@ export class FlowExecutor {
       console.log('🌐 API TEXT RECEIVED:', textData.length + ' caracteres');
       return { text: textData };
     }
+  }
+
+  // Execute HTTP request node (enhanced version of API call)
+  private async executeHttpRequestNode(node: FlowNode): Promise<any> {
+    const config = node.data.config;
+    const {
+      method = 'GET',
+      url,
+      headers = {},
+      body,
+      timeout = 30,
+      retries = 1
+    } = config;
+
+    console.log(`🌐 HTTP REQUEST: ${method.toUpperCase()} ${url}`);
+    console.log(`⏱️ Timeout: ${timeout}s, Reintentos: ${retries}`);
+    
+    // Render templates in URL, headers, and body
+    const renderedUrl = this.renderTemplate(url);
+    const renderedHeaders = this.renderObjectTemplates(headers);
+    const renderedBody = body ? this.renderObjectTemplates(body) : undefined;
+
+    // Set up fetch options with timeout
+    const fetchOptions: RequestInit = {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...renderedHeaders
+      },
+      signal: AbortSignal.timeout(timeout * 1000)
+    };
+
+    if (renderedBody && ['POST', 'PUT', 'PATCH'].includes(method.toUpperCase())) {
+      fetchOptions.body = JSON.stringify(renderedBody);
+    }
+
+    // Retry logic
+    let lastError: Error | null = null;
+    
+    for (let attempt = 1; attempt <= retries + 1; attempt++) {
+      try {
+        if (attempt > 1) {
+          console.log(`🔄 HTTP REQUEST: Intento ${attempt}/${retries + 1}`);
+        }
+
+        const response = await fetch(renderedUrl, fetchOptions);
+        
+        console.log(`🌐 HTTP RESPONSE: ${response.status} ${response.statusText}`);
+        
+        // Enhanced error handling
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => 'Unknown error');
+          
+          // Special handling for common APIs
+          if (response.status === 404 && renderedUrl.includes('api.')) {
+            return {
+              error: true,
+              status: 404,
+              message: `Recurso no encontrado: ${renderedUrl}`,
+              details: errorText,
+              url: renderedUrl
+            };
+          }
+          
+          if (response.status >= 500 && attempt <= retries) {
+            // Server error, retry
+            lastError = new Error(`Server error: ${response.status} - ${errorText}`);
+            continue;
+          }
+          
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        // Process response
+        const contentType = response.headers.get('content-type') || '';
+        let responseData;
+
+        if (contentType.includes('application/json')) {
+          responseData = await response.json();
+          console.log('🌐 HTTP JSON RECEIVED:', Object.keys(responseData).length + ' campos');
+        } else if (contentType.includes('text/')) {
+          responseData = { text: await response.text() };
+          console.log('🌐 HTTP TEXT RECEIVED:', responseData.text.length + ' caracteres');
+        } else {
+          responseData = { raw: await response.blob() };
+          console.log('🌐 HTTP BINARY RECEIVED');
+        }
+
+        // Success - return enhanced response
+        return {
+          data: responseData,
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+          url: renderedUrl,
+          method: method.toUpperCase(),
+          timestamp: new Date().toISOString(),
+          attempt
+        };
+
+      } catch (error) {
+        lastError = error as Error;
+        
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw new Error(`HTTP Request timeout after ${timeout}s`);
+        }
+        
+        if (attempt <= retries) {
+          console.log(`⚠️ HTTP REQUEST: Error en intento ${attempt}, reintentando...`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+          continue;
+        }
+      }
+    }
+
+    // All retries failed
+    throw lastError || new Error('HTTP Request failed after all retries');
   }
 
   // Execute data transformation node

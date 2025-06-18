@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -15,8 +15,23 @@ import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { useOrganization } from '@/hooks/useOrganization';
 import { FlowBuilder } from '@/components/conex/FlowBuilder';
-import { Plus, Edit, Trash2, Play, Pause, Workflow, Clock, Zap, Webhook, TestTube } from 'lucide-react';
+import { Plus, Edit, Trash2, Play, Pause, Workflow, Clock, Zap, Webhook, TestTube, FileText, Mail, Database } from 'lucide-react';
 import { Flow, CreateFlowRequest } from '@/types/conex';
+
+// Configuración de iconos disponibles
+const AVAILABLE_ICONS = [
+  { value: 'Workflow', label: 'Flujo de Trabajo', icon: Workflow },
+  { value: 'FileText', label: 'Documento', icon: FileText },
+  { value: 'Mail', label: 'Email', icon: Mail },
+  { value: 'Database', label: 'Base de Datos', icon: Database },
+  { value: 'Zap', label: 'Automatización', icon: Zap },
+];
+
+// Función para obtener el icono por su valor
+const getIconComponent = (iconValue: string) => {
+  const iconConfig = AVAILABLE_ICONS.find(icon => icon.value === iconValue);
+  return iconConfig?.icon || Workflow;
+};
 
 export default function FlowsPage() {
   const { user } = useAuth();
@@ -48,195 +63,7 @@ export default function FlowsPage() {
     }
   }, [user, organization]);
 
-  const createDemoFlow = async () => {
-    setSaving(true);
-    try {
-      const token = await user.getIdToken();
-      
-      const demoFlowData = {
-        name: "Generar Cotización con API Externa (Demo)",
-        description: "Crea cotización automática usando API externa basada en datos del lead",
-        icon: 'FileText',
-        trigger: {
-          type: 'manual_lead_action',
-          config: {}
-        },
-        definition: {
-          nodes: [
-            {
-              id: 'trigger-1',
-              type: 'trigger',
-              position: { x: 50, y: 200 },
-              data: {
-                name: 'Lead Trigger',
-                config: {}
-              }
-            },
-            {
-              id: 'generate-quote-1',
-              type: 'api_call',
-              position: { x: 300, y: 100 },
-              data: {
-                name: 'Generar Cotización IA',
-                config: {
-                  connectionId: 'internal-api',
-                  method: 'POST',
-                  url: '/api/ai/generate-quote',
-                  headers: {
-                    'Content-Type': 'application/json'
-                  },
-                  body: {
-                    leadName: '{{trigger.input.leadName}}',
-                    leadEmail: '{{trigger.input.leadEmail}}',
-                    businessType: '{{trigger.input.leadIndustry}}',
-                    leadValue: '{{trigger.input.leadValue}}',
-                    leadStage: '{{trigger.input.leadStage}}'
-                  }
-                }
-              }
-            },
-            {
-              id: 'create-document-1',
-              type: 'api_call',
-              position: { x: 600, y: 100 },
-              data: {
-                name: 'Crear Documento Profesional',
-                config: {
-                  connectionId: 'external-api',
-                  method: 'POST',
-                  url: 'https://api.ejemplo.com/documents',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer {{connections.external.token}}'
-                  },
-                  body: {
-                    title: 'Cotización para {{trigger.input.leadName}}',
-                    template_id: 'tu-template-id-aqui',
-                    client: {
-                      email: '{{trigger.input.leadEmail}}',
-                      name: '{{trigger.input.leadName}}',
-                      industry: '{{trigger.input.leadIndustry}}'
-                    },
-                    data: {
-                      client_name: '{{trigger.input.leadName}}',
-                      quote_total: '{{step_generate-quote-1.resumen_financiero.precio_recomendado}}',
-                      quote_details: '{{step_generate-quote-1}}'
-                    }
-                  }
-                }
-              }
-            },
-            {
-              id: 'save-quote-1',
-              type: 'api_call',
-              position: { x: 900, y: 100 },
-              data: {
-                name: 'Guardar Cotización',
-                config: {
-                  connectionId: 'internal-api',
-                  method: 'POST',
-                  url: '/api/quotes',
-                  headers: {
-                    'Content-Type': 'application/json'
-                  },
-                  body: {
-                    quoteData: '{{step_generate-quote-1}}',
-                    leadName: '{{trigger.input.leadName}}',
-                    businessType: '{{trigger.input.leadIndustry}}',
-                    organizationId: '{{trigger.input.organizationId}}',
-                    documentId: '{{step_create-document-1.id}}'
-                  }
-                }
-              }
-            },
-            {
-              id: 'transform-1',
-              type: 'data_transform',
-              position: { x: 600, y: 300 },
-              data: {
-                name: 'Formatear Resultado',
-                config: {
-                  transformations: [
-                    {
-                      type: 'map',
-                      source: 'step_create-document-1',
-                      target: 'quoteResult',
-                      mapping: {
-                        'documentId': 'id',
-                        'documentName': 'name',
-                        'status': 'status',
-                        'shareLink': 'share_link',
-                        'clientName': 'recipients[0].first_name',
-                        'clientEmail': 'recipients[0].email'
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          ],
-          edges: [
-            {
-              id: 'e1-2',
-              source: 'trigger-1',
-              target: 'generate-quote-1',
-              type: 'smoothstep'
-            },
-            {
-              id: 'e2-3',
-              source: 'generate-quote-1',
-              target: 'create-pandadoc-1',
-              type: 'smoothstep'
-            },
-            {
-              id: 'e3-4',
-              source: 'create-pandadoc-1',
-              target: 'save-quote-1',
-              type: 'smoothstep'
-            },
-            {
-              id: 'e3-5',
-              source: 'create-pandadoc-1',
-              target: 'transform-1',
-              type: 'smoothstep'
-            }
-          ]
-        },
-        isEnabled: true
-      };
 
-      const response = await fetch('/api/flows', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'x-organization-id': organization.id
-        },
-        body: JSON.stringify(demoFlowData)
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create demo flow');
-      }
-
-      const newFlow = await response.json();
-      setFlows(prev => [newFlow, ...prev]);
-      
-      toast({
-        title: '📄 Demo creado',
-        description: 'Flujo de cotización con API externa creado exitosamente'
-      });
-    } catch (error) {
-      console.error('Error creating demo flow:', error);
-      toast({
-        title: 'Error',
-        description: 'Error al crear el flujo demo',
-        variant: 'destructive'
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const fetchFlows = async () => {
     try {
@@ -638,17 +465,27 @@ export default function FlowsPage() {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="icon">Icon</Label>
+                <Label htmlFor="icon">Icono</Label>
                 <Select value={formData.icon} onValueChange={(value) => setFormData(prev => ({ ...prev, icon: value }))}>
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue>
+                      {formData.icon && (
+                        <div className="flex items-center gap-2">
+                          {React.createElement(getIconComponent(formData.icon), { className: "h-4 w-4" })}
+                          <span>{AVAILABLE_ICONS.find(icon => icon.value === formData.icon)?.label}</span>
+                        </div>
+                      )}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Workflow">Workflow</SelectItem>
-                    <SelectItem value="FileText">Document</SelectItem>
-                    <SelectItem value="Mail">Email</SelectItem>
-                    <SelectItem value="Database">Database</SelectItem>
-                    <SelectItem value="Zap">Automation</SelectItem>
+                    {AVAILABLE_ICONS.map((iconConfig) => (
+                      <SelectItem key={iconConfig.value} value={iconConfig.value}>
+                        <div className="flex items-center gap-2">
+                          {React.createElement(iconConfig.icon, { className: "h-4 w-4" })}
+                          <span>{iconConfig.label}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -717,67 +554,7 @@ export default function FlowsPage() {
                 </DialogTrigger>
               </Dialog>
               
-              <Button 
-                variant="outline" 
-                size="lg" 
-                className="w-full border-blue-600/50 text-blue-300 hover:bg-blue-700/20"
-                onClick={createDemoFlow}
-                disabled={saving}
-              >
-                {saving ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400 mr-2"></div>
-                    Creando Demo...
-                  </>
-                ) : (
-                  <>
-                    <span className="text-lg mr-2">📄</span>
-                    Crear Flujo Demo API
-                  </>
-                )}
-              </Button>
-              
-              <div className="grid grid-cols-1 gap-3 w-full">
-                <div className="bg-blue-950/30 border border-blue-800/50 rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                    <p className="text-sm font-medium text-blue-200">Demo Integrado</p>
-                  </div>
-                  <p className="text-xs text-blue-300">
-                    Flujo completo con API Call pre-configurado
-                  </p>
-                </div>
-                
-                <div className="bg-green-950/30 border border-green-800/50 rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                    <p className="text-sm font-medium text-green-200">Paso 1</p>
-                  </div>
-                  <p className="text-xs text-green-300">
-                    Arrastra nodos PandaDoc al canvas visual
-                  </p>
-                </div>
-                
-                <div className="bg-purple-950/30 border border-purple-800/50 rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
-                    <p className="text-sm font-medium text-purple-200">Paso 2</p>
-                  </div>
-                  <p className="text-xs text-purple-300">
-                    Configura API key y template directamente en el nodo
-                  </p>
-                </div>
-                
-                <div className="bg-amber-950/30 border border-amber-800/50 rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-2 h-2 bg-amber-400 rounded-full"></div>
-                    <p className="text-sm font-medium text-amber-200">Paso 3</p>
-                  </div>
-                  <p className="text-xs text-amber-300">
-                    Conecta nodos y prueba desde acciones de IA en leads
-                  </p>
-                </div>
-              </div>
+            
             </div>
           </CardContent>
         </Card>
@@ -788,7 +565,7 @@ export default function FlowsPage() {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <Workflow className="h-5 w-5" />
+                    {React.createElement(getIconComponent(flow.icon), { className: "h-5 w-5" })}
                     <div>
                       <CardTitle className="text-lg">{flow.name}</CardTitle>
                       <CardDescription>{flow.description}</CardDescription>

@@ -13,7 +13,7 @@ import ReactFlow, {
   BackgroundVariant,
 } from 'reactflow';
 import { Button } from '@/components/ui/button';
-import { Play, Save, Code, Copy, X } from 'lucide-react';
+import { Play, Save, Code, Copy, X, Settings } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -25,7 +25,7 @@ import { FlowBuilderProps } from './types';
 import { nodeTypes } from './nodes';
 import { NodesPanel, NodeSettings } from './panels';
 import { getNodeLabel, getDefaultNodeConfig } from './types/nodeTypes';
-import { FlowExecutor } from '@/lib/flow-executor';
+import { useFlowExecutor } from '@/hooks/useFlowExecutor';
 
 // Initial nodes
 const initialNodes: Node[] = [
@@ -51,9 +51,14 @@ export function FlowBuilderCore({ onSave, initialFlowData, loading }: FlowBuilde
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialFlowData?.edges || initialEdges);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [showNodeSettings, setShowNodeSettings] = useState(false);
   const [showJsonModal, setShowJsonModal] = useState(false);
   const [showTestModal, setShowTestModal] = useState(false);
-  const [testData, setTestData] = useState({
+  type TestData = {
+    [key: string]: string | number;
+  };
+
+  const [testData, setTestData] = useState<TestData>({
     leadName: 'Lead de Prueba',
     leadEmail: 'prueba@ejemplo.com',
     leadPhone: '+1234567890',
@@ -64,6 +69,8 @@ export function FlowBuilderCore({ onSave, initialFlowData, loading }: FlowBuilde
     leadAddress: 'Dirección de Prueba',
     leadValue: 15000
   });
+  
+  const { executeFlow, executing } = useFlowExecutor();
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
@@ -111,6 +118,11 @@ export function FlowBuilderCore({ onSave, initialFlowData, loading }: FlowBuilde
     setSelectedNode(node);
   }, []);
 
+  const onNodeDoubleClick = useCallback((event: React.MouseEvent, node: Node) => {
+    setSelectedNode(node);
+    setShowNodeSettings(true);
+  }, []);
+
   const handleSave = () => {
     if (!reactFlowInstance) return;
     
@@ -145,24 +157,13 @@ export function FlowBuilderCore({ onSave, initialFlowData, loading }: FlowBuilde
     try {
       const flowData = reactFlowInstance.toObject();
       
-      console.log('🧪 INICIANDO EJECUCIÓN REAL DEL FLUJO');
-      console.log('📋 Datos de entrada:', testData);
-      console.log('🔗 Nodos en el flujo:', flowData.nodes.length);
-      console.log('⚡ Conexiones:', flowData.edges.length);
-      
-      // Crear instancia del FlowExecutor
-      const executor = new FlowExecutor();
-      
-      // Inicializar contexto con datos de prueba (sin conexiones para test)
-      await executor.initializeContext(testData, []);
-      
       // Convertir los nodos de ReactFlow al formato del FlowExecutor
       const flowDefinition = {
         nodes: flowData.nodes.map(node => ({
           id: node.id,
-          type: node.type,
+          type: node.type ?? '',
           data: {
-            name: node.data.config?.name || node.data.label || node.type,
+            name: (node.data.config?.name || node.data.label || node.type) ?? '',
             config: node.data.config || {}
           }
         })),
@@ -173,24 +174,24 @@ export function FlowBuilderCore({ onSave, initialFlowData, loading }: FlowBuilde
         }))
       };
       
-      console.log('⚡ EJECUTANDO FLUJO CON FLOWEXECUTOR...');
-      
-      // Ejecutar el flujo real
-      const result = await executor.executeFlow(flowDefinition);
-      
-      console.log('✅ FLUJO EJECUTADO COMPLETAMENTE');
-      console.log('📊 Resultado final:', result);
+      // Ejecutar el flujo usando el hook
+      const result = await executeFlow({
+        inputData: testData,
+        flowDefinition,
+        enableLogs: true
+      });
       
       toast({
-        title: 'Flujo Ejecutado Realmente ✅',
-        description: `Ejecución completada. Los nodos se ejecutaron de verdad. Revisa la consola para ver todos los resultados.`,
+        title: 'Flujo Ejecutado ✅',
+        description: `Ejecución ${result.status === 'completed' ? 'completada' : 'falló'}. Revisa la consola para detalles.`,
+        variant: result.status === 'completed' ? 'default' : 'destructive'
       });
 
     } catch (error) {
-      console.error('❌ Error ejecutando flujo real:', error);
+      console.error('❌ Error ejecutando flujo:', error);
       toast({
-        title: 'Error en Ejecución Real',
-        description: `Error: ${error instanceof Error ? error.message : 'Error desconocido'}. Revisa la consola.`,
+        title: 'Error en Ejecución',
+        description: `Error: ${error instanceof Error ? error.message : 'Error desconocido'}`,
         variant: 'destructive',
       });
     }
@@ -265,6 +266,11 @@ export function FlowBuilderCore({ onSave, initialFlowData, loading }: FlowBuilde
     }
   }, [selectedNode]);
 
+  const handleCloseNodeSettings = () => {
+    setShowNodeSettings(false);
+    setSelectedNode(null);
+  };
+
   React.useEffect(() => {
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
@@ -276,12 +282,23 @@ export function FlowBuilderCore({ onSave, initialFlowData, loading }: FlowBuilde
       <div className="w-80 border-r bg-gray-900 border-gray-700 p-4 space-y-4">
         <NodesPanel />
         {selectedNode && (
-          <NodeSettings
-            node={selectedNode}
-            onUpdate={(config) => updateNodeConfig(selectedNode.id, config)}
-            onClose={() => setSelectedNode(null)}
-            onDelete={() => deleteNode(selectedNode.id)}
-          />
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+            <h3 className="text-sm font-medium text-gray-200 mb-2">Nodo Seleccionado</h3>
+            <p className="text-xs text-gray-400 mb-3">
+              Nodo "{selectedNode.data.config?.name || selectedNode.data.label || selectedNode.type}" seleccionado.
+            </p>
+            <Button 
+              onClick={() => setShowNodeSettings(true)}
+              size="sm" 
+              className="w-full bg-blue-600 hover:bg-blue-700"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Configurar Nodo
+            </Button>
+            <p className="text-xs text-gray-500 mt-2">
+              También puedes hacer doble clic en un nodo para configurarlo
+            </p>
+          </div>
         )}
       </div>
 
@@ -296,9 +313,9 @@ export function FlowBuilderCore({ onSave, initialFlowData, loading }: FlowBuilde
             <Save className="h-4 w-4 mr-2" />
             {loading ? 'Guardando...' : 'Guardar Flujo'}
           </Button>
-          <Button onClick={handleTestFlow} variant="outline">
+          <Button onClick={handleTestFlow} variant="outline" disabled={executing}>
             <Play className="h-4 w-4 mr-2" />
-            Probar Flujo
+            {executing ? 'Ejecutando...' : 'Probar Flujo'}
           </Button>
         </div>
 
@@ -313,6 +330,7 @@ export function FlowBuilderCore({ onSave, initialFlowData, loading }: FlowBuilde
             onDrop={onDrop}
             onDragOver={onDragOver}
             onNodeClick={onNodeClick}
+            onNodeDoubleClick={onNodeDoubleClick}
             nodeTypes={nodeTypes}
             fitView
             className="bg-gray-900"
@@ -477,6 +495,17 @@ export function FlowBuilderCore({ onSave, initialFlowData, loading }: FlowBuilde
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Node Settings Modal */}
+      {selectedNode && (
+        <NodeSettings
+          node={selectedNode}
+          onUpdate={(config) => updateNodeConfig(selectedNode.id, config)}
+          onClose={handleCloseNodeSettings}
+          onDelete={() => deleteNode(selectedNode.id)}
+          isOpen={showNodeSettings}
+        />
+      )}
     </div>
   );
 }

@@ -113,7 +113,7 @@ service cloud.firestore {
       );
     }
     
-    // Billing Quotes rules (PandaDoc Quotes)
+    // Billing Quotes rules (Professional Document Quotes)
     match /billing_quotes/{quoteId} {
       // Users can access billing quotes if they belong to the same organization
       allow read, write: if request.auth != null && (
@@ -134,6 +134,72 @@ service cloud.firestore {
          exists(/databases/$(database)/documents/organizations/$(request.resource.data.organizationId)) &&
          request.auth.uid in get(/databases/$(database)/documents/organizations/$(request.resource.data.organizationId)).data.memberIds)
       );
+    }
+
+    // Helper functions for organization membership and roles
+    function isUserInOrganization(orgId, userId) {
+      return exists(/databases/$(database)/documents/organizations/$(orgId)) &&
+             userId in get(/databases/$(database)/documents/organizations/$(orgId)).data.memberIds;
+    }
+
+    function getUserRole(orgId, userId) {
+      let org = get(/databases/$(database)/documents/organizations/$(orgId));
+      return userId == org.data.ownerId ? 'admin' :
+             userId in org.data.adminIds ? 'admin' : 'member';
+    }
+
+    function isUserAdmin(orgId, userId) {
+      return getUserRole(orgId, userId) == 'admin';
+    }
+
+    // CONEX Flow Management - Secure Rules
+    match /organizations/{orgId}/flows/{flowId} {
+      // All organization members can read flows
+      allow read: if request.auth != null && 
+        isUserInOrganization(orgId, request.auth.uid);
+      
+      // All organization members can create and update flows
+      allow create, update: if request.auth != null && 
+        isUserInOrganization(orgId, request.auth.uid) &&
+        request.resource.data.organizationId == orgId;
+      
+      // Only admins can delete flows
+      allow delete: if request.auth != null && 
+        isUserAdmin(orgId, request.auth.uid);
+    }
+
+    // CONEX Connections - Admin Only
+    match /organizations/{orgId}/connections/{connectionId} {
+      // All organization members can read connections (without credentials)
+      allow read: if request.auth != null && 
+        isUserInOrganization(orgId, request.auth.uid);
+      
+      // Only admins can create, update, or delete connections
+      allow create, update, delete: if request.auth != null && 
+        isUserAdmin(orgId, request.auth.uid) &&
+        request.resource.data.organizationId == orgId;
+    }
+
+    // CONEX Flow Executions - Member Access
+    match /organizations/{orgId}/executions/{executionId} {
+      // All organization members can read execution history
+      allow read: if request.auth != null && 
+        isUserInOrganization(orgId, request.auth.uid);
+      
+      // All organization members can create executions
+      allow create: if request.auth != null && 
+        isUserInOrganization(orgId, request.auth.uid) &&
+        request.resource.data.organizationId == orgId;
+      
+      // Only the execution owner or admins can update executions
+      allow update: if request.auth != null && 
+        isUserInOrganization(orgId, request.auth.uid) &&
+        (request.auth.uid == resource.data.createdBy || 
+         isUserAdmin(orgId, request.auth.uid));
+      
+      // Only admins can delete executions
+      allow delete: if request.auth != null && 
+        isUserAdmin(orgId, request.auth.uid);
     }
   }
 }
