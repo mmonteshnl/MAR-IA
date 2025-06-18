@@ -27,7 +27,7 @@ import {
   BreadcrumbList,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
-import { ListChecks, Search, LogOut, PackageSearch, FileUp, Send, Cable, Zap, UserCircle, LayoutDashboard, Bell, TrendingUp, Settings, MessageSquare, Phone, Tags, FileText, Users, Briefcase, ShieldCheck, Palette, ConciergeBell, Calculator, Brain, User, Building2, Database, PlusCircle, Link2 } from 'lucide-react';
+import { ListChecks, Search, LogOut, PackageSearch, FileUp, Send, Cable, Zap, UserCircle, LayoutDashboard, Bell, TrendingUp, Settings, MessageSquare, Phone, Tags, FileText, Users, Briefcase, ShieldCheck, Palette, ConciergeBell, Calculator, Brain, User, Building2, Database, PlusCircle, Link2, Workflow } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useFirebaseInit } from '@/hooks/useFirebaseInit';
 import { useOrganization } from '@/hooks/useOrganization';
@@ -144,8 +144,13 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
       items: [
         { href: '/ai-prompts', label: 'IA y Prompts', icon: Brain, currentPathMatcher: (p: string) => p === '/ai-prompts' },
         { href: '/whatsapp-conversations', label: 'WhatsApp', icon: MessageSquare, currentPathMatcher: (p: string) => p === '/whatsapp-conversations' },
-        { href: '/automations', label: 'Automatizaciones', icon: Zap, currentPathMatcher: (p: string) => p === '/automations' },
         { href: '/config', label: 'General', icon: Settings, currentPathMatcher: (p: string) => p === '/config' },
+      ]
+    },
+    {
+      title: 'AUTOMATIZACIONES',
+      items: [
+        { href: '/conex/flows', label: 'Flujos Visuales', icon: Workflow, currentPathMatcher: (p: string) => p.startsWith('/conex/flows') || p === '/conex' || p.startsWith('/conex/connections') },
       ]
     }
   ];

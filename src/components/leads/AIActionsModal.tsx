@@ -3,10 +3,13 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { BrainCircuit, Lightbulb, PackageSearch, Mail, Sparkles, Loader2, AlertTriangle, Calculator, Building2, Zap, X, CheckCircle, Clock, Database } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { BrainCircuit, Lightbulb, PackageSearch, Mail, Sparkles, Loader2, AlertTriangle, Calculator, Building2, Zap, X, CheckCircle, Clock, Database, Workflow } from 'lucide-react';
 import type { ExtendedLead as Lead } from '@/types';
 import { isFieldMissing } from '@/lib/leads-utils';
 import { AICacheManager } from '@/lib/ai-cache-manager';
+import { useManualFlows } from '@/hooks/useManualFlows';
+import { toast } from '@/hooks/use-toast';
 import { useState, useEffect, useMemo } from 'react';
 
 interface AIActionsModalProps {
@@ -44,6 +47,9 @@ export default function AIActionsModal({
   // Estado para animaciones de entrada
   const [isVisible, setIsVisible] = useState(false);
   const [completedAction, setCompletedAction] = useState<string | null>(null);
+  
+  // Hook para obtener flujos manuales
+  const { manualFlows, isLoading: flowsLoading, runFlow } = useManualFlows();
 
   useEffect(() => {
     if (open) {
@@ -215,6 +221,45 @@ export default function AIActionsModal({
       // Cerrar este modal después de ejecutar la acción
       console.log(`🚪 AIActionsModal: Cerrando modal de acciones IA`);
       onOpenChange(false);
+    }
+  };
+
+  const handleRunFlow = async (flowId: string, flowName: string) => {
+    try {
+      const leadData = {
+        leadName: lead.name || 'Lead sin nombre',
+        leadEmail: lead.email || '',
+        leadPhone: lead.phone || '',
+        leadWebsite: lead.website || '',
+        leadStage: lead.stage || 'Nuevo',
+        leadSource: lead.source || '',
+        leadIndustry: lead.business_type || '',
+        leadAddress: lead.address || '',
+        // Añadir más campos según necesites
+        products: [] // Esto puede ser configurado dinámicamente
+      };
+
+      toast({
+        title: 'Ejecutando flujo',
+        description: `Iniciando "${flowName}" para ${lead.name}`,
+      });
+
+      const result = await runFlow(flowId, leadData);
+      
+      toast({
+        title: 'Flujo iniciado',
+        description: `El flujo "${flowName}" se está ejecutando. ID: ${result.executionId}`,
+      });
+      
+      // Cerrar modal
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error running flow:', error);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Error al ejecutar el flujo',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -443,6 +488,115 @@ export default function AIActionsModal({
               </div>
             </div>
           )}
+
+          {/* Sección de flujos automatizados */}
+          <div className={`
+            p-4 bg-gradient-to-r from-purple-900/30 via-indigo-900/20 to-blue-900/30 
+            border border-purple-700/50 rounded-xl backdrop-blur-sm
+            transition-all duration-500 delay-300
+            ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}
+          `}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-600">
+                  <Workflow className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-purple-300">Flujos Automatizados</h4>
+                  <p className="text-sm text-purple-200">
+                    {manualFlows.length > 0 
+                      ? 'Ejecuta workflows personalizados' 
+                      : 'Crea tu primer flujo automatizado'
+                    }
+                  </p>
+                </div>
+              </div>
+              <Badge variant="outline" className="text-purple-300 border-purple-400/50 bg-purple-500/10">
+                {flowsLoading ? 'Cargando...' : `${manualFlows.length} disponibles`}
+              </Badge>
+            </div>
+            
+            {flowsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="flex items-center gap-3">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-400"></div>
+                  <span className="text-purple-300">Cargando flujos...</span>
+                </div>
+              </div>
+            ) : manualFlows.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {manualFlows.map((flow) => (
+                  <Button
+                    key={flow.id}
+                    variant="outline"
+                    size="sm"
+                    className="border-purple-600/50 text-purple-300 hover:bg-purple-700/20 hover:text-purple-200 hover:border-purple-500/70"
+                    onClick={() => handleRunFlow(flow.id, flow.name)}
+                  >
+                    <Workflow className="h-3 w-3 mr-2" />
+                    {flow.name}
+                  </Button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <div className="mb-4">
+                  <div className="mx-auto w-16 h-16 bg-purple-500/20 rounded-full flex items-center justify-center mb-3">
+                    <Workflow className="h-8 w-8 text-purple-400" />
+                  </div>
+                  <h5 className="font-medium text-purple-300 mb-2">No hay flujos automatizados</h5>
+                  <p className="text-sm text-purple-200/80 mb-4">
+                    Crea flujos personalizados para automatizar tareas repetitivas
+                  </p>
+                </div>
+                
+                <div className="flex flex-col gap-2 justify-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-purple-600/50 text-purple-300 hover:bg-purple-700/20 hover:text-purple-200 hover:border-purple-500/70"
+                    onClick={() => {
+                      window.open('/conex', '_blank');
+                    }}
+                  >
+                    <Zap className="h-3 w-3 mr-2" />
+                    Abrir Panel Conex
+                  </Button>
+                  
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-purple-400 hover:text-purple-200 text-xs"
+                      onClick={() => {
+                        window.open('/conex/connections', '_blank');
+                      }}
+                    >
+                      <Database className="h-3 w-3 mr-1" />
+                      Conexiones
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-purple-400 hover:text-purple-200 text-xs"
+                      onClick={() => {
+                        window.open('/conex/flows', '_blank');
+                      }}
+                    >
+                      <Workflow className="h-3 w-3 mr-1" />
+                      Flujos
+                    </Button>
+                  </div>
+                </div>
+                
+                <div className="mt-4 p-3 bg-purple-900/20 rounded-lg border border-purple-700/30">
+                  <p className="text-xs text-purple-200/70 leading-relaxed">
+                    💡 <strong>Tip:</strong> Crea una conexión a PandaDoc primero, luego diseña un flujo para generar cotizaciones automáticamente
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Grid de acciones perfectamente organizado */}
           <div className="space-y-6">

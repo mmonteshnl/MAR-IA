@@ -100,3 +100,85 @@
     font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   }
 }
+
+/* ReactFlow Dark Theme Overrides */
+.react-flow__background {
+  background-color: rgb(17, 24, 39) !important;
+}
+
+.react-flow__controls {
+  background-color: rgb(31, 41, 55) !important;
+  border: 1px solid rgb(75, 85, 99) !important;
+}
+
+.react-flow__controls button {
+  background-color: rgb(31, 41, 55) !important;
+  border-bottom: 1px solid rgb(75, 85, 99) !important;
+  color: rgb(209, 213, 219) !important;
+}
+
+.react-flow__controls button:hover {
+  background-color: rgb(55, 65, 81) !important;
+}
+
+.react-flow__minimap {
+  background-color: rgb(31, 41, 55) !important;
+  border: 1px solid rgb(75, 85, 99) !important;
+}
+
+.react-flow__edge-path {
+  stroke: rgb(156, 163, 175);
+  stroke-width: 2;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: rgb(59, 130, 246);
+  stroke-width: 3;
+}
+
+.react-flow__connection-line {
+  stroke: rgb(156, 163, 175);
+}
+
+.react-flow__handle {
+  background-color: rgb(75, 85, 99);
+  border: 2px solid rgb(156, 163, 175);
+}
+
+.react-flow__handle:hover {
+  background-color: rgb(59, 130, 246);
+}
+
+.react-flow__node.selected {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+}
+
+.react-flow__panel {
+  background-color: rgb(31, 41, 55) !important;
+  border: 1px solid rgb(75, 85, 99) !important;
+  color: rgb(209, 213, 219) !important;
+}
+
+/* Node text visibility fixes */
+.react-flow__node {
+  color: white !important;
+}
+
+.react-flow__node div {
+  color: white !important;
+}
+
+.react-flow__node .text-white {
+  color: white !important;
+}
+
+.react-flow__node .text-gray-300 {
+  color: rgb(209, 213, 219) !important;
+}
+
+/* Ensure node backgrounds are dark */
+.react-flow__node-default {
+  background-color: rgb(17, 24, 39) !important;
+  border: 1px solid rgb(75, 85, 99) !important;
+  color: white !important;
+}
