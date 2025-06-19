@@ -4,6 +4,7 @@ import { DataTransformNode } from './DataTransformNode';
 import { Component as HttpRequestNode } from './HttpRequestNode';
 import { MonitorNode } from './MonitorNode';
 import { TriggerNode } from './TriggerNode';
+import { Component as LeadValidatorNode } from './LeadValidatorNode';
 
 export const nodeTypes = {
   trigger: TriggerNode,
@@ -11,6 +12,7 @@ export const nodeTypes = {
   httpRequest: HttpRequestNode,
   dataTransform: DataTransformNode,
   monitor: MonitorNode,
+  leadValidator: LeadValidatorNode,
 };
 
 export {
@@ -19,4 +21,5 @@ export {
   HttpRequestNode,
   DataTransformNode,
   MonitorNode,
+  LeadValidatorNode,
 };

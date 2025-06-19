@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import LoadingComponent from '@/components/LoadingComponent';
-import { LogOut, PlusCircle, ArrowLeft, KanbanSquare, List, FileUp, Search, Filter } from 'lucide-react';
+import { LogOut, PlusCircle, ArrowLeft, KanbanSquare, List, FileUp, Search, Filter, Terminal } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { db } from '@/lib/firebase';
@@ -35,6 +35,7 @@ import LeadSourceFilterModal from '@/components/leads/LeadSourceFilterModal';
 import QuoteGeneratorModal from '@/components/QuoteGeneratorModal';
 import BillingQuoteModal from '@/components/BillingQuoteModal';
 import HybridQuoteModal from '@/components/HybridQuoteModal';
+import FlowTestingModal from '@/components/leads/FlowTestingModal';
 
 // Import utilities
 import { LEAD_STAGES, LOCAL_STORAGE_LEADS_KEY_PREFIX, LOCAL_FALLBACK_SOURCE, formatFirestoreTimestamp, isFieldMissing, type LeadStage } from '@/lib/leads-utils';
@@ -95,6 +96,10 @@ export default function LeadsPage() {
   // Hybrid quote modal state
   const [isHybridQuoteModalOpen, setIsHybridQuoteModalOpen] = useState(false);
   const [selectedLeadForHybridQuote, setSelectedLeadForHybridQuote] = useState<Lead | null>(null);
+  
+  // Flow testing modal state
+  const [isFlowTestingModalOpen, setIsFlowTestingModalOpen] = useState(false);
+  const [selectedLeadForFlowTesting, setSelectedLeadForFlowTesting] = useState<Lead | null>(null);
 
   // Local storage key helper
   const getLocalStorageKey = useCallback(() => {
@@ -727,6 +732,16 @@ export default function LeadsPage() {
                 >
                   <FileUp className="mr-2 h-4 w-4" /> Importar
                 </Button>
+                <Button 
+                  variant="outline" 
+                  className="border-blue-500/20 text-blue-600 hover:bg-blue-500/10 h-10 text-sm w-full sm:w-auto" 
+                  onClick={() => {
+                    setSelectedLeadForFlowTesting(leads[0] || null);
+                    setIsFlowTestingModalOpen(true);
+                  }}
+                >
+                  <Terminal className="mr-2 h-4 w-4" /> Testing HTTP
+                </Button>
               </div>
             </div>
           </div>
@@ -959,6 +974,12 @@ export default function LeadsPage() {
           email: selectedLeadForHybridQuote.email,
           businessType: getBusinessTypeFromMetaLead(selectedLeadForHybridQuote)
         } : null}
+      />
+
+      <FlowTestingModal
+        open={isFlowTestingModalOpen}
+        onOpenChange={setIsFlowTestingModalOpen}
+        lead={selectedLeadForFlowTesting}
       />
     </div>
   );

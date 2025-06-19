@@ -4,13 +4,215 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { BrainCircuit, Lightbulb, PackageSearch, Mail, Sparkles, Loader2, AlertTriangle, Calculator, Building2, Zap, X, CheckCircle, Clock, Database, Workflow } from 'lucide-react';
+import { BrainCircuit, Lightbulb, PackageSearch, Mail, Sparkles, Loader2, AlertTriangle, Calculator, Building2, Zap, X, CheckCircle, Clock, Database, Workflow, ArrowLeft, ExternalLink, FileText, Activity } from 'lucide-react';
 import type { ExtendedLead as Lead } from '@/types';
 import { isFieldMissing } from '@/lib/leads-utils';
 import { AICacheManager } from '@/lib/ai-cache-manager';
 import { useManualFlows } from '@/hooks/useManualFlows';
 import { toast } from '@/hooks/use-toast';
 import { useState, useEffect, useMemo } from 'react';
+
+// Componente para mostrar resultados de ejecución de flujos
+interface FlowResultsViewProps {
+  results: {
+    flowName: string;
+    flowId: string;
+    executionId: string;
+    result: any;
+    timestamp: string;
+    leadData: any;
+  };
+  onBack: () => void;
+}
+
+function FlowResultsView({ results, onBack }: FlowResultsViewProps) {
+  const formatJson = (obj: any) => {
+    try {
+      return JSON.stringify(obj, null, 2);
+    } catch {
+      return String(obj);
+    }
+  };
+
+  const renderResultSection = (title: string, data: any, icon: React.ReactNode) => {
+    if (!data) return null;
+    
+    return (
+      <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50">
+        <div className="flex items-center gap-2 mb-3">
+          {icon}
+          <h4 className="font-semibold text-white">{title}</h4>
+        </div>
+        <div className="bg-black/50 rounded p-3 font-mono text-sm text-green-400 overflow-auto max-h-40">
+          <pre>{formatJson(data)}</pre>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header con botón de retorno */}
+      <div className="flex items-center gap-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onBack}
+          className="border-gray-600 text-gray-300 hover:bg-gray-700"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Volver
+        </Button>
+        <div>
+          <h3 className="text-xl font-bold text-white">Resultados de Ejecución</h3>
+          <p className="text-gray-400 text-sm">{results.flowName}</p>
+        </div>
+      </div>
+
+      {/* Información básica */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-blue-900/20 rounded-lg p-4 border border-blue-700/50">
+          <div className="flex items-center gap-2 mb-2">
+            <Activity className="h-5 w-5 text-blue-400" />
+            <h4 className="font-semibold text-blue-300">Información de Ejecución</h4>
+          </div>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-400">ID de Ejecución:</span>
+              <span className="text-white font-mono">{results.executionId}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Flujo:</span>
+              <span className="text-white">{results.flowName}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Timestamp:</span>
+              <span className="text-white">{new Date(results.timestamp).toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-green-900/20 rounded-lg p-4 border border-green-700/50">
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle className="h-5 w-5 text-green-400" />
+            <h4 className="font-semibold text-green-300">Estado</h4>
+          </div>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-400">Estado:</span>
+              <Badge className="bg-green-500/20 text-green-300 border-green-500/30">
+                {results.result?.status || 'Completado'}
+              </Badge>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Nodos Ejecutados:</span>
+              <span className="text-white">{results.result?.nodesExecuted || 'N/A'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Datos de entrada */}
+      {renderResultSection('Datos de Entrada', results.leadData, <Database className="h-4 w-4 text-blue-400" />)}
+
+      {/* Resultados detallados */}
+      {results.result?.results && (
+        <div className="space-y-4">
+          <h4 className="text-lg font-semibold text-white flex items-center gap-2">
+            <FileText className="h-5 w-5 text-purple-400" />
+            Resultados por Nodo
+          </h4>
+          
+          {Object.entries(results.result.results).map(([nodeId, nodeResult]: [string, any]) => (
+            <div key={nodeId} className="bg-gray-800/30 rounded-lg p-4 border border-gray-700/30">
+              <div className="flex items-center justify-between mb-3">
+                <h5 className="font-medium text-white">Nodo: {nodeId}</h5>
+                <Badge 
+                  variant="outline" 
+                  className={
+                    nodeResult?.success 
+                      ? "border-green-500/50 text-green-300 bg-green-500/10"
+                      : "border-red-500/50 text-red-300 bg-red-500/10"
+                  }
+                >
+                  {nodeResult?.success ? 'Éxito' : 'Error'}
+                </Badge>
+              </div>
+              
+              {/* Resultado específico del nodo */}
+              <div className="bg-black/30 rounded p-3 font-mono text-xs text-gray-300 overflow-auto max-h-60">
+                <pre>{formatJson(nodeResult)}</pre>
+              </div>
+
+              {/* Si es un nodo HTTP con datos reales, mostrar información especial */}
+              {nodeResult?.realApiCall && nodeResult?.data && (
+                <div className="mt-3 p-3 bg-blue-900/20 rounded border border-blue-700/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ExternalLink className="h-4 w-4 text-blue-400" />
+                    <span className="text-sm font-medium text-blue-300">Llamada API Real</span>
+                  </div>
+                  <div className="text-xs text-gray-300">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <span className="text-gray-400">Status:</span> {nodeResult.status}
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Datos obtenidos:</span> {Array.isArray(nodeResult.data) ? nodeResult.data.length : 'N/A'} elementos
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Si es un nodo monitor, mostrar información especial */}
+              {nodeResult?.consoleLog && (
+                <div className="mt-3 p-3 bg-purple-900/20 rounded border border-purple-700/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Activity className="h-4 w-4 text-purple-400" />
+                    <span className="text-sm font-medium text-purple-300">Monitor de Debug</span>
+                  </div>
+                  <div className="text-xs text-gray-300">
+                    <div><span className="text-gray-400">Título:</span> {nodeResult.consoleLog.title}</div>
+                    <div><span className="text-gray-400">Formato:</span> {nodeResult.consoleLog.format}</div>
+                    <div><span className="text-gray-400">Timestamp:</span> {nodeResult.consoleLog.timestamp}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Resumen de ejecución */}
+      {results.result?.summary && (
+        <div className="bg-gradient-to-r from-purple-900/20 to-blue-900/20 rounded-lg p-4 border border-purple-700/30">
+          <h4 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-purple-400" />
+            Resumen de Ejecución
+          </h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-white">{results.result.summary.totalNodes}</div>
+              <div className="text-gray-400">Total Nodos</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-400">{results.result.summary.successfulNodes}</div>
+              <div className="text-gray-400">Exitosos</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-red-400">{results.result.summary.failedNodes}</div>
+              <div className="text-gray-400">Fallidos</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-400">{results.result.summary.apiCalls}</div>
+              <div className="text-gray-400">APIs Reales</div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface AIActionsModalProps {
   open: boolean;
@@ -48,8 +250,22 @@ export default function AIActionsModal({
   const [isVisible, setIsVisible] = useState(false);
   const [completedAction, setCompletedAction] = useState<string | null>(null);
   
+  // Estado para resultados de flujos
+  const [flowResults, setFlowResults] = useState<any>(null);
+  const [showResults, setShowResults] = useState(false);
+  
   // Hook para obtener flujos manuales
   const { manualFlows, isLoading: flowsLoading, error: flowsError, runFlow } = useManualFlows();
+  
+  // Debug logs para entender el estado
+  useEffect(() => {
+    console.log('AIActionsModal - Flows state:', {
+      loading: flowsLoading,
+      error: flowsError,
+      flowsCount: manualFlows.length,
+      modalOpen: open
+    });
+  }, [flowsLoading, flowsError, manualFlows.length, open]);
 
   useEffect(() => {
     if (open) {
@@ -246,13 +462,23 @@ export default function AIActionsModal({
 
       const result = await runFlow(flowId, leadData);
       
-      toast({
-        title: 'Flujo iniciado',
-        description: `El flujo "${flowName}" se está ejecutando. ID: ${result.executionId}`,
+      // Guardar resultados para mostrar
+      setFlowResults({
+        flowName,
+        flowId,
+        executionId: result.executionId,
+        result: result,
+        timestamp: new Date().toISOString(),
+        leadData
       });
       
-      // Cerrar modal
-      onOpenChange(false);
+      toast({
+        title: 'Flujo completado',
+        description: `"${flowName}" ejecutado exitosamente. Ver resultados abajo.`,
+      });
+      
+      // Mostrar resultados en lugar de cerrar modal
+      setShowResults(true);
     } catch (error) {
       console.error('Error running flow:', error);
       toast({
@@ -425,15 +651,15 @@ export default function AIActionsModal({
                 `}>
                   Acciones de Inteligencia Artificial
                 </DialogTitle>
-                <DialogDescription className={`
-                  text-gray-300 flex items-center gap-2 transition-all duration-500 delay-100
+                <div className={`
+                  text-sm text-gray-300 flex items-center gap-2 transition-all duration-500 delay-100
                   ${isVisible ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'}
                 `}>
                   <span>Optimiza la gestión del lead:</span>
                   <Badge variant="outline" className="text-blue-300 border-blue-400/50 bg-blue-500/10 font-medium">
                     {lead.name}
                   </Badge>
-                </DialogDescription>
+                </div>
               </div>
             </div>
           </div>
@@ -442,6 +668,19 @@ export default function AIActionsModal({
         {/* Contenido principal con scroll mejorado y mejor padding */}
         <div className="overflow-y-auto max-h-[calc(90vh-200px)] custom-scrollbar px-1">
           <div className="space-y-6 py-2">
+          
+          {/* Vista de resultados de flujo */}
+          {showResults && flowResults ? (
+            <FlowResultsView 
+              results={flowResults}
+              onBack={() => {
+                setShowResults(false);
+                setFlowResults(null);
+              }}
+            />
+          ) : (
+            /* Vista normal de acciones */
+            <>
           {/* Warning mejorado para datos de contacto limitados */}
           {isContactDisabled && (
             <div className={`
@@ -653,6 +892,8 @@ export default function AIActionsModal({
               </div>
             )}
           </div>
+          </>
+          )}
           </div>
         </div>
 

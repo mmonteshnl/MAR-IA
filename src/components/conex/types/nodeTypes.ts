@@ -1,4 +1,4 @@
-import { Zap, Link, RefreshCw, Monitor, Globe } from 'lucide-react';
+import { Zap, Link, RefreshCw, Monitor, Globe, UserCheck } from 'lucide-react';
 import { NodeType } from './index';
 
 export const NODE_TYPES: NodeType[] = [
@@ -32,6 +32,12 @@ export const NODE_TYPES: NodeType[] = [
     icon: Monitor, 
     description: 'Debug y visualiza datos' 
   },
+  { 
+    type: 'leadValidator', 
+    label: 'Validador de Leads', 
+    icon: UserCheck, 
+    description: 'Valida y edita datos de leads' 
+  },
 ];
 
 export const getNodeLabel = (type: string): string => {
@@ -41,6 +47,7 @@ export const getNodeLabel = (type: string): string => {
     httpRequest: 'HTTP Request',
     dataTransform: 'Transformar Datos',
     monitor: 'Monitor',
+    leadValidator: 'Validador de Leads',
   };
   return labels[type] || type;
 };
@@ -79,6 +86,25 @@ export const getDefaultNodeConfig = (type: string): any => {
       displayFields: '',
       outputFormat: 'json',
       enableTimestamp: true
+    },
+    leadValidator: {
+      name: 'Validador de Leads',
+      mode: 'validator',
+      enableLogging: true,
+      logLevel: 'detailed',
+      continueOnError: true,
+      validatorConfig: {
+        conditions: [
+          {
+            field: 'context',
+            operator: '==',
+            value: 'premium'
+          }
+        ],
+        outputField: 'isValid',
+        trueMessage: 'Validación exitosa',
+        falseMessage: 'Validación fallida'
+      }
     },
   };
   return configs[type] || {};

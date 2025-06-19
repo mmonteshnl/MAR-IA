@@ -69,12 +69,25 @@ export async function GET(request: NextRequest) {
     // Verify authentication
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Missing or invalid authorization header' }, { status: 401 });
     }
 
     const token = authHeader.split('Bearer ')[1];
-    const auth = getAuth();
-    const decodedToken = await auth.verifyIdToken(token);
+    if (!token || token.length < 10) {
+      return NextResponse.json({ error: 'Invalid token format' }, { status: 401 });
+    }
+
+    let decodedToken;
+    try {
+      const auth = getAuth();
+      decodedToken = await auth.verifyIdToken(token);
+    } catch (authError) {
+      console.error('Firebase token verification failed:', authError);
+      return NextResponse.json({ 
+        error: 'Authentication failed', 
+        details: 'Invalid or expired Firebase token' 
+      }, { status: 401 });
+    }
     
     // Get organization ID and optional filters
     const organizationId = decodedToken.organizationId || request.headers.get('x-organization-id');
@@ -86,43 +99,51 @@ export async function GET(request: NextRequest) {
     const triggerType = searchParams.get('triggerType');
     const isEnabled = searchParams.get('isEnabled');
 
-    // Build query
+    // Build query - simplified to avoid index requirements
     const db = getFirestore();
-    let query = db
+    
+    // Get all flows first, then filter in memory to avoid composite index requirement
+    const flowsSnapshot = await db
       .collection('organizations')
       .doc(organizationId)
       .collection('flows')
-      .orderBy('updatedAt', 'desc');
+      .get();
 
-    // Apply filters
-    if (triggerType) {
-      query = query.where('trigger.type', '==', triggerType);
-    }
-    
-    if (isEnabled !== null) {
-      query = query.where('isEnabled', '==', isEnabled === 'true');
-    }
-
-    const flowsSnapshot = await query.get();
-
-    const flows = flowsSnapshot.docs.map(doc => {
+    let flows = flowsSnapshot.docs.map(doc => {
       const data = doc.data();
       return {
         id: doc.id,
         ...data,
-        createdAt: data.createdAt.toDate(),
-        updatedAt: data.updatedAt.toDate()
+        createdAt: data.createdAt?.toDate?.() || new Date(),
+        updatedAt: data.updatedAt?.toDate?.() || new Date()
       };
     });
+
+    // Apply filters in memory
+    if (triggerType) {
+      flows = flows.filter(flow => flow.trigger?.type === triggerType);
+    }
+    
+    if (isEnabled !== null) {
+      flows = flows.filter(flow => flow.isEnabled === (isEnabled === 'true'));
+    }
+
+    // Sort by updatedAt descending
+    flows.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
     return NextResponse.json({ flows });
 
   } catch (error) {
     console.error('Error fetching flows:', error);
+    
+    // Don't expose internal Firebase errors to frontend
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const isAuthError = errorMessage.includes('Firebase') || errorMessage.includes('token') || errorMessage.includes('auth');
+    
     return NextResponse.json({ 
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+      error: isAuthError ? 'Authentication error' : 'Internal server error',
+      details: isAuthError ? 'Please log in again' : 'Failed to fetch flows'
+    }, { status: isAuthError ? 401 : 500 });
   }
 }
 

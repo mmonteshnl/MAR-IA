@@ -171,6 +171,64 @@ export function useFlowExecutor(): UseFlowExecutorReturn {
             };
             break;
             
+          case 'leadValidator':
+            try {
+              // Importar el runner del LeadValidatorNode
+              const { executeLeadValidatorNode } = await import('@/components/conex/nodes/LeadValidatorNode/runner');
+              
+              // Preparar contexto de ejecución
+              const context = {
+                variables: {
+                  leadData: inputData,
+                  inputData: inputData,
+                  trigger: { input: inputData },
+                  ...inputData
+                },
+                stepResults: simulatedResults
+              };
+              
+              // Ejecutar el nodo validador
+              const validatorResult = await executeLeadValidatorNode(
+                node.data.config || node.data,
+                context,
+                { enableLogs: options.enableLogs }
+              );
+              
+              simulatedResults[nodeId] = {
+                success: validatorResult.success,
+                mode: validatorResult.success ? validatorResult.mode : undefined,
+                validationResult: validatorResult.success ? validatorResult.validationResult : undefined,
+                editorResult: validatorResult.success ? validatorResult.editorResult : undefined,
+                routerResult: validatorResult.success ? validatorResult.routerResult : undefined,
+                leadData: validatorResult.leadData || { before: inputData, after: inputData },
+                error: !validatorResult.success ? validatorResult.error : undefined,
+                timestamp: new Date().toISOString(),
+                executionTime: validatorResult.executionTime,
+                realValidation: true
+              };
+              
+              if (options.enableLogs) {
+                if (validatorResult.success) {
+                  console.log(`✅ LEAD VALIDATOR: Completed successfully in mode ${validatorResult.mode}`);
+                } else {
+                  console.error(`❌ LEAD VALIDATOR: Failed - ${validatorResult.error}`);
+                }
+              }
+              
+            } catch (error) {
+              simulatedResults[nodeId] = {
+                success: false,
+                error: error instanceof Error ? error.message : 'Lead validator execution failed',
+                timestamp: new Date().toISOString(),
+                realValidation: true
+              };
+              
+              if (options.enableLogs) {
+                console.error('❌ LEAD VALIDATOR: Exception during execution:', error);
+              }
+            }
+            break;
+            
           default:
             simulatedResults[nodeId] = {
               success: true,

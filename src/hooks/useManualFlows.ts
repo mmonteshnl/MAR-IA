@@ -8,7 +8,7 @@ interface UseManualFlowsReturn {
   isLoading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
-  runFlow: (flowId: string, inputPayload: any) => Promise<{ executionId: string; status: string }>;
+  runFlow: (flowId: string, inputPayload: any) => Promise<any>;
 }
 
 export function useManualFlows(): UseManualFlowsReturn {
@@ -19,8 +19,9 @@ export function useManualFlows(): UseManualFlowsReturn {
   const [error, setError] = useState<string | null>(null);
 
   const fetchManualFlows = async () => {
-    if (!user || !organization) {
+    if (!user || !organization || !user.uid) {
       // Don't show loading if user/org not ready yet
+      console.log('❌ Cannot fetch flows - missing auth data');
       setIsLoading(false);
       setError(null);
       setManualFlows([]);
@@ -31,7 +32,14 @@ export function useManualFlows(): UseManualFlowsReturn {
       setIsLoading(true);
       setError(null);
       
+      console.log('🔑 Getting token for user:', user.uid);
       const token = await user.getIdToken();
+      
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+      
+      console.log('🌐 Making API call to fetch manual flows');
       const response = await fetch('/api/flows?triggerType=manual_lead_action&isEnabled=true', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -58,7 +66,7 @@ export function useManualFlows(): UseManualFlowsReturn {
     }
   };
 
-  const runFlow = async (flowId: string, inputPayload: any): Promise<{ executionId: string; status: string }> => {
+  const runFlow = async (flowId: string, inputPayload: any): Promise<any> => {
     if (!user || !organization) {
       throw new Error('User not authenticated');
     }
@@ -83,16 +91,18 @@ export function useManualFlows(): UseManualFlowsReturn {
   };
 
   useEffect(() => {
-    // Only fetch when both user and organization are available
-    if (user && organization) {
+    // Only fetch when both user and organization are available and user is authenticated
+    if (user && organization && user.uid && organization.id) {
+      console.log('🔄 Fetching manual flows for user:', user.uid, 'org:', organization.id);
       fetchManualFlows();
     } else {
       // Reset state when auth is not ready
-      setIsLoading(true);
+      console.log('⏸️ Auth not ready - user:', !!user, 'org:', !!organization, 'uid:', user?.uid, 'orgId:', organization?.id);
+      setIsLoading(false); // Don't show loading when auth isn't ready
       setError(null);
       setManualFlows([]);
     }
-  }, [user, organization]);
+  }, [user?.uid, organization?.id]); // Only depend on the specific IDs, not the full objects
 
   return {
     manualFlows,
