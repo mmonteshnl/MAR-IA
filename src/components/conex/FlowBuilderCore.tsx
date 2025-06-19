@@ -72,6 +72,35 @@ export function FlowBuilderCore({ onSave, initialFlowData, loading }: FlowBuilde
   
   const { executeFlow, executing } = useFlowExecutor();
 
+  // Función para actualizar los nodos Monitor con los resultados reales
+  const updateNodesWithExecutionResults = useCallback((executionResults: Record<string, any>) => {
+    setNodes((currentNodes) => 
+      currentNodes.map((node) => {
+        if (node.type === 'monitor') {
+          // Buscar los resultados correspondientes a este nodo
+          const nodeResult = executionResults[node.id];
+          if (nodeResult) {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                meta: {
+                  ...node.data.meta,
+                  status: 'success',
+                  lastExecution: new Date().toISOString(),
+                  executionCount: (node.data.meta?.executionCount || 0) + 1,
+                  receivedData: nodeResult.dataSnapshot || nodeResult,
+                  formattedOutput: nodeResult.formattedOutput
+                }
+              }
+            };
+          }
+        }
+        return node;
+      })
+    );
+  }, [setNodes]);
+
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
     [setEdges]
@@ -180,6 +209,11 @@ export function FlowBuilderCore({ onSave, initialFlowData, loading }: FlowBuilde
         flowDefinition,
         enableLogs: true
       });
+      
+      // Actualizar los nodos Monitor con los resultados reales
+      if (result.status === 'completed' && result.stepResults) {
+        updateNodesWithExecutionResults(result.stepResults);
+      }
       
       toast({
         title: 'Flujo Ejecutado ✅',

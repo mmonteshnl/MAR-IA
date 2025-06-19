@@ -112,7 +112,7 @@ const HttpRequestNodeView = React.memo(function HttpRequestNodeView({
 
       {/* Modal de ayuda */}
       <Suspense fallback={null}>
-        <NodeHelpModal {...helpContent} />
+        <NodeHelpModal {...helpContent} usage={[...helpContent.usage]} />
       </Suspense>
 
       {/* Indicador de estado */}
@@ -205,3 +205,4 @@ const HttpRequestNodeView = React.memo(function HttpRequestNodeView({
 });
 
 export const HttpRequestNode = React.memo(HttpRequestNodeController);
+  

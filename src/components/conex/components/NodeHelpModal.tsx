@@ -14,9 +14,9 @@ interface NodeHelpModalProps {
   nodeType: string;
   title: string;
   description: string;
-  usage: string[];
-  examples: string[];
-  tips?: string[];
+  usage: readonly string[];
+  examples: readonly string[];
+  tips?: readonly string[];
 }
 
 export function NodeHelpModal({

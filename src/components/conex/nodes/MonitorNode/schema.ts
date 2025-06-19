@@ -49,5 +49,7 @@ export interface MonitorNodeData {
     lastExecution?: string;
     executionCount?: number;
     fieldsDisplayed?: number;
+    receivedData?: any; // Data received from previous node
+    formattedOutput?: string; // Formatted version of the data
   };
 }

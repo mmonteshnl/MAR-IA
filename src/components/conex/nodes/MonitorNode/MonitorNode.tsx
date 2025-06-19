@@ -1,9 +1,11 @@
-import React, { useMemo, Suspense, KeyboardEvent } from 'react';
+import React, { useMemo, Suspense, KeyboardEvent, useState } from 'react';
 import { Handle, Position } from 'reactflow';
-import { Monitor } from 'lucide-react'; // TODO: Cambiar por icono apropiado
+import { Monitor, Eye } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { NodeHelpModal } from '../../components/NodeHelpModal';
 import { MonitorNodeConfig, MonitorNodeData } from './schema';
 import { HELP_CONTENT, MONITOR_DEFAULTS } from './constants';
+import { MonitorDataModal } from './MonitorDataModal';
 
 interface MonitorNodeProps {
   data: MonitorNodeData;
@@ -37,6 +39,12 @@ const MonitorNodeView = React.memo(function MonitorNodeView({
   config,
   meta,
 }: MonitorNodeViewProps) {
+  const [showDataModal, setShowDataModal] = useState(false);
+  
+  // Solo usar datos reales de ejecución
+  const hasReceivedData = meta?.receivedData !== undefined;
+  const displayData = meta?.receivedData;
+  const displayFormattedOutput = meta?.formattedOutput;
   
   const getStatusIndicator = () => {
     const status = meta?.status;
@@ -84,13 +92,12 @@ const MonitorNodeView = React.memo(function MonitorNodeView({
 
   return (
     <div
-      className={`group relative px-4 py-2 shadow-lg rounded-md bg-gray-900 border-2 ${getNodeBorderColor()} min-w-[120px] ${
+      className={`group relative px-4 py-2 shadow-lg rounded-md bg-gray-800 border-2 ${getNodeBorderColor()} min-w-[120px] text-white ${
         meta?.status === 'loading' ? 'opacity-70' : ''
       }`}
       role="button"
       aria-label="Nodo Monitor de Debug"
       tabIndex={0}
-      style={{ color: 'white' }}
       onKeyDown={onKeyDown}
     >
       {/* Handles de conexión */}
@@ -121,8 +128,8 @@ const MonitorNodeView = React.memo(function MonitorNodeView({
 
       {/* Contenido principal */}
       <div className="flex items-center mb-1">
-        <Monitor className="h-4 w-4 mr-2 text-cyan-400" aria-hidden="true" />
-        <div className="text-sm font-semibold truncate">
+        <Monitor className="h-4 w-4 mr-2 text-cyan-300" aria-hidden="true" />
+        <div className="text-sm font-semibold truncate text-white">
           {config.name || 'Monitor'}
         </div>
       </div>
@@ -130,20 +137,39 @@ const MonitorNodeView = React.memo(function MonitorNodeView({
       {/* Información específica del Monitor */}
       <div className="flex items-center justify-between mt-1 gap-2">
         {config.displayFields && (
-          <div className="text-xs font-mono text-cyan-300">
+          <div className="text-xs font-mono text-gray-300">
             Mostrando: {config.displayFields.split(',').length} campos
           </div>
         )}
         {config.outputFormat && (
-          <div className="text-xs text-cyan-400 uppercase">
+          <div className="text-xs text-cyan-300 uppercase">
             {config.outputFormat}
           </div>
         )}
       </div>
 
+      {/* Botón para mostrar datos cuando están disponibles */}
+      {hasReceivedData && (
+        <div className="mt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowDataModal(true);
+            }}
+            className="w-full text-xs h-6 bg-cyan-400/20 border-cyan-400/50 text-cyan-100 hover:bg-cyan-400/30 hover:text-white"
+            title="Ver datos capturados del flujo"
+          >
+            <Eye className="h-3 w-3 mr-1" />
+            Ver Datos
+          </Button>
+        </div>
+      )}
+
       {/* Información adicional en hover */}
       <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-50">
-        <div className="bg-gray-800 border border-gray-600 rounded p-2 text-xs text-gray-200 shadow-lg min-w-[200px]">
+        <div className="bg-gray-900 border border-gray-600 rounded p-2 text-xs text-gray-100 shadow-lg min-w-[200px]">
           <div className="font-medium mb-1">{config.name || 'Monitor'}</div>
           <div className="space-y-1">
             <div><span className="text-cyan-400">Tipo:</span> Monitor de Debug</div>
@@ -158,6 +184,9 @@ const MonitorNodeView = React.memo(function MonitorNodeView({
             {meta?.executionCount && (
               <div><span className="text-cyan-400">Ejecutado:</span> {meta.executionCount} veces</div>
             )}
+            <div><span className="text-cyan-400">Estado:</span> 
+              {hasReceivedData ? 'Datos capturados ✓' : 'Esperando ejecución...'}
+            </div>
           </div>
         </div>
       </div>
@@ -175,6 +204,17 @@ const MonitorNodeView = React.memo(function MonitorNodeView({
           </div>
         </div>
       )}
+
+      {/* Modal para mostrar datos */}
+      <MonitorDataModal
+        isOpen={showDataModal}
+        onClose={() => setShowDataModal(false)}
+        data={displayData}
+        formattedOutput={displayFormattedOutput}
+        outputFormat={config.outputFormat}
+        nodeName={config.name}
+        timestamp={meta?.lastExecution}
+      />
     </div>
   );
 });
