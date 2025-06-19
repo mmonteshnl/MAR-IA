@@ -1,8 +1,9 @@
-import { TriggerNode } from './TriggerNode';
+// Importar nodos modulares (nueva estructura)
 import { ApiCallNode } from './ApiCallNode';
-import { HttpRequestNode } from './HttpRequestNode';
 import { DataTransformNode } from './DataTransformNode';
+import { Component as HttpRequestNode } from './HttpRequestNode';
 import { MonitorNode } from './MonitorNode';
+import { TriggerNode } from './TriggerNode';
 
 export const nodeTypes = {
   trigger: TriggerNode,

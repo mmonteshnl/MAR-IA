@@ -248,7 +248,7 @@ export class FlowExecutor {
   private async executeNode(node: FlowNode): Promise<any> {
     switch (node.type) {
       case 'trigger':
-        return this.executeTriggerNode(node);
+        return await this.executeTriggerNode(node);
       
       case 'apiCall':
         return this.executeApiCallNode(node);
@@ -260,16 +260,34 @@ export class FlowExecutor {
         return this.executeDataTransformNode(node);
       
       case 'monitor':
-        return this.executeMonitorNode(node);
+        return await this.executeMonitorNode(node);
       
       default:
         throw new Error(`Unknown node type: ${node.type}`);
     }
   }
 
-  // Execute trigger node (just returns input data)
-  private executeTriggerNode(node: FlowNode): any {
-    return this.context.variables.trigger.input;
+  // Execute trigger node using modular runner
+  private async executeTriggerNode(node: FlowNode): Promise<any> {
+    // Importar el runner modular dinámicamente
+    const { executeTriggerNode } = await import('../components/conex/nodes/TriggerNode/runner');
+    
+    // Crear contexto de ejecución
+    const context = {
+      variables: this.context.variables,
+      connections: this.context.connections,
+      stepResults: this.context.stepResults,
+      renderTemplate: (template: string) => this.renderTemplate(template)
+    };
+    
+    // Opciones del runner
+    const options = {
+      enableLogs: true,
+      executionId: this.context.executionId
+    };
+    
+    // Ejecutar usando el runner modular
+    return await executeTriggerNode(node.data.config, context, options);
   }
 
   // Execute API call node
@@ -355,121 +373,28 @@ export class FlowExecutor {
     }
   }
 
-  // Execute HTTP request node (enhanced version of API call)
+  // Execute HTTP request node using modular runner
   private async executeHttpRequestNode(node: FlowNode): Promise<any> {
-    const config = node.data.config;
-    const {
-      method = 'GET',
-      url,
-      headers = {},
-      body,
-      timeout = 30,
-      retries = 1
-    } = config;
-
-    console.log(`🌐 HTTP REQUEST: ${method.toUpperCase()} ${url}`);
-    console.log(`⏱️ Timeout: ${timeout}s, Reintentos: ${retries}`);
+    // Importar el runner modular dinámicamente
+    const { executeHttpRequest } = await import('../components/conex/nodes/HttpRequestNode/runner');
     
-    // Render templates in URL, headers, and body
-    const renderedUrl = this.renderTemplate(url);
-    const renderedHeaders = this.renderObjectTemplates(headers);
-    const renderedBody = body ? this.renderObjectTemplates(body) : undefined;
-
-    // Set up fetch options with timeout
-    const fetchOptions: RequestInit = {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...renderedHeaders
-      },
-      signal: AbortSignal.timeout(timeout * 1000)
+    // Crear contexto de ejecución
+    const context = {
+      variables: this.context.variables,
+      connections: this.context.connections,
+      stepResults: this.context.stepResults,
+      renderTemplate: (template: string) => this.renderTemplate(template)
     };
-
-    if (renderedBody && ['POST', 'PUT', 'PATCH'].includes(method.toUpperCase())) {
-      fetchOptions.body = JSON.stringify(renderedBody);
-    }
-
-    // Retry logic
-    let lastError: Error | null = null;
     
-    for (let attempt = 1; attempt <= retries + 1; attempt++) {
-      try {
-        if (attempt > 1) {
-          console.log(`🔄 HTTP REQUEST: Intento ${attempt}/${retries + 1}`);
-        }
-
-        const response = await fetch(renderedUrl, fetchOptions);
-        
-        console.log(`🌐 HTTP RESPONSE: ${response.status} ${response.statusText}`);
-        
-        // Enhanced error handling
-        if (!response.ok) {
-          const errorText = await response.text().catch(() => 'Unknown error');
-          
-          // Special handling for common APIs
-          if (response.status === 404 && renderedUrl.includes('api.')) {
-            return {
-              error: true,
-              status: 404,
-              message: `Recurso no encontrado: ${renderedUrl}`,
-              details: errorText,
-              url: renderedUrl
-            };
-          }
-          
-          if (response.status >= 500 && attempt <= retries) {
-            // Server error, retry
-            lastError = new Error(`Server error: ${response.status} - ${errorText}`);
-            continue;
-          }
-          
-          throw new Error(`HTTP ${response.status}: ${errorText}`);
-        }
-
-        // Process response
-        const contentType = response.headers.get('content-type') || '';
-        let responseData;
-
-        if (contentType.includes('application/json')) {
-          responseData = await response.json();
-          console.log('🌐 HTTP JSON RECEIVED:', Object.keys(responseData).length + ' campos');
-        } else if (contentType.includes('text/')) {
-          responseData = { text: await response.text() };
-          console.log('🌐 HTTP TEXT RECEIVED:', responseData.text.length + ' caracteres');
-        } else {
-          responseData = { raw: await response.blob() };
-          console.log('🌐 HTTP BINARY RECEIVED');
-        }
-
-        // Success - return enhanced response
-        return {
-          data: responseData,
-          status: response.status,
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries()),
-          url: renderedUrl,
-          method: method.toUpperCase(),
-          timestamp: new Date().toISOString(),
-          attempt
-        };
-
-      } catch (error) {
-        lastError = error as Error;
-        
-        if (error instanceof Error && error.name === 'AbortError') {
-          throw new Error(`HTTP Request timeout after ${timeout}s`);
-        }
-        
-        if (attempt <= retries) {
-          console.log(`⚠️ HTTP REQUEST: Error en intento ${attempt}, reintentando...`);
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
-          continue;
-        }
-      }
-    }
-
-    // All retries failed
-    throw lastError || new Error('HTTP Request failed after all retries');
+    // Opciones del runner
+    const options = {
+      enableLogs: true,
+      maxRetries: 10,
+      baseTimeout: 300
+    };
+    
+    // Ejecutar usando el runner modular
+    return await executeHttpRequest(node.data.config, context, options);
   }
 
   // Execute data transformation node
@@ -511,110 +436,29 @@ export class FlowExecutor {
     return result;
   }
 
-  // Execute monitor node (for debugging and data inspection)
-  private executeMonitorNode(node: FlowNode): any {
-    const config = node.data.config;
-    const {
-      name = 'Debug Monitor',
-      displayFields = '',
-      outputFormat = 'json',
-      enableTimestamp = true
-    } = config;
-
-    // Get all available data
-    const allData = {
-      trigger: this.context.variables.trigger,
+  // Execute monitor node using modular runner
+  private async executeMonitorNode(node: FlowNode): Promise<any> {
+    // Importar el runner modular dinámicamente
+    const { executeMonitorNode } = await import('../components/conex/nodes/MonitorNode/runner');
+    
+    // Crear contexto de ejecución
+    const context = {
+      variables: this.context.variables,
+      connections: this.context.connections,
       stepResults: this.context.stepResults,
-      currentVariables: this.context.variables
+      renderTemplate: (template: string) => this.renderTemplate(template)
     };
-
-    // Filter fields if specified
-    let dataToShow = allData;
-    if (displayFields && displayFields.trim()) {
-      const fields = displayFields.split(',').map(f => f.trim());
-      dataToShow = {};
-      
-      for (const field of fields) {
-        // Support nested field access like "step_api-call-1.response"
-        const value = this.getNestedValue(allData, field);
-        if (value !== undefined) {
-          dataToShow[field] = value;
-        }
-      }
-    }
-
-    // Format output
-    let formattedOutput;
-    switch (outputFormat) {
-      case 'table':
-        formattedOutput = this.formatAsTable(dataToShow);
-        break;
-      case 'list':
-        formattedOutput = this.formatAsList(dataToShow);
-        break;
-      case 'json':
-      default:
-        formattedOutput = JSON.stringify(dataToShow, null, 2);
-        break;
-    }
-
-    // Create monitor result
-    const monitorResult = {
-      monitorName: name,
-      timestamp: enableTimestamp ? new Date().toISOString() : undefined,
-      dataSnapshot: dataToShow,
-      formattedOutput,
-      // This will be logged to console in the frontend
-      consoleLog: {
-        title: `🔍 MONITOR: ${name}`,
-        data: dataToShow,
-        format: outputFormat,
-        timestamp: enableTimestamp ? new Date().toISOString() : undefined
-      }
+    
+    // Opciones del runner
+    const options = {
+      enableLogs: true
     };
-
-    // Log to console directly (for backend execution)
-    console.log(`🔍 MONITOR: ${name}`);
-    if (enableTimestamp) console.log(`⏰ Timestamp: ${new Date().toISOString()}`);
-    console.log('📦 Datos capturados:', dataToShow);
     
-    return monitorResult;
+    // Ejecutar usando el runner modular
+    return await executeMonitorNode(node.data.config, context, options);
   }
 
 
-  // Helper to get nested values from objects using dot notation
-  private getNestedValue(obj: any, path: string): any {
-    return path.split('.').reduce((current, key) => {
-      return current && current[key] !== undefined ? current[key] : undefined;
-    }, obj);
-  }
-
-  // Format data as a simple table string
-  private formatAsTable(data: any): string {
-    const entries = Object.entries(data);
-    if (entries.length === 0) return 'No data';
-    
-    let table = 'Field\t\t\tValue\n';
-    table += '='.repeat(50) + '\n';
-    
-    for (const [key, value] of entries) {
-      const valueStr = typeof value === 'object' ? JSON.stringify(value) : String(value);
-      table += `${key.padEnd(20)}\t${valueStr.substring(0, 50)}\n`;
-    }
-    
-    return table;
-  }
-
-  // Format data as a simple list
-  private formatAsList(data: any): string {
-    const entries = Object.entries(data);
-    if (entries.length === 0) return 'No data';
-    
-    return entries.map(([key, value]) => {
-      const valueStr = typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
-      return `• ${key}: ${valueStr}`;
-    }).join('\n');
-  }
 
   // Render Handlebars template with current context
   private renderTemplate(template: string): string {

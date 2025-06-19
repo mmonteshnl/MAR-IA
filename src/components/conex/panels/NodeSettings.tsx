@@ -18,6 +18,7 @@ import {
   MonitorSettings, 
   DataTransformSettings 
 } from '../settings';
+import { Settings as HttpRequestSettings } from '../nodes/HttpRequestNode';
 
 interface NodeSettingsModalProps extends NodeSettingsProps {
   isOpen: boolean;
@@ -101,7 +102,7 @@ export function NodeSettings({ node, onUpdate, onClose, onDelete, isOpen }: Node
               <p className="text-xs text-gray-400 mb-4">
                 Configure peticiones HTTP con opciones avanzadas como timeouts, reintentos y headers personalizados
               </p>
-              <ApiCallSettings config={config} onChange={setConfig} />
+              <HttpRequestSettings config={config} onChange={setConfig} />
             </div>
           )}
 

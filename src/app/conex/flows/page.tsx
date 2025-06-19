@@ -67,7 +67,13 @@ export default function FlowsPage() {
 
   const fetchFlows = async () => {
     try {
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
       const token = await user.getIdToken();
+      if (!organization) {
+        throw new Error('Organization not found');
+      }
       const response = await fetch('/api/flows', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -102,9 +108,19 @@ export default function FlowsPage() {
       });
       return;
     }
-
+    if (!organization) {
+      toast({
+        title: 'Error',
+        description: 'Organization not found',
+        variant: 'destructive'
+      });
+      return;
+    }
     setSaving(true);
     try {
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
       const token = await user.getIdToken();
       const response = await fetch('/api/flows', {
         method: 'POST',
@@ -142,6 +158,22 @@ export default function FlowsPage() {
   };
 
   const handleUpdateFlow = async (flowId: string, updates: Partial<Flow>) => {
+    if (!organization) {
+      toast({
+        title: 'Error',
+        description: 'Organization not found',
+        variant: 'destructive'
+      });
+      return;
+    }
+    if (!user) {
+      toast({
+        title: 'Error',
+        description: 'User not authenticated',
+        variant: 'destructive'
+      });
+      return;
+    }
     try {
       const token = await user.getIdToken();
       const response = await fetch(`/api/flows?id=${flowId}`, {
@@ -176,6 +208,22 @@ export default function FlowsPage() {
   };
 
   const handleDeleteFlow = async (flowId: string) => {
+    if (!organization) {
+      toast({
+        title: 'Error',
+        description: 'Organization not found',
+        variant: 'destructive'
+      });
+      return;
+    }
+    if (!user) {
+      toast({
+        title: 'Error',
+        description: 'User not authenticated',
+        variant: 'destructive'
+      });
+      return;
+    }
     try {
       const token = await user.getIdToken();
       const response = await fetch(`/api/flows?id=${flowId}`, {
@@ -222,6 +270,22 @@ export default function FlowsPage() {
   };
 
   const testFlow = async (flowId: string) => {
+    if (!organization) {
+      toast({
+        title: 'Error',
+        description: 'Organization not found',
+        variant: 'destructive'
+      });
+      return;
+    }
+    if (!user) {
+      toast({
+        title: 'Error',
+        description: 'User not authenticated',
+        variant: 'destructive'
+      });
+      return;
+    }
     setTestingFlow(flowId);
     try {
       const token = await user.getIdToken();
@@ -384,9 +448,16 @@ export default function FlowsPage() {
   };
 
   if (showBuilder) {
+    // Ensure initialFlowData has nodes and edges arrays
+    const safeInitialFlowData: { nodes: any[]; edges: any[] } =
+      (editingFlow?.definition &&
+        Array.isArray(editingFlow.definition.nodes) &&
+        Array.isArray(editingFlow.definition.edges))
+        ? { nodes: editingFlow.definition.nodes, edges: editingFlow.definition.edges }
+        : { nodes: [], edges: [] };
     return (
       <div className="h-screen">
-        <div className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center justify-between px-4 border-b">
           <div>
             <h1 className="text-2xl font-bold">Flow Builder</h1>
             <p className="text-muted-foreground">
@@ -400,7 +471,7 @@ export default function FlowsPage() {
         <div className="h-[calc(100vh-80px)]">
           <FlowBuilder
             onSave={handleSaveFlowDefinition}
-            initialFlowData={editingFlow?.definition}
+            initialFlowData={safeInitialFlowData}
             loading={saving}
           />
         </div>
@@ -635,7 +706,6 @@ export default function FlowsPage() {
                       <Switch
                         checked={flow.isEnabled}
                         onCheckedChange={(checked) => handleUpdateFlow(flow.id, { isEnabled: checked })}
-                        size="sm"
                       />
                       <span className="text-sm text-muted-foreground">
                         {flow.isEnabled ? 'Enabled' : 'Disabled'}
