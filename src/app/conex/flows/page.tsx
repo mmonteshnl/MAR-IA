@@ -15,7 +15,8 @@ import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { useOrganization } from '@/hooks/useOrganization';
 import { FlowBuilder } from '@/components/conex/FlowBuilder';
-import { Plus, Edit, Trash2, Play, Pause, Workflow, Clock, Zap, Webhook, TestTube, FileText, Mail, Database } from 'lucide-react';
+import { CopyApiLinkModal } from '@/components/conex/CopyApiLinkModal';
+import { Plus, Edit, Trash2, Play, Pause, Workflow, Clock, Zap, Webhook, TestTube, FileText, Mail, Database, Link } from 'lucide-react';
 import { Flow, CreateFlowRequest } from '@/types/conex';
 
 // Configuración de iconos disponibles
@@ -43,6 +44,7 @@ export default function FlowsPage() {
   const [editingFlow, setEditingFlow] = useState<Flow | null>(null);
   const [showBuilder, setShowBuilder] = useState(false);
   const [testingFlow, setTestingFlow] = useState<string | null>(null);
+  const [copyLinkFlow, setCopyLinkFlow] = useState<Flow | null>(null);
 
   // Form state
   const [formData, setFormData] = useState<CreateFlowRequest>({
@@ -659,6 +661,14 @@ export default function FlowsPage() {
                     <Button
                       variant="ghost"
                       size="sm"
+                      onClick={() => setCopyLinkFlow(flow)}
+                      title="Copiar API Links"
+                    >
+                      <Link className="h-4 w-4 text-blue-400" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => {
                         setEditingFlow(flow);
                         setShowBuilder(true);
@@ -720,6 +730,16 @@ export default function FlowsPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      {/* Modal para copiar API Links */}
+      {copyLinkFlow && (
+        <CopyApiLinkModal
+          isOpen={!!copyLinkFlow}
+          onClose={() => setCopyLinkFlow(null)}
+          flowId={copyLinkFlow.id}
+          flowName={copyLinkFlow.name}
+        />
       )}
     </div>
   );
