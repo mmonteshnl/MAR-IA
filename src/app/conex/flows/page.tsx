@@ -65,7 +65,17 @@ export default function FlowsPage() {
     }
   }, [user, organization]);
 
-
+  // Función para generar alias automáticamente
+  const generateAlias = (name: string): string => {
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s]/g, '') // Quitar caracteres especiales
+      .replace(/\s+/g, '-')        // Espacios a guiones
+      .replace(/-+/g, '-')         // Múltiples guiones a uno
+      .replace(/^-|-$/g, '')       // Quitar guiones al inicio/final
+      + '-v1';                     // Agregar versión
+  };
 
   const fetchFlows = async () => {
     try {
@@ -124,6 +134,14 @@ export default function FlowsPage() {
         throw new Error('User not authenticated');
       }
       const token = await user.getIdToken();
+      
+      // Generar alias automáticamente basado en el nombre
+      const autoAlias = generateAlias(formData.name);
+      const flowDataWithAlias = {
+        ...formData,
+        alias: autoAlias
+      };
+      
       const response = await fetch('/api/flows', {
         method: 'POST',
         headers: {
@@ -131,7 +149,7 @@ export default function FlowsPage() {
           'Authorization': `Bearer ${token}`,
           'x-organization-id': organization.id
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(flowDataWithAlias)
       });
 
       if (!response.ok) {
@@ -525,6 +543,14 @@ export default function FlowsPage() {
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 />
+                {formData.name && (
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-muted-foreground">Alias automático:</span>
+                    <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200">
+                      {generateAlias(formData.name)}
+                    </Badge>
+                  </div>
+                )}
               </div>
               
               <div className="space-y-2">
@@ -536,6 +562,7 @@ export default function FlowsPage() {
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 />
               </div>
+              
               
               <div className="space-y-2">
                 <Label htmlFor="icon">Icono</Label>
@@ -642,6 +669,13 @@ export default function FlowsPage() {
                     <div>
                       <CardTitle className="text-lg">{flow.name}</CardTitle>
                       <CardDescription>{flow.description}</CardDescription>
+                      {flow.alias && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200">
+                            {flow.alias}
+                          </Badge>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center space-x-1">
@@ -739,6 +773,7 @@ export default function FlowsPage() {
           onClose={() => setCopyLinkFlow(null)}
           flowId={copyLinkFlow.id}
           flowName={copyLinkFlow.name}
+          flowAlias={copyLinkFlow.alias}
         />
       )}
     </div>

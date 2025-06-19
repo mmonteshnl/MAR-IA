@@ -13,6 +13,7 @@ export interface Connection {
 
 export interface Flow {
   id: string;
+  alias?: string; // Stable identifier for external APIs (optional, immutable once set)
   name: string;
   description: string;
   icon: string;
@@ -94,6 +95,7 @@ export interface CreateFlowRequest {
   name: string;
   description: string;
   icon: string;
+  alias?: string; // Optional stable identifier for external APIs
   trigger: Flow['trigger'];
   definition: Record<string, any>;
   isEnabled?: boolean;

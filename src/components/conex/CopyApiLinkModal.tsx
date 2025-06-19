@@ -19,6 +19,7 @@ interface CopyApiLinkModalProps {
   onClose: () => void;
   flowId: string;
   flowName: string;
+  flowAlias?: string;
 }
 
 interface EndpointOption {
@@ -31,17 +32,31 @@ interface EndpointOption {
   color: string;
 }
 
-export function CopyApiLinkModal({ isOpen, onClose, flowId, flowName }: CopyApiLinkModalProps) {
+export function CopyApiLinkModal({ isOpen, onClose, flowId, flowName, flowAlias }: CopyApiLinkModalProps) {
   const [selectedEndpoint, setSelectedEndpoint] = useState<string>('');
   const [copied, setCopied] = useState<string>('');
 
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3047';
+  
+  // Generar alias automáticamente si no existe (para flujos anteriores)
+  const generateAlias = (name: string): string => {
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s]/g, '') // Quitar caracteres especiales
+      .replace(/\s+/g, '-')        // Espacios a guiones
+      .replace(/-+/g, '-')         // Múltiples guiones a uno
+      .replace(/^-|-$/g, '')       // Quitar guiones al inicio/final
+      + '-v1';                     // Agregar versión
+  };
+  
+  const effectiveAlias = flowAlias || generateAlias(flowName);
 
   const endpoints: EndpointOption[] = [
     {
       id: 'info',
       title: 'Información del Flujo',
-      description: 'Obtiene metadatos, estructura y configuración del flujo',
+      description: 'Obtiene metadatos, estructura y configuración del flujo por ID',
       icon: <Info className="h-5 w-5" />,
       badge: 'GET',
       color: 'blue',
@@ -49,9 +64,19 @@ export function CopyApiLinkModal({ isOpen, onClose, flowId, flowName }: CopyApiL
   -H "Accept: application/json"`
     },
     {
+      id: 'info-alias',
+      title: 'Información por Alias',
+      description: 'Obtiene información del flujo usando alias estable (recomendado para integraciones)',
+      icon: <Info className="h-5 w-5" />,
+      badge: 'GET',
+      color: 'blue',
+      curlCommand: `curl -X GET "${baseUrl}/api/flows/dev-execute?alias=${effectiveAlias}" \\
+  -H "Accept: application/json"`
+    },
+    {
       id: 'execute',
-      title: 'Ejecutar Flujo con Datos',
-      description: 'Ejecuta el flujo usando su ID con datos personalizados',
+      title: 'Ejecutar Flujo con ID',
+      description: 'Ejecuta el flujo usando su ID técnico con datos personalizados',
       icon: <Play className="h-5 w-5" />,
       badge: 'POST',
       color: 'green',
@@ -70,56 +95,30 @@ export function CopyApiLinkModal({ isOpen, onClose, flowId, flowName }: CopyApiL
   }'`
     },
     {
-      id: 'test-api',
-      title: 'Test con API Real',
-      description: 'Flujo de prueba que hace una llamada HTTP real a JSONPlaceholder',
-      icon: <Zap className="h-5 w-5" />,
-      badge: 'TEST',
-      color: 'purple',
+      id: 'execute-alias',
+      title: 'Ejecutar con Alias Estable',
+      description: 'Ejecuta el flujo usando alias que nunca cambia (ideal para integraciones)',
+      icon: <Play className="h-5 w-5" />,
+      badge: 'STABLE',
+      color: 'emerald',
       curlCommand: `curl -X POST "${baseUrl}/api/flows/dev-execute" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "flowDefinition": {
-      "nodes": [
-        {
-          "id": "trigger1",
-          "type": "trigger",
-          "data": { "name": "Manual Trigger", "config": {} }
-        },
-        {
-          "id": "http1",
-          "type": "httpRequest",
-          "data": {
-            "name": "JSONPlaceholder API",
-            "config": {
-              "method": "GET",
-              "url": "https://jsonplaceholder.typicode.com/posts/1",
-              "headers": { "Accept": "application/json" }
-            }
-          }
-        },
-        {
-          "id": "monitor1",
-          "type": "monitor",
-          "data": { "name": "Debug Monitor", "config": {} }
-        }
-      ],
-      "edges": [
-        { "id": "e1", "source": "trigger1", "target": "http1" },
-        { "id": "e2", "source": "http1", "target": "monitor1" }
-      ]
-    },
+    "flowAlias": "${effectiveAlias}",
     "inputData": {
-      "leadName": "API Test User",
-      "leadEmail": "test@api.com",
-      "testMode": true
+      "leadName": "John Doe",
+      "leadEmail": "john@example.com",
+      "leadPhone": "+1234567890",
+      "leadIndustry": "Technology",
+      "leadValue": 25000,
+      "leadSource": "API"
     }
   }'`
     },
     {
       id: 'webhook-style',
       title: 'Estilo Webhook/Integración',
-      description: 'Formato típico para integraciones y webhooks externos',
+      description: 'Formato profesional para webhooks con alias estable',
       icon: <Globe className="h-5 w-5" />,
       badge: 'WEBHOOK',
       color: 'orange',
@@ -127,7 +126,7 @@ export function CopyApiLinkModal({ isOpen, onClose, flowId, flowName }: CopyApiL
   -H "Content-Type: application/json" \\
   -H "User-Agent: MyApp/1.0" \\
   -d '{
-    "flowId": "${flowId}",
+    "flowAlias": "${effectiveAlias}",
     "inputData": {
       "event": "lead_created",
       "lead": {
@@ -174,6 +173,7 @@ export function CopyApiLinkModal({ isOpen, onClose, flowId, flowName }: CopyApiL
     const colors = {
       blue: 'bg-blue-900/50 text-blue-300 border-blue-700',
       green: 'bg-green-900/50 text-green-300 border-green-700',
+      emerald: 'bg-emerald-900/50 text-emerald-300 border-emerald-700',
       purple: 'bg-purple-900/50 text-purple-300 border-purple-700',
       orange: 'bg-orange-900/50 text-orange-300 border-orange-700'
     };
@@ -186,6 +186,7 @@ export function CopyApiLinkModal({ isOpen, onClose, flowId, flowName }: CopyApiL
     const borders = {
       blue: 'border-blue-500 ring-2 ring-blue-500/20',
       green: 'border-green-500 ring-2 ring-green-500/20',
+      emerald: 'border-emerald-500 ring-2 ring-emerald-500/20',
       purple: 'border-purple-500 ring-2 ring-purple-500/20',
       orange: 'border-orange-500 ring-2 ring-orange-500/20'
     };
@@ -201,7 +202,8 @@ export function CopyApiLinkModal({ isOpen, onClose, flowId, flowName }: CopyApiL
             API Links para: {flowName}
           </DialogTitle>
           <DialogDescription className="text-gray-300">
-            Selecciona el tipo de endpoint que necesitas y copia el comando cURL listo para usar en terminal.
+            Selecciona el tipo de endpoint que necesitas y copia el comando cURL listo para usar. 
+            <span className="text-emerald-400 font-medium">Los endpoints con "ALIAS" ofrecen máxima estabilidad para integraciones.</span>
           </DialogDescription>
         </DialogHeader>
 
@@ -290,9 +292,23 @@ export function CopyApiLinkModal({ isOpen, onClose, flowId, flowName }: CopyApiL
                         <ul className="text-sm text-blue-200 space-y-1">
                           {endpoint.id === 'info' && (
                             <>
-                              <li>• 📋 Obtiene información completa del flujo</li>
+                              <li>• 📋 Obtiene información completa del flujo por ID</li>
                               <li>• 🔍 Verifica estructura y configuración</li>
                               <li>• 💡 Usa antes de ejecutar para revisar nodos</li>
+                              <li>• ⚠️ El ID puede cambiar si recreas el flujo</li>
+                            </>
+                          )}
+                          {endpoint.id === 'info-alias' && (
+                            <>
+                              <li>• 🔒 Obtiene información usando alias estable</li>
+                              <li>• ✅ El alias NUNCA cambia una vez asignado</li>
+                              <li>• 🎯 Ideal para integraciones y automatización</li>
+                              {!flowAlias && (
+                                <li>• ⚠️ Este alias es generado - considera asignar uno permanente</li>
+                              )}
+                              {flowAlias && (
+                                <li>• ✅ Alias permanente asignado al flujo</li>
+                              )}
                             </>
                           )}
                           {endpoint.id === 'execute' && (
@@ -300,14 +316,21 @@ export function CopyApiLinkModal({ isOpen, onClose, flowId, flowName }: CopyApiL
                               <li>• ▶️ Ejecuta tu flujo guardado con datos reales</li>
                               <li>• ✏️ Cambia leadName, email, industry, etc.</li>
                               <li>• 🌐 Nodos HTTP harán llamadas reales a APIs</li>
-                              <li>• 📊 Monitor capturará resultados completos</li>
+                              <li>• ⚠️ Usa ID técnico (puede cambiar)</li>
                             </>
                           )}
-                          {endpoint.id === 'test-api' && (
+                          {endpoint.id === 'execute-alias' && (
                             <>
-                              <li>• 🧪 Flujo de prueba con API real (JSONPlaceholder)</li>
-                              <li>• 🔄 No necesita flujo existente</li>
-                              <li>• 📡 Perfecto para testing rápido</li>
+                              <li>• 🔒 Ejecuta flujo con identificador estable</li>
+                              <li>• ✅ Alias nunca cambia - integraciones seguras</li>
+                              <li>• 🎯 Recomendado para Postman, webhooks, CI/CD</li>
+                              {!flowAlias && (
+                                <li>• ⚠️ Usando alias generado: {effectiveAlias}</li>
+                              )}
+                              {flowAlias && (
+                                <li>• ✅ Usando alias permanente: {effectiveAlias}</li>
+                              )}
+                              <li>• 💎 Mejor práctica para sistemas externos</li>
                             </>
                           )}
                           {endpoint.id === 'webhook-style' && (
@@ -315,6 +338,12 @@ export function CopyApiLinkModal({ isOpen, onClose, flowId, flowName }: CopyApiL
                               <li>• 🔗 Formato profesional para integraciones</li>
                               <li>• 📅 Incluye metadata y timestamp</li>
                               <li>• 🚀 Perfecto para webhooks y automatización</li>
+                              {!flowAlias && (
+                                <li>• ⚠️ Usando alias generado: {effectiveAlias}</li>
+                              )}
+                              {flowAlias && (
+                                <li>• ✅ Usando alias permanente: {effectiveAlias}</li>
+                              )}
                             </>
                           )}
                         </ul>
@@ -330,7 +359,7 @@ export function CopyApiLinkModal({ isOpen, onClose, flowId, flowName }: CopyApiL
         {/* Footer */}
         <div className="flex items-center justify-between pt-4 border-t border-gray-700">
           <div className="text-sm text-gray-400">
-            💡 Tip: Copia el comando cURL, pégalo en terminal y ejecuta directamente
+            💡 Tip: Usa endpoints con <span className="text-emerald-400 font-medium">ALIAS</span> para integraciones estables
           </div>
           <div className="flex gap-2">
             <Button variant="outline" asChild className="border-gray-600 text-gray-200 hover:bg-gray-700 hover:text-white">

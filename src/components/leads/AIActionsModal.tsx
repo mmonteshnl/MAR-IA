@@ -49,7 +49,7 @@ export default function AIActionsModal({
   const [completedAction, setCompletedAction] = useState<string | null>(null);
   
   // Hook para obtener flujos manuales
-  const { manualFlows, isLoading: flowsLoading, runFlow } = useManualFlows();
+  const { manualFlows, isLoading: flowsLoading, error: flowsError, runFlow } = useManualFlows();
 
   useEffect(() => {
     if (open) {
@@ -512,11 +512,18 @@ export default function AIActionsModal({
                 </div>
               </div>
               <Badge variant="outline" className="text-purple-300 border-purple-400/50 bg-purple-500/10">
-                {flowsLoading ? 'Cargando...' : `${manualFlows.length} disponibles`}
+                {flowsError ? 'Error' : flowsLoading ? 'Cargando...' : `${manualFlows.length} disponibles`}
               </Badge>
             </div>
             
-            {flowsLoading ? (
+            {flowsError ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-center">
+                  <div className="text-red-400 mb-2">❌ Error al cargar flujos</div>
+                  <div className="text-sm text-red-300">{flowsError}</div>
+                </div>
+              </div>
+            ) : flowsLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="flex items-center gap-3">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-400"></div>

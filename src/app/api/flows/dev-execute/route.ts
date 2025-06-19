@@ -219,12 +219,12 @@ async function executeFlowSimulation(options: ExecuteFlowOptions) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const flowId = searchParams.get('id');
+    const flowIdentifier = searchParams.get('id') || searchParams.get('alias');
     
-    if (!flowId) {
+    if (!flowIdentifier) {
       return NextResponse.json({ 
-        error: 'Flow ID is required',
-        usage: 'GET /api/flows/dev-execute?id=YOUR_FLOW_ID'
+        error: 'Flow ID or alias is required',
+        usage: 'GET /api/flows/dev-execute?id=YOUR_FLOW_ID or GET /api/flows/dev-execute?alias=YOUR_ALIAS'
       }, { status: 400 });
     }
 
@@ -235,53 +235,138 @@ export async function GET(request: NextRequest) {
       }, { status: 403 });
     }
 
+    // Función helper para generar alias automáticamente
+    const generateAlias = (name: string): string => {
+      return name
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9\s]/g, '') // Quitar caracteres especiales
+        .replace(/\s+/g, '-')        // Espacios a guiones
+        .replace(/-+/g, '-')         // Múltiples guiones a uno
+        .replace(/^-|-$/g, '')       // Quitar guiones al inicio/final
+        + '-v1';                     // Agregar versión
+    };
+
+    // Función helper para buscar por ID o alias con migración automática
+    const findFlowByIdentifier = async (db: any, flowIdentifier: string) => {
+      // Primero intentar buscar en la colección de flows de desarrollo
+      const devFlowRef = db.collection('dev-flows').doc(flowIdentifier);
+      const devFlowDoc = await devFlowRef.get();
+      
+      if (devFlowDoc.exists) {
+        const flowData = devFlowDoc.data();
+        let updatedFlowData = { id: devFlowDoc.id, ...flowData, source: 'dev-flows' };
+        
+        // Si el flujo no tiene alias, generar uno automáticamente
+        if (!flowData.alias && flowData.name) {
+          const autoAlias = generateAlias(flowData.name);
+          try {
+            await devFlowRef.update({ alias: autoAlias });
+            updatedFlowData.alias = autoAlias;
+            console.log(`✅ Auto-generated alias "${autoAlias}" for flow ${devFlowDoc.id}`);
+          } catch (error) {
+            console.warn(`⚠️ Could not auto-generate alias for flow ${devFlowDoc.id}:`, error);
+          }
+        }
+        
+        return updatedFlowData;
+      }
+
+      // Buscar por alias en dev-flows
+      const devFlowsByAlias = await db.collection('dev-flows')
+        .where('alias', '==', flowIdentifier)
+        .limit(1)
+        .get();
+      
+      if (!devFlowsByAlias.empty) {
+        const doc = devFlowsByAlias.docs[0];
+        const flowData = doc.data();
+        return {
+          id: doc.id,
+          ...flowData,
+          source: 'dev-flows'
+        };
+      }
+
+      // Si no existe en dev-flows, buscar en organizaciones
+      const orgsSnapshot = await db.collection('organizations').get();
+      
+      for (const orgDoc of orgsSnapshot.docs) {
+        // Buscar por ID
+        const flowDoc = await db
+          .collection('organizations')
+          .doc(orgDoc.id)
+          .collection('flows')
+          .doc(flowIdentifier)
+          .get();
+        
+        if (flowDoc.exists) {
+          const flowData = flowDoc.data();
+          let updatedFlowData = {
+            id: flowDoc.id,
+            ...flowData,
+            organizationId: orgDoc.id,
+            source: 'organization'
+          };
+          
+          // Si el flujo no tiene alias, generar uno automáticamente
+          if (!flowData.alias && flowData.name) {
+            const autoAlias = generateAlias(flowData.name);
+            try {
+              await flowDoc.ref.update({ alias: autoAlias });
+              updatedFlowData.alias = autoAlias;
+              console.log(`✅ Auto-generated alias "${autoAlias}" for org flow ${flowDoc.id}`);
+            } catch (error) {
+              console.warn(`⚠️ Could not auto-generate alias for org flow ${flowDoc.id}:`, error);
+            }
+          }
+          
+          return updatedFlowData;
+        }
+
+        // Buscar por alias
+        const flowsByAlias = await db
+          .collection('organizations')
+          .doc(orgDoc.id)
+          .collection('flows')
+          .where('alias', '==', flowIdentifier)
+          .limit(1)
+          .get();
+        
+        if (!flowsByAlias.empty) {
+          const doc = flowsByAlias.docs[0];
+          const flowData = doc.data();
+          return {
+            id: doc.id,
+            ...flowData,
+            organizationId: orgDoc.id,
+            source: 'organization'
+          };
+        }
+      }
+      
+      return null;
+    };
+
     // Buscar el flujo en todas las organizaciones (solo para dev)
     const db = getFirestore();
+    const flowResult = await findFlowByIdentifier(db, flowIdentifier);
     
-    // Primero intentar buscar en la colección de flows de desarrollo
-    const devFlowRef = db.collection('dev-flows').doc(flowId);
-    const devFlowDoc = await devFlowRef.get();
-    
-    if (devFlowDoc.exists) {
-      const flowData = devFlowDoc.data();
+    if (flowResult) {
+      const { source, ...flowData } = flowResult;
       return NextResponse.json({
-        id: devFlowDoc.id,
         ...flowData,
         endpoints: {
           execute: `/api/flows/dev-execute`,
-          info: `/api/flows/dev-execute?id=${flowId}`
+          info: `/api/flows/dev-execute?id=${flowData.id}`,
+          infoByAlias: flowData.alias ? `/api/flows/dev-execute?alias=${flowData.alias}` : undefined
         }
       });
     }
 
-    // Si no existe en dev-flows, buscar en organizaciones
-    const orgsSnapshot = await db.collection('organizations').get();
-    
-    for (const orgDoc of orgsSnapshot.docs) {
-      const flowDoc = await db
-        .collection('organizations')
-        .doc(orgDoc.id)
-        .collection('flows')
-        .doc(flowId)
-        .get();
-      
-      if (flowDoc.exists) {
-        const flowData = flowDoc.data();
-        return NextResponse.json({
-          id: flowDoc.id,
-          organizationId: orgDoc.id,
-          ...flowData,
-          endpoints: {
-            execute: `/api/flows/dev-execute`,
-            info: `/api/flows/dev-execute?id=${flowId}`
-          }
-        });
-      }
-    }
-
     return NextResponse.json({ 
       error: 'Flow not found',
-      flowId
+      identifier: flowIdentifier
     }, { status: 404 });
 
   } catch (error) {
@@ -304,48 +389,137 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { flowId, inputData = {}, flowDefinition } = body;
+    const { flowId, flowAlias, inputData = {}, flowDefinition } = body;
 
     let finalFlowDefinition = flowDefinition;
+    const flowIdentifier = flowId || flowAlias;
 
-    // Si se proporciona flowId, obtener la definición del flujo
-    if (flowId && !flowDefinition) {
+    // Si se proporciona flowId o flowAlias, obtener la definición del flujo
+    if (flowIdentifier && !flowDefinition) {
       const db = getFirestore();
       
-      // Buscar en dev-flows primero
-      const devFlowRef = db.collection('dev-flows').doc(flowId);
-      const devFlowDoc = await devFlowRef.get();
-      
-      if (devFlowDoc.exists) {
-        const flowData = devFlowDoc.data();
-        finalFlowDefinition = flowData?.definition;
-      } else {
-        // Buscar en organizaciones
+      // Función helper para generar alias automáticamente
+      const generateAlias = (name: string): string => {
+        return name
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9\s]/g, '') // Quitar caracteres especiales
+          .replace(/\s+/g, '-')        // Espacios a guiones
+          .replace(/-+/g, '-')         // Múltiples guiones a uno
+          .replace(/^-|-$/g, '')       // Quitar guiones al inicio/final
+          + '-v1';                     // Agregar versión
+      };
+
+      // Reutilizar la función helper del GET con migración automática
+      const findFlowByIdentifier = async (db: any, flowIdentifier: string) => {
+        // Primero intentar buscar en la colección de flows de desarrollo
+        const devFlowRef = db.collection('dev-flows').doc(flowIdentifier);
+        const devFlowDoc = await devFlowRef.get();
+        
+        if (devFlowDoc.exists) {
+          const flowData = devFlowDoc.data();
+          let updatedFlowData = { id: devFlowDoc.id, ...flowData, source: 'dev-flows' };
+          
+          // Si el flujo no tiene alias, generar uno automáticamente
+          if (!flowData.alias && flowData.name) {
+            const autoAlias = generateAlias(flowData.name);
+            try {
+              await devFlowRef.update({ alias: autoAlias });
+              updatedFlowData.alias = autoAlias;
+              console.log(`✅ Auto-generated alias "${autoAlias}" for flow ${devFlowDoc.id}`);
+            } catch (error) {
+              console.warn(`⚠️ Could not auto-generate alias for flow ${devFlowDoc.id}:`, error);
+            }
+          }
+          
+          return updatedFlowData;
+        }
+
+        // Buscar por alias en dev-flows
+        const devFlowsByAlias = await db.collection('dev-flows')
+          .where('alias', '==', flowIdentifier)
+          .limit(1)
+          .get();
+        
+        if (!devFlowsByAlias.empty) {
+          const doc = devFlowsByAlias.docs[0];
+          const flowData = doc.data();
+          return {
+            id: doc.id,
+            ...flowData,
+            source: 'dev-flows'
+          };
+        }
+
+        // Si no existe en dev-flows, buscar en organizaciones
         const orgsSnapshot = await db.collection('organizations').get();
-        let foundFlow = false;
         
         for (const orgDoc of orgsSnapshot.docs) {
+          // Buscar por ID
           const flowDoc = await db
             .collection('organizations')
             .doc(orgDoc.id)
             .collection('flows')
-            .doc(flowId)
+            .doc(flowIdentifier)
             .get();
           
           if (flowDoc.exists) {
             const flowData = flowDoc.data();
-            finalFlowDefinition = flowData?.definition;
-            foundFlow = true;
-            break;
+            let updatedFlowData = {
+              id: flowDoc.id,
+              ...flowData,
+              organizationId: orgDoc.id,
+              source: 'organization'
+            };
+            
+            // Si el flujo no tiene alias, generar uno automáticamente
+            if (!flowData.alias && flowData.name) {
+              const autoAlias = generateAlias(flowData.name);
+              try {
+                await flowDoc.ref.update({ alias: autoAlias });
+                updatedFlowData.alias = autoAlias;
+                console.log(`✅ Auto-generated alias "${autoAlias}" for org flow ${flowDoc.id}`);
+              } catch (error) {
+                console.warn(`⚠️ Could not auto-generate alias for org flow ${flowDoc.id}:`, error);
+              }
+            }
+            
+            return updatedFlowData;
+          }
+
+          // Buscar por alias
+          const flowsByAlias = await db
+            .collection('organizations')
+            .doc(orgDoc.id)
+            .collection('flows')
+            .where('alias', '==', flowIdentifier)
+            .limit(1)
+            .get();
+          
+          if (!flowsByAlias.empty) {
+            const doc = flowsByAlias.docs[0];
+            const flowData = doc.data();
+            return {
+              id: doc.id,
+              ...flowData,
+              organizationId: orgDoc.id,
+              source: 'organization'
+            };
           }
         }
         
-        if (!foundFlow) {
-          return NextResponse.json({ 
-            error: 'Flow not found',
-            flowId
-          }, { status: 404 });
-        }
+        return null;
+      };
+
+      const flowResult = await findFlowByIdentifier(db, flowIdentifier);
+      
+      if (flowResult) {
+        finalFlowDefinition = flowResult.definition;
+      } else {
+        return NextResponse.json({ 
+          error: 'Flow not found',
+          identifier: flowIdentifier
+        }, { status: 404 });
       }
     }
 

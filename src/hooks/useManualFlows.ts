@@ -20,12 +20,17 @@ export function useManualFlows(): UseManualFlowsReturn {
 
   const fetchManualFlows = async () => {
     if (!user || !organization) {
+      // Don't show loading if user/org not ready yet
       setIsLoading(false);
+      setError(null);
+      setManualFlows([]);
       return;
     }
 
     try {
+      setIsLoading(true);
       setError(null);
+      
       const token = await user.getIdToken();
       const response = await fetch('/api/flows?triggerType=manual_lead_action&isEnabled=true', {
         headers: {
@@ -35,13 +40,17 @@ export function useManualFlows(): UseManualFlowsReturn {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch manual flows');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to fetch manual flows`);
       }
 
       const data = await response.json();
       setManualFlows(data.flows || []);
+      
+      // Log success for debugging
+      console.log(`✅ Loaded ${data.flows?.length || 0} manual flows`);
     } catch (err) {
-      console.error('Error fetching manual flows:', err);
+      console.error('❌ Error fetching manual flows:', err);
       setError(err instanceof Error ? err.message : 'Failed to load flows');
       setManualFlows([]);
     } finally {
@@ -74,7 +83,15 @@ export function useManualFlows(): UseManualFlowsReturn {
   };
 
   useEffect(() => {
-    fetchManualFlows();
+    // Only fetch when both user and organization are available
+    if (user && organization) {
+      fetchManualFlows();
+    } else {
+      // Reset state when auth is not ready
+      setIsLoading(true);
+      setError(null);
+      setManualFlows([]);
+    }
   }, [user, organization]);
 
   return {
