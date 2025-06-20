@@ -155,7 +155,7 @@ export class FirebaseDataService {
         query = db.collection(collection);
       }
 
-      // Aplicar filtros obligatorios
+      // Aplicar filtros obligatorios de forma más eficiente
       if (options.organizationId && !isOrgCollection) {
         const collectionInfo = AVAILABLE_COLLECTIONS.find(c => c.id === collection);
         if (collectionInfo?.requiresOrganization) {
@@ -163,7 +163,8 @@ export class FirebaseDataService {
         }
       }
 
-      if (options.userId) {
+      // Solo aplicar filtro de userId si no hay otros filtros complejos para evitar índices múltiples
+      if (options.userId && !options.filters && !options.orderBy) {
         query = query.where('uid', '==', options.userId);
       }
 
@@ -188,12 +189,20 @@ export class FirebaseDataService {
         }
       }
 
-      // Aplicar ordenamiento
+      // Aplicar ordenamiento solo si no hay filtros que requieran índices complejos
       if (options.orderBy) {
-        query = query.orderBy(options.orderBy.field, options.orderBy.direction);
-      } else {
-        // Ordenamiento por defecto
-        query = query.orderBy('updatedAt', 'desc');
+        try {
+          query = query.orderBy(options.orderBy.field, options.orderBy.direction);
+        } catch (error) {
+          console.warn('Ordenamiento no aplicado para evitar error de índice:', error);
+        }
+      } else if (!options.filters && !options.userId) {
+        // Ordenamiento por defecto solo si no hay otros filtros complejos
+        try {
+          query = query.orderBy('updatedAt', 'desc');
+        } catch (error) {
+          console.warn('Ordenamiento por defecto no aplicado para evitar error de índice:', error);
+        }
       }
 
       // Aplicar paginación
@@ -329,11 +338,14 @@ export class FirebaseDataService {
     error?: string;
   }> {
     try {
-      // Obtener una muestra pequeña
-      const result = await this.fetchData(collection, {
-        ...options,
-        limit: 3 // Solo 3 documentos para muestra
-      });
+      // Usar consulta simplificada para evitar problemas de índices
+      const testOptions = {
+        organizationId: options.organizationId,
+        limit: 3,
+        // No incluir otros filtros para evitar problemas de índices
+      };
+
+      const result = await this.fetchData(collection, testOptions);
 
       const collectionInfo = AVAILABLE_COLLECTIONS.find(c => c.id === collection) ||
                            ORGANIZATION_COLLECTIONS.find(c => c.id === collection);
@@ -346,12 +358,37 @@ export class FirebaseDataService {
       };
 
     } catch (error) {
-      return {
-        success: false,
-        sampleData: [],
-        totalCount: 0,
-        error: error instanceof Error ? error.message : 'Error desconocido'
-      };
+      // Si falla la consulta normal, probar consulta básica sin filtros
+      try {
+        console.warn('Consulta con filtros falló, probando consulta básica:', error);
+        const db = await this.getFirestore();
+        const basicQuery = await db.collection(collection).limit(3).get();
+        
+        const basicData = basicQuery.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        const collectionInfo = AVAILABLE_COLLECTIONS.find(c => c.id === collection) ||
+                             ORGANIZATION_COLLECTIONS.find(c => c.id === collection);
+
+        return {
+          success: true,
+          sampleData: basicData,
+          totalCount: basicData.length,
+          collectionInfo,
+          // Añadir advertencia sobre la consulta simplificada
+          warning: 'Usando consulta básica sin filtros debido a limitaciones de índices'
+        };
+
+      } catch (basicError) {
+        return {
+          success: false,
+          sampleData: [],
+          totalCount: 0,
+          error: basicError instanceof Error ? basicError.message : 'Error desconocido'
+        };
+      }
     }
   }
 

@@ -262,6 +262,9 @@ export class FlowExecutor {
       case 'monitor':
         return await this.executeMonitorNode(node);
       
+      case 'conversationalAICall':
+        return await this.executeConversationalAICallNode(node);
+      
       default:
         throw new Error(`Unknown node type: ${node.type}`);
     }
@@ -777,5 +780,50 @@ export class FlowExecutor {
     if (pokemonData.id && pokemonData.id < 151) score += 10; // Gen 1 bonus
     
     return Math.min(100, Math.max(0, score));
+  }
+
+  // Execute ConversationalAICall node using modular runner
+  private async executeConversationalAICallNode(node: FlowNode): Promise<any> {
+    try {
+      // Importar el runner del nodo ConversationalAICall dinámicamente
+      const { runConversationalAICallNode } = await import('../components/conex/nodes/ConversationalAICallNode/runner');
+      
+      // Crear contexto de ejecución compatible con el runner
+      const context = {
+        variables: this.context.variables,
+        connections: this.context.connections,
+        stepResults: this.context.stepResults,
+        executionId: this.context.executionId,
+        organizationId: this.context.organizationId,
+        flowName: 'ConversationalAI Flow', // Nombre del flujo actual
+        renderTemplate: (template: string, data?: Record<string, any>) => {
+          return this.renderTemplate(template, data || this.context.variables);
+        }
+      };
+      
+      console.log(`🔄 Ejecutando nodo ConversationalAICall: ${node.data.name}`);
+      
+      // Ejecutar usando el runner modular
+      const result = await runConversationalAICallNode(node, context);
+      
+      console.log(`✅ Nodo ConversationalAICall completado:`, {
+        nodeId: node.id,
+        success: result.success,
+        callId: result.callId,
+        status: result.status,
+      });
+      
+      return result;
+      
+    } catch (error) {
+      console.error(`❌ Error ejecutando nodo ConversationalAICall ${node.data.name}:`, error);
+      
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error desconocido en ConversationalAICall',
+        nodeId: node.id,
+        nodeName: node.data.name,
+      };
+    }
   }
 }

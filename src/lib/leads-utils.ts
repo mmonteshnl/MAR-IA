@@ -99,6 +99,10 @@ export function isFieldMissing(value: string | null | undefined): boolean {
   return lowerValue === "sin direccion" || lowerValue === "n/a" || lowerValue === "no disponible" || lowerValue === "desconocido" || lowerValue === "null" || lowerValue === "undefined";
 }
 
+// === COMMUNICATION HISTORY MANAGEMENT ===
+// NOTA: Las funciones de historial de comunicación se han movido a 
+// /src/lib/communication-history-server.ts para ser usadas solo en el servidor
+
 export function generateWhatsAppLink(lead: { phone?: string | null }): string | null {
   if (!lead.phone || isFieldMissing(lead.phone)) return null;
   const phoneNumber = lead.phone.replace(/\D/g, '');

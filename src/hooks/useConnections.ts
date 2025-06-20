@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from './use-auth';
+import { useOrganization } from './useOrganization';
 
 export interface Connection {
   id: string;
@@ -29,20 +31,42 @@ export interface UseConnectionsReturn {
 }
 
 export function useConnections(): UseConnectionsReturn {
+  const { user } = useAuth();
+  const { currentOrganization: organization } = useOrganization();
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchConnections = async () => {
+    if (!user || !organization) {
+      console.log('❌ Cannot fetch connections - missing auth data');
+      setLoading(false);
+      setError(null);
+      setConnections([]);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
       
-      console.log('🔗 DEMO MODE: Using mock connections data');
+      console.log('🔗 Fetching connections from Firebase API');
+      const token = await user.getIdToken();
       
-      // Mock connections data for demo
-      const mockConnections: Connection[] = [];
-      setConnections(mockConnections);
+      const response = await fetch('/api/connections', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-organization-id': organization.id
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Failed to fetch connections`);
+      }
+
+      const data = await response.json();
+      setConnections(data.connections || []);
+      console.log(`✅ Loaded ${data.connections?.length || 0} connections from Firebase`);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch connections';
       setError(errorMessage);
@@ -53,41 +77,100 @@ export function useConnections(): UseConnectionsReturn {
   };
 
   const createConnection = async (connectionData: CreateConnectionData): Promise<Connection> => {
-    console.log('🔗 DEMO MODE: Simulating connection creation');
-    
-    const newConnection: Connection = {
-      id: `conn_${Date.now()}`,
-      name: connectionData.name,
-      type: connectionData.type,
-      description: connectionData.description,
-      organizationId: 'demo-org',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    
-    setConnections(prev => [newConnection, ...prev]);
-    return newConnection;
+    if (!user || !organization) {
+      throw new Error('User not authenticated');
+    }
+
+    try {
+      console.log('🆕 Creating new connection in Firebase');
+      const token = await user.getIdToken();
+      
+      const response = await fetch('/api/connections', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'x-organization-id': organization.id
+        },
+        body: JSON.stringify(connectionData)
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Failed to create connection`);
+      }
+
+      const newConnection = await response.json();
+      setConnections(prev => [newConnection, ...prev]);
+      console.log('✅ Connection created successfully:', newConnection.id);
+      return newConnection;
+    } catch (error) {
+      console.error('Error creating connection:', error);
+      throw error;
+    }
   };
 
   const updateConnection = async (connectionId: string, updates: Partial<CreateConnectionData>): Promise<Connection> => {
-    console.log('🔗 DEMO MODE: Simulating connection update');
-    
-    const existing = connections.find(c => c.id === connectionId)!;
-    const updated: Connection = {
-      ...existing,
-      ...updates,
-      updatedAt: new Date()
-    };
-    
-    setConnections(prev => prev.map(connection => 
-      connection.id === connectionId ? updated : connection
-    ));
-    return updated;
+    if (!user || !organization) {
+      throw new Error('User not authenticated');
+    }
+
+    try {
+      console.log('📝 Updating connection in Firebase:', connectionId);
+      const token = await user.getIdToken();
+      
+      const response = await fetch(`/api/connections?id=${connectionId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'x-organization-id': organization.id
+        },
+        body: JSON.stringify(updates)
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Failed to update connection`);
+      }
+
+      const updatedConnection = await response.json();
+      setConnections(prev => prev.map(connection => 
+        connection.id === connectionId ? updatedConnection : connection
+      ));
+      console.log('✅ Connection updated successfully:', connectionId);
+      return updatedConnection;
+    } catch (error) {
+      console.error('Error updating connection:', error);
+      throw error;
+    }
   };
 
   const deleteConnection = async (connectionId: string): Promise<void> => {
-    console.log('🔗 DEMO MODE: Simulating connection deletion');
-    setConnections(prev => prev.filter(connection => connection.id !== connectionId));
+    if (!user || !organization) {
+      throw new Error('User not authenticated');
+    }
+
+    try {
+      console.log('🗑️ Deleting connection from Firebase:', connectionId);
+      const token = await user.getIdToken();
+      
+      const response = await fetch(`/api/connections?id=${connectionId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-organization-id': organization.id
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Failed to delete connection`);
+      }
+
+      setConnections(prev => prev.filter(connection => connection.id !== connectionId));
+      console.log('✅ Connection deleted successfully:', connectionId);
+    } catch (error) {
+      console.error('Error deleting connection:', error);
+      throw error;
+    }
   };
 
   const refreshConnections = async () => {
@@ -95,8 +178,10 @@ export function useConnections(): UseConnectionsReturn {
   };
 
   useEffect(() => {
-    fetchConnections();
-  }, []);
+    if (user && organization) {
+      fetchConnections();
+    }
+  }, [user?.uid, organization?.id]);
 
   return {
     connections,
