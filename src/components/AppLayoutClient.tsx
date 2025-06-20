@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import '@/styles/sidebar.css';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -27,7 +27,7 @@ import {
   BreadcrumbList,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
-import { ListChecks, Search, LogOut, PackageSearch, FileUp, Send, Cable, Zap, UserCircle, LayoutDashboard, Bell, TrendingUp, Settings, MessageSquare, Phone, Tags, FileText, Users, Briefcase, ShieldCheck, Palette, ConciergeBell, Calculator, Brain, User, Building2, Database, PlusCircle, Link2, Workflow } from 'lucide-react';
+import { ListChecks, Search, LogOut, PackageSearch, FileUp, Send, Cable, Zap, UserCircle, LayoutDashboard, Bell, TrendingUp, Settings, MessageSquare, Phone, Tags, FileText, Users, Briefcase, ShieldCheck, Palette, ConciergeBell, Calculator, Brain, User, Building2, Database, PlusCircle, Link2, Workflow, Sparkles, Mail, GitMerge, Plug, BrainCircuit, Share2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useFirebaseInit } from '@/hooks/useFirebaseInit';
 import { useOrganization } from '@/hooks/useOrganization';
@@ -38,6 +38,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { User as FirebaseUser } from 'firebase/auth';
 import Image from 'next/image';
 import LoadingComponent from '@/components/LoadingComponent';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import OnboardingTour from '@/components/onboarding/OnboardingTour';
 
 // Replace LogoIcon with logo.png in SidebarHeader
 const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
@@ -48,6 +51,8 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
   const { toast } = useToast();
   const [isOrgModalOpen, setIsOrgModalOpen] = useState(false);
+  const [showOnboardingTour, setShowOnboardingTour] = useState(false);
+  const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
 
   // Leer estado inicial del sidebar desde cookie
   const getInitialSidebarState = () => {
@@ -64,6 +69,55 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
   const noSidebarPaths = ['/login', '/register'];
   const showSidebar = initialLoadDone && user && !noSidebarPaths.includes(pathname);
   const showOnlyChildren = initialLoadDone && (!user || noSidebarPaths.includes(pathname));
+
+  // Check if user has completed onboarding
+  useEffect(() => {
+    const checkOnboardingStatus = async () => {
+      if (!user || !user.uid || hasCheckedOnboarding || noSidebarPaths.includes(pathname)) {
+        return;
+      }
+
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const userData = userDoc.data();
+        
+        // If user document doesn't exist or hasCompletedOnboarding is false, show tour
+        const hasCompletedOnboarding = userData?.hasCompletedOnboarding || false;
+        
+        if (!hasCompletedOnboarding) {
+          setShowOnboardingTour(true);
+        }
+        
+        setHasCheckedOnboarding(true);
+      } catch (error) {
+        console.error('Error checking onboarding status:', error);
+        setHasCheckedOnboarding(true);
+      }
+    };
+
+    checkOnboardingStatus();
+  }, [user, hasCheckedOnboarding, pathname]);
+
+  // Handle onboarding completion
+  const handleOnboardingComplete = async () => {
+    if (!user || !user.uid) return;
+    
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        hasCompletedOnboarding: true,
+        onboardingCompletedAt: new Date().toISOString()
+      });
+      
+      setShowOnboardingTour(false);
+      toast({
+        title: "¡Bienvenido a Mar-IA! 🎉",
+        description: "Has completado el tour de introducción. ¡Ahora estás listo para comenzar!"
+      });
+    } catch (error) {
+      console.error('Error updating onboarding status:', error);
+      setShowOnboardingTour(false);
+    }
+  };
 
   const handleLogout = async () => {
     if (!authInstance) return;
@@ -106,19 +160,76 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
     )
   }
 
+  // Dynamic breadcrumb generation based on menu structure
+  const generateBreadcrumbs = (pathname: string) => {
+    const breadcrumbs = [];
+    
+    // Always start with home
+    breadcrumbs.push({
+      label: 'MAR-IA',
+      href: '/business-finder',
+      isHome: true
+    });
+
+    if (pathname === '/business-finder' || pathname === '/') {
+      return breadcrumbs;
+    }
+
+    // Find the current menu section and item
+    for (const section of menuSections) {
+      const matchingItem = section.items.find(item => {
+        if (item.currentPathMatcher) {
+          return item.currentPathMatcher(pathname, new URLSearchParams(typeof window !== 'undefined' ? window.location.search : ''));
+        }
+        return pathname.startsWith(item.href);
+      });
+
+      if (matchingItem) {
+        // Add section as breadcrumb
+        breadcrumbs.push({
+          label: section.title,
+          href: '#',
+          isSection: true
+        });
+
+        // Add current page as breadcrumb
+        breadcrumbs.push({
+          label: matchingItem.label,
+          href: matchingItem.href,
+          isCurrent: true
+        });
+        break;
+      }
+    }
+
+    // Fallback if no match found
+    if (breadcrumbs.length === 1) {
+      const pathParts = pathname.split('/').filter(Boolean);
+      if (pathParts.length > 0) {
+        breadcrumbs.push({
+          label: pathParts[0].replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+          href: pathname,
+          isCurrent: true
+        });
+      }
+    }
+
+    return breadcrumbs;
+  };
+
   const menuSections = [
     {
-      title: 'PRINCIPAL',
+      title: 'DASHBOARD',
       items: [
-        { href: '/business-finder', label: 'Dashboard', icon: LayoutDashboard, currentPathMatcher: (p: string) => p === '/business-finder' || p === '/' },
-        { href: '/leads', label: 'Flujo de Leads', icon: ListChecks, currentPathMatcher: (p: string, sp: URLSearchParams) => p.startsWith('/leads') && sp.get('action') !== 'import-xml' },
+        { href: '/business-finder', label: 'Panel Principal', icon: LayoutDashboard, currentPathMatcher: (p: string) => p === '/business-finder' || p === '/' },
       ]
     },
     {
       title: 'LEADS',
       items: [
-        { href: '/lead-sources', label: 'Obtener Leads', icon: Search, currentPathMatcher: (p: string) => p.startsWith('/lead-sources') },
-        { href: '/leads/manage', label: 'Agregar Leads', icon: PlusCircle, currentPathMatcher: (p: string) => p.startsWith('/leads/manage') },
+        { href: '/leads', label: 'Flujo de Leads', icon: Workflow, currentPathMatcher: (p: string, sp: URLSearchParams) => p.startsWith('/leads') && sp.get('action') !== 'import-xml' },
+        { href: '/lead-sources', label: 'Fuentes de Datos', icon: Database, currentPathMatcher: (p: string) => p.startsWith('/lead-sources') || p.startsWith('/data-sources') },
+        { href: '/lead-sources', label: 'Importar & Buscar', icon: Search, currentPathMatcher: (p: string) => p.startsWith('/lead-sources') },
       ]
     },
     {
@@ -130,27 +241,33 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
       ]
     },
     {
+      title: 'VENTAS',
+      items: [
+        { href: '/quotes', label: 'Cotizaciones IA', icon: Sparkles, currentPathMatcher: (p: string) => p === '/quotes' },
+        { href: '/billing-quotes', label: 'Cotizaciones PandaDoc', icon: FileText, currentPathMatcher: (p: string) => p === '/billing-quotes' },
+      ]
+    },
+    {
       title: 'COMUNICACIÓN',
       items: [
-        { href: '/quotes', label: 'Cotizaciones IA', icon: Calculator, currentPathMatcher: (p: string) => p === '/quotes' },
-        { href: '/billing-quotes', label: 'Cotizaciones PandaDoc', icon: Building2, currentPathMatcher: (p: string) => p === '/billing-quotes' },
+        { href: '/email-campaigns', label: 'Campañas Email', icon: Mail, currentPathMatcher: (p: string) => p === '/email-campaigns' },
+        { href: '/whatsapp-conversations', label: 'WhatsApp', icon: MessageSquare, currentPathMatcher: (p: string) => p === '/whatsapp-conversations' },
         { href: '/tracking-links', label: 'Tracking Links', icon: Link2, currentPathMatcher: (p: string) => p === '/tracking-links' },
-        { href: '/email-campaigns', label: 'Campañas de Email', icon: Send, currentPathMatcher: (p: string) => p === '/email-campaigns' },
-        { href: '/channels', label: 'Canales', icon: Cable, currentPathMatcher: (p: string) => p === '/channels' },
+      ]
+    },
+    {
+      title: 'AUTOMATIZACIÓN',
+      items: [
+        { href: '/conex/flows', label: 'Flujos Visuales', icon: GitMerge, currentPathMatcher: (p: string) => p.startsWith('/conex/flows') || p === '/conex' },
+        { href: '/conex/connections', label: 'Conexiones', icon: Plug, currentPathMatcher: (p: string) => p.startsWith('/conex/connections') },
       ]
     },
     {
       title: 'CONFIGURACIÓN',
       items: [
-        { href: '/ai-prompts', label: 'IA y Prompts', icon: Brain, currentPathMatcher: (p: string) => p === '/ai-prompts' },
-        { href: '/whatsapp-conversations', label: 'WhatsApp', icon: MessageSquare, currentPathMatcher: (p: string) => p === '/whatsapp-conversations' },
+        { href: '/ai-prompts', label: 'IA y Prompts', icon: BrainCircuit, currentPathMatcher: (p: string) => p === '/ai-prompts' },
+        { href: '/channels', label: 'Canales', icon: Share2, currentPathMatcher: (p: string) => p === '/channels' },
         { href: '/config', label: 'General', icon: Settings, currentPathMatcher: (p: string) => p === '/config' },
-      ]
-    },
-    {
-      title: 'AUTOMATIZACIONES',
-      items: [
-        { href: '/conex/flows', label: 'Flujos Visuales', icon: Workflow, currentPathMatcher: (p: string) => p.startsWith('/conex/flows') || p === '/conex' || p.startsWith('/conex/connections') },
       ]
     }
   ];
@@ -175,7 +292,7 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
           </SidebarHeader>
           <SidebarContent className="flex-grow p-2">
             {menuSections.map(section => (
-              <SidebarGroup key={section.title} className="p-0 mb-2">
+              <SidebarGroup key={section.title} className="p-0 mb-2" data-onboarding={`${section.title.toLowerCase()}-section`}>
                 <SidebarGroupLabel className="px-2 text-xs uppercase text-muted-foreground group-data-[collapsible=icon]:hidden">
                   {section.title}
                 </SidebarGroupLabel>
@@ -187,6 +304,7 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
                         isActive={item.currentPathMatcher(pathname, new URLSearchParams(typeof window !== 'undefined' ? window.location.search : ''))}
                         tooltip={{ children: item.label, side: "right", align:"center" }}
                         className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
+                        data-onboarding={item.label === 'Flujo de Leads' ? 'flujo-leads' : item.label === 'Fuentes de Datos' ? 'hub-prospeccion' : undefined}
                       >
                         <Link href={item.href}>
                           <item.icon className="h-5 w-5" />
@@ -248,22 +366,26 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
             <Separator orientation="vertical" className="mr-2 h-4" />
             <Breadcrumb>
               <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink href="/business-finder" className="font-medium flex items-center gap-2">
-                    <Image src="/logo.png" alt="Logo" width={20} height={20} className="rounded" priority />
-                    MAR-IA
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                {pathname !== '/business-finder' && pathname !== '/' && (
-                  <>
-                    <BreadcrumbSeparator />
-                    <BreadcrumbItem className="hidden md:block">
-                      <BreadcrumbLink href="#" className="capitalize">
-                        {pathname.split('/')[1]?.replace('-', ' ') || 'Dashboard'}
+                {generateBreadcrumbs(pathname).map((crumb, index, array) => (
+                  <React.Fragment key={index}>
+                    <BreadcrumbItem>
+                      <BreadcrumbLink 
+                        href={crumb.href}
+                        className={`font-medium flex items-center gap-2 ${
+                          crumb.isCurrent ? 'text-foreground cursor-default' : 
+                          crumb.isSection ? 'text-muted-foreground text-xs uppercase tracking-wide' :
+                          'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {crumb.isHome && (
+                          <Image src="/logo.png" alt="Logo" width={20} height={20} className="rounded" priority />
+                        )}
+                        {crumb.label}
                       </BreadcrumbLink>
                     </BreadcrumbItem>
-                  </>
-                )}
+                    {index < array.length - 1 && <BreadcrumbSeparator />}
+                  </React.Fragment>
+                ))}
               </BreadcrumbList>
             </Breadcrumb>
             
@@ -297,6 +419,12 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
         open={isOrgModalOpen}
         onOpenChange={setIsOrgModalOpen}
         userIsOwner={currentOrganization?.ownerId === user?.uid}
+      />
+
+      {/* Onboarding Tour */}
+      <OnboardingTour
+        run={showOnboardingTour}
+        onComplete={handleOnboardingComplete}
       />
     </SidebarProvider>
   );

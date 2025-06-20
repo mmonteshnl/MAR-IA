@@ -10,6 +10,15 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  async redirects() {
+    return [
+      {
+        source: '/data-sources',
+        destination: '/lead-sources',
+        permanent: true, // 301 redirect
+      },
+    ];
+  },
   webpack: (config, { isServer }) => {
     // Add resolve aliases to ensure proper module resolution
     config.resolve.alias = {

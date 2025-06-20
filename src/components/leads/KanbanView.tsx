@@ -18,6 +18,7 @@ import LeadActionButtons from './LeadActionButtons';
 import { isFieldMissing, generateWhatsAppLink } from '@/lib/leads-utils';
 import { useValuationConfig } from '@/hooks/useValuationConfig';
 import { calculateLeadValuation, calculateStageTotal, formatCurrency } from '@/lib/valuation-calculator';
+import { EmptyState } from '@/components/ui/empty-state';
 import { getLeadSourceIcon, getLeadSourceColor } from '@/lib/lead-converter';
 import { getLeadSourceFromString, LEAD_SOURCE_LABELS } from '@/types/formatters/lead-sources';
 
@@ -321,8 +322,12 @@ export default function KanbanView({
         {/* Current stage content */}
         <div className="space-y-3">
           {leads.filter(lead => lead.stage === LEAD_STAGES[currentStageIndex]).length === 0 ? (
-            <div className="flex items-center justify-center h-32 bg-card rounded-lg border border-dashed">
-              <p className="text-sm text-muted-foreground text-center">No hay leads en esta etapa.</p>
+            <div className="bg-card rounded-lg border border-dashed">
+              <EmptyState
+                title="No hay leads en esta etapa"
+                description="Los leads aparecerán aquí cuando lleguen a esta etapa del proceso."
+                size="sm"
+              />
             </div>
           ) : (
             leads.filter(lead => lead.stage === LEAD_STAGES[currentStageIndex]).map(renderLeadCard)
@@ -377,9 +382,11 @@ export default function KanbanView({
               </CardHeader>
               <CardContent className="space-y-3 flex-1 overflow-y-auto p-3 pt-3 max-h-[calc(80vh-140px)]">
                 {leads.filter(lead => lead.stage === stage).length === 0 && (
-                  <div className="flex items-center justify-center h-full">
-                    <p className="text-sm text-muted-foreground text-center">No hay leads en esta etapa.</p>
-                  </div>
+                  <EmptyState
+                    title="No hay leads"
+                    description="Los leads aparecerán aquí cuando lleguen a esta etapa."
+                    size="sm"
+                  />
                 )}
                 {leads.filter(lead => lead.stage === stage).map(renderLeadCard)}
               </CardContent>

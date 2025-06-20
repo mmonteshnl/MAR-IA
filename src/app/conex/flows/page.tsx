@@ -16,8 +16,10 @@ import { useAuth } from '@/hooks/use-auth';
 import { useOrganization } from '@/hooks/useOrganization';
 import { FlowBuilder } from '@/components/conex/FlowBuilder';
 import { CopyApiLinkModal } from '@/components/conex/CopyApiLinkModal';
-import { Plus, Edit, Trash2, Play, Pause, Workflow, Clock, Zap, Webhook, TestTube, FileText, Mail, Database, Link } from 'lucide-react';
+import { FlowTemplatesLibrary } from '@/components/conex/FlowTemplatesLibrary';
+import { Plus, Edit, Trash2, Play, Pause, Workflow, Clock, Zap, Webhook, TestTube, FileText, Mail, Database, Link, Star, Sparkles } from 'lucide-react';
 import { Flow, CreateFlowRequest } from '@/types/conex';
+import type { FlowTemplate } from '@/config/flow-templates';
 
 // Configuración de iconos disponibles
 const AVAILABLE_ICONS = [
@@ -45,6 +47,7 @@ export default function FlowsPage() {
   const [showBuilder, setShowBuilder] = useState(false);
   const [testingFlow, setTestingFlow] = useState<string | null>(null);
   const [copyLinkFlow, setCopyLinkFlow] = useState<Flow | null>(null);
+  const [showTemplates, setShowTemplates] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState<CreateFlowRequest>({
@@ -108,6 +111,88 @@ export default function FlowsPage() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleTemplateSelect = (template: FlowTemplate) => {
+    // Pre-fill form with template data
+    setFormData({
+      name: template.name,
+      description: template.description,
+      isActive: true,
+      trigger: {
+        type: 'manual',
+        settings: {}
+      },
+      icon: 'Workflow'
+    });
+    
+    // Create the flow with template data
+    const autoAlias = generateAlias(template.name);
+    const flowDataWithAlias = {
+      ...formData,
+      name: template.name,
+      description: template.description,
+      alias: autoAlias
+    };
+    
+    createFlowWithTemplate(flowDataWithAlias, template);
+  };
+
+  const createFlowWithTemplate = async (flowData: CreateFlowRequest, template: FlowTemplate) => {
+    if (!organization || !user) {
+      toast({
+        title: 'Error',
+        description: 'Organization or user not found',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      const token = await user.getIdToken();
+      
+      const response = await fetch('/api/flows', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          ...flowData,
+          organizationId: organization.id,
+          flowData: template.flowData, // Use template's flow data
+          variables: template.variables || {},
+          requiredConnections: template.requiredConnections || []
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create flow from template');
+      }
+
+      const newFlow = await response.json();
+      setFlows([...flows, newFlow]);
+      
+      toast({
+        title: 'Flujo creado desde plantilla',
+        description: `"${template.name}" se ha creado exitosamente. Puedes editarlo ahora.`
+      });
+      
+      // Open the flow in the builder for customization
+      setEditingFlow(newFlow);
+      setShowBuilder(true);
+      
+    } catch (error) {
+      console.error('Error creating flow from template:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to create flow from template',
+        variant: 'destructive'
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -519,14 +604,19 @@ export default function FlowsPage() {
           </p>
         </div>
         
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              New Flow
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowTemplates(true)}>
+            <Star className="mr-2 h-4 w-4" />
+            Plantillas
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                New Flow
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Create New Flow</DialogTitle>
               <DialogDescription>
@@ -631,6 +721,7 @@ export default function FlowsPage() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {flows.length === 0 ? (
@@ -645,16 +736,18 @@ export default function FlowsPage() {
             </p>
             
             <div className="flex flex-col items-center gap-4 w-full max-w-sm">
+              <Button size="lg" onClick={() => setShowTemplates(true)} variant="outline" className="w-full">
+                <Sparkles className="h-5 w-5 mr-2" />
+                Usar Plantilla
+              </Button>
               <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                 <DialogTrigger asChild>
                   <Button size="lg" className="w-full">
                     <Plus className="h-5 w-5 mr-2" />
-                    Crear Primer Flujo
+                    Crear desde Cero
                   </Button>
                 </DialogTrigger>
               </Dialog>
-              
-            
             </div>
           </CardContent>
         </Card>
@@ -776,6 +869,13 @@ export default function FlowsPage() {
           flowAlias={copyLinkFlow.alias}
         />
       )}
+      
+      {/* Flow Templates Library */}
+      <FlowTemplatesLibrary
+        isOpen={showTemplates}
+        onClose={() => setShowTemplates(false)}
+        onTemplateSelect={handleTemplateSelect}
+      />
     </div>
   );
 }

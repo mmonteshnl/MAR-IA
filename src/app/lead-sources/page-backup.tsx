@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import LoadingComponent from '@/components/LoadingComponent';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -20,16 +21,21 @@ import {
   RefreshCw, 
   CheckCircle, 
   Users,
+  LineChart,
+  Target,
+  TrendingUp,
+  AlertTriangle,
   Facebook,
   FileText,
   Search,
   Upload,
   Plus,
+  Filter,
+  Eye,
   Send
 } from 'lucide-react';
 import CsvMappingModal from '@/components/leads/CsvMappingModal';
 import { DataSource, DATA_SOURCE_CONFIG, type DataSourceStats, type UnifiedLead } from '@/types/data-sources';
-import { EmptyState } from '@/components/ui/empty-state';
 
 // Enhanced lead sources configuration merging old and new systems
 const ENHANCED_LEAD_SOURCES = [
@@ -297,7 +303,7 @@ const ProspectsHubPage = () => {
   }, [activeTab, stats.length, loadSourceLeads]);
 
   if (authLoading || orgLoading || !initialLoadDone) {
-    return <LoadingComponent message="Cargando hub de prospección..." />;
+    return <LoadingComponent message="Cargando centro de fuentes..." />;
   }
 
   if (!user && initialLoadDone) {
@@ -385,155 +391,205 @@ const ProspectsHubPage = () => {
         })}
       </div>
 
-      {/* Main Content */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                {ENHANCED_LEAD_SOURCES.find(s => s.key === activeTab)?.icon}
-                {ENHANCED_LEAD_SOURCES.find(s => s.key === activeTab)?.name}
-              </CardTitle>
-              <CardDescription>
-                {ENHANCED_LEAD_SOURCES.find(s => s.key === activeTab)?.description}
-              </CardDescription>
-            </div>
-            
-            {/* Transfer Actions */}
-            <div className="flex items-center gap-2">
-              {/* CSV Import button for imported leads tab */}
-              {activeTab === DataSource.FILE_IMPORT && (
-                <Button 
-                  onClick={triggerFileInput}
-                  variant="outline"
-                  className="border-blue-500/20 text-blue-600 hover:bg-blue-500/10"
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  Importar CSV
-                </Button>
-              )}
-              
-              {someSelected && (
-                <>
-                  <Badge variant="outline">
-                    {selectedLeads.length} seleccionados
-                  </Badge>
-                  <Button 
-                    onClick={transferToFlow}
-                    disabled={transferring}
-                    className="bg-primary"
-                  >
-                    {transferring ? (
+      {/* Main Content Tabs */}
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3">
+          {LEAD_SOURCES.map((source) => (
+            <TabsTrigger key={source.key} value={source.key} className="flex items-center gap-2">
+              {source.icon}
+              {source.name}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        {LEAD_SOURCES.map((source) => (
+          <TabsContent key={source.key} value={source.key} className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      {source.icon}
+                      {source.name}
+                    </CardTitle>
+                    <CardDescription>
+                      {source.description}
+                    </CardDescription>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    {/* CSV Import button for imported leads tab */}
+                    {source.key === 'imported-csv' && (
+                      <Button 
+                        onClick={triggerFileInput}
+                        variant="outline"
+                        className="border-blue-500/20 text-blue-600 hover:bg-blue-500/10"
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        Importar CSV
+                      </Button>
+                    )}
+                    
+                    {someSelected && (
                       <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        Transfiriendo...
+                        <Badge variant="outline">
+                          {selectedLeads.size} seleccionados
+                        </Badge>
+                        <Button 
+                          onClick={promoteSelectedLeads}
+                          disabled={promoting}
+                          className="bg-primary"
+                        >
+                          {promoting ? (
+                            <>
+                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                              Promocionando...
+                            </>
+                          ) : (
+                            <>
+                              <ArrowUpCircle className="h-4 w-4 mr-2" />
+                              Promocionar al Flujo
+                            </>
+                          )}
+                        </Button>
                       </>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+              
+              <CardContent>
+                {loading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <LoadingSpinner size="md" />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {sourceLeads.length === 0 ? (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <Database className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p>No hay leads en esta fuente de datos</p>
+                      </div>
                     ) : (
                       <>
-                        <Send className="h-4 w-4 mr-2" />
-                        Transferir al Flujo
+                        {availableLeads.length > 0 && (
+                          <div>
+                            <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg mb-4">
+                              <Checkbox
+                                checked={allSelected}
+                                onCheckedChange={handleSelectAll}
+                                id="select-all"
+                              />
+                              <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
+                                Seleccionar todos los disponibles ({availableLeads.length})
+                              </label>
+                            </div>
+
+                            <h3 className="font-medium text-foreground mb-3 flex items-center gap-2">
+                              <Users className="h-4 w-4" />
+                              Disponibles para promocionar ({availableLeads.length})
+                            </h3>
+                            
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="w-[50px]"></TableHead>
+                                  <TableHead>Nombre</TableHead>
+                                  <TableHead>Email</TableHead>
+                                  <TableHead>Teléfono</TableHead>
+                                  <TableHead>Empresa</TableHead>
+                                  <TableHead>Creado</TableHead>
+                                  <TableHead className="text-right">Acción</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {availableLeads.map((lead) => (
+                                  <TableRow key={lead.id}>
+                                    <TableCell>
+                                      <Checkbox
+                                        checked={selectedLeads.has(lead.id)}
+                                        onCheckedChange={(checked) => handleLeadSelection(lead.id, !!checked)}
+                                      />
+                                    </TableCell>
+                                    <TableCell className="font-medium">
+                                      {lead.fullName || lead.name || 'Sin nombre'}
+                                    </TableCell>
+                                    <TableCell>{lead.email || 'N/A'}</TableCell>
+                                    <TableCell>{lead.phone || lead.phoneNumber || 'N/A'}</TableCell>
+                                    <TableCell>{lead.company || lead.companyName || 'N/A'}</TableCell>
+                                    <TableCell>
+                                      {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('es-ES') : 'N/A'}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      <Button
+                                        size="sm"
+                                        onClick={() => promoteLead(lead.id, source.key)}
+                                        disabled={promotingLead === lead.id}
+                                        className="bg-primary"
+                                      >
+                                        {promotingLead === lead.id ? (
+                                          <>
+                                            <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                                            Promocionando...
+                                          </>
+                                        ) : (
+                                          <>
+                                            <ArrowUpCircle className="h-3 w-3 mr-1" />
+                                            Promocionar
+                                          </>
+                                        )}
+                                      </Button>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        )}
+
+                        {promotedLeads.length > 0 && (
+                          <div className="bg-green-900/20 border border-green-600/30 rounded-lg p-4">
+                            <h3 className="font-semibold text-green-200 mb-4 flex items-center gap-2 text-base">
+                              <CheckCircle className="h-5 w-5 text-green-400" />
+                              Ya promocionados ({promotedLeads.length})
+                            </h3>
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="text-green-200">Nombre</TableHead>
+                                  <TableHead className="text-green-200">Email</TableHead>
+                                  <TableHead className="text-green-200">Teléfono</TableHead>
+                                  <TableHead className="text-green-200">Estado</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {promotedLeads.map((lead) => (
+                                  <TableRow key={lead.id} className="border-green-600/30">
+                                    <TableCell className="text-green-100 font-medium">
+                                      {lead.fullName || lead.name || 'Sin nombre'}
+                                    </TableCell>
+                                    <TableCell className="text-green-200">{lead.email || 'N/A'}</TableCell>
+                                    <TableCell className="text-green-200">{lead.phone || lead.phoneNumber || 'N/A'}</TableCell>
+                                    <TableCell>
+                                      <Badge variant="secondary" className="bg-green-700 text-green-100 border-green-600">
+                                        Promocionado
+                                      </Badge>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        )}
                       </>
                     )}
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-        
-        <CardContent>
-          {loadingLeads ? (
-            <div className="flex items-center justify-center py-12">
-              <LoadingSpinner size="md" />
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {/* Selection Controls */}
-              {availableLeads.length > 0 && (
-                <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
-                  <Checkbox
-                    checked={allSelected}
-                    onCheckedChange={handleSelectAll}
-                    id="select-all"
-                  />
-                  <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
-                    Seleccionar todos los disponibles ({availableLeads.length})
-                  </label>
-                </div>
-              )}
-
-              {/* Leads List */}
-              <div className="space-y-3">
-                {leads.length === 0 ? (
-                  <EmptyState
-                    icon={Database}
-                    title="No hay leads en esta fuente"
-                    description={`No se encontraron leads desde ${ENHANCED_LEAD_SOURCES.find(s => s.key === activeTab)?.name}. ${activeTab === DataSource.FILE_IMPORT ? 'Importa un archivo CSV para comenzar.' : activeTab === DataSource.GOOGLE_PLACES ? 'Usa la búsqueda para encontrar negocios locales.' : 'Conecta tu cuenta para sincronizar leads.'}`}
-                    action={activeTab === DataSource.FILE_IMPORT ? {
-                      label: "Importar CSV",
-                      onClick: triggerFileInput
-                    } : activeTab === DataSource.GOOGLE_PLACES ? {
-                      label: "Buscar Negocios",
-                      onClick: () => router.push('/lead-sources/search')
-                    } : undefined}
-                  />
-                ) : (
-                  <>
-                    {/* Available Leads */}
-                    {availableLeads.length > 0 && (
-                      <div>
-                        <h3 className="font-medium text-foreground mb-3 flex items-center gap-2">
-                          <Users className="h-4 w-4" />
-                          Disponibles para transferir ({availableLeads.length})
-                        </h3>
-                        <div className="space-y-2">
-                          {availableLeads.map((lead) => (
-                            <LeadCard 
-                              key={lead.id} 
-                              lead={lead} 
-                              isSelected={selectedLeads.includes(lead.id)}
-                              onSelect={handleLeadSelection}
-                              showCheckbox={true}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Transferred Leads */}
-                    {transferredLeads.length > 0 && (
-                      <div className="bg-gray-900 border border-gray-700 rounded-lg p-4">
-                        <h3 className="font-semibold text-gray-200 mb-4 flex items-center gap-2 text-base">
-                          <CheckCircle className="h-5 w-5 text-green-400" />
-                          Ya transferidos ({transferredLeads.length})
-                        </h3>
-                        <div className="space-y-2">
-                          {transferredLeads.map((lead) => (
-                            <LeadCard 
-                              key={lead.id} 
-                              lead={lead} 
-                              isSelected={false}
-                              onSelect={() => {}}
-                              showCheckbox={false}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
+                  </div>
                 )}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Detector de duplicados */}
-      <DuplicateDetector 
-        leads={leads}
-        onDuplicatesResolved={handleDuplicatesResolved}
-        onReloadData={handleReloadData}
-      />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        ))}
+      </Tabs>
 
       {/* Hidden file input for CSV upload */}
       <input
@@ -555,100 +611,5 @@ const ProspectsHubPage = () => {
     </div>
   );
 };
-
-// Lead card component from data-sources
-interface LeadCardProps {
-  lead: UnifiedLead;
-  isSelected: boolean;
-  onSelect: (leadId: string, checked: boolean) => void;
-  showCheckbox: boolean;
-}
-
-function LeadCard({ lead, isSelected, onSelect, showCheckbox }: LeadCardProps) {
-  const sourceConfig = ENHANCED_LEAD_SOURCES.find(s => s.key === lead.source);
-  
-  return (
-    <div className={`flex items-start gap-3 p-4 border rounded-lg transition-all duration-200 ${
-      lead.transferredToFlow 
-        ? 'bg-green-900/20 border-green-600' 
-        : isSelected 
-          ? 'bg-primary/5 border-primary' 
-          : 'bg-background border-border hover:border-border/60'
-    }`}>
-      {showCheckbox && (
-        <Checkbox
-          checked={isSelected}
-          onCheckedChange={(checked) => onSelect(lead.id, !!checked)}
-          className="mt-1"
-        />
-      )}
-      
-      <div className="flex-1 min-w-0 space-y-2">
-        {/* Header with name and source */}
-        <div className="flex items-center gap-2 mb-2">
-          <h4 className={`font-semibold text-base ${
-            lead.transferredToFlow ? 'text-gray-200' : 'text-foreground'
-          }`}>{lead.name}</h4>
-          <Badge variant="outline" className={`${sourceConfig?.color} text-xs`}>
-            {sourceConfig?.name}
-          </Badge>
-        </div>
-        
-        {/* Lead ID */}
-        <div className="flex items-center gap-2">
-          <span className={`text-xs font-medium px-2 py-1 rounded ${
-            lead.transferredToFlow 
-              ? 'text-gray-400 bg-gray-800' 
-              : 'text-muted-foreground bg-muted'
-          }`}>
-            ID: {lead.id}
-          </span>
-          {lead.createdAt && (
-            <span className={`text-xs ${
-              lead.transferredToFlow ? 'text-gray-400' : 'text-muted-foreground'
-            }`}>
-              Creado: {new Date(lead.createdAt).toLocaleDateString('es-ES', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
-            </span>
-          )}
-        </div>
-        
-        {/* Contact Information */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-          {lead.email && (
-            <div className="flex items-center gap-1">
-              <span className={lead.transferredToFlow ? "text-gray-400" : "text-muted-foreground"}>📧</span>
-              <span className={`truncate ${lead.transferredToFlow ? "text-gray-300" : "text-foreground"}`}>{lead.email}</span>
-            </div>
-          )}
-          {lead.phone && (
-            <div className="flex items-center gap-1">
-              <span className={lead.transferredToFlow ? "text-gray-400" : "text-muted-foreground"}>📱</span>
-              <span className={lead.transferredToFlow ? "text-gray-300" : "text-foreground"}>{lead.phone}</span>
-            </div>
-          )}
-          {lead.company && (
-            <div className="flex items-center gap-1">
-              <span className={lead.transferredToFlow ? "text-gray-400" : "text-muted-foreground"}>🏢</span>
-              <span className={`truncate ${lead.transferredToFlow ? "text-gray-300" : "text-foreground"}`}>{lead.company}</span>
-            </div>
-          )}
-        </div>
-      </div>
-      
-      {lead.transferredToFlow && (
-        <div className="flex items-center gap-1 text-green-400 mt-1">
-          <CheckCircle className="h-4 w-4" />
-          <span className="text-xs font-medium">Transferido</span>
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default ProspectsHubPage;

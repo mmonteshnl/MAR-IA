@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import LoadingComponent from '@/components/LoadingComponent';
-import { LogOut, PlusCircle, ArrowLeft, KanbanSquare, List, FileUp, Search, Filter, Terminal } from 'lucide-react';
+import { LogOut, PlusCircle, ArrowLeft, KanbanSquare, List, Search, Filter, Terminal } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { db } from '@/lib/firebase';
@@ -18,14 +18,11 @@ import type { ExtendedLead as Lead, LeadImage, Product as ProductDefinition } fr
 import { type WelcomeMessageInput, type WelcomeMessageOutput } from '@/ai/flows/welcomeMessageFlow';
 import { type EvaluateBusinessInput, type EvaluateBusinessOutput } from '@/ai/flows/evaluateBusinessFlow';
 import { type SalesRecommendationsInput, type SalesRecommendationsOutput, type Product as AIProduct } from '@/ai/flows/salesRecommendationsFlow';
-import { formatXmlLeads, type FormatXmlLeadsInput, type FormatXmlLeadsOutput, type FormattedLead as XmlFormattedLead } from '@/ai/flows/formatXmlLeadsFlow';
-import { formatCsvLeads, type FormatCsvLeadsInput, type FormatCsvLeadsOutput, type FormattedLead as CsvFormattedLead } from '@/ai/flows/formatCsvLeadsFlow';
 
 // Import all the extracted components
 import KanbanView from '@/components/leads/KanbanView';
 import TableView from '@/components/leads/TableView';
 import LeadDetailsDialog from '@/components/leads/LeadDetailsDialog';
-import LeadImportDialog from '@/components/leads/LeadImportDialog';
 import LeadFilters from '@/components/leads/LeadFilters';
 import LeadStats from '@/components/leads/LeadStats';
 import { LeadInsights } from '@/components/leads/LeadInsights';
@@ -42,7 +39,6 @@ import { LEAD_STAGES, LOCAL_STORAGE_LEADS_KEY_PREFIX, LOCAL_FALLBACK_SOURCE, for
 import { getBusinessTypeFromMetaLead } from '@/lib/lead-converter';
 import { LeadSource, getLeadSourceFromString } from '@/types/formatters/lead-sources';
 
-type ImportedFormattedLead = (XmlFormattedLead | CsvFormattedLead) & { suggestedStage?: string };
 type ActionResult = WelcomeMessageOutput | EvaluateBusinessOutput | SalesRecommendationsOutput | { error: string } | null;
 
 export default function LeadsPage() {
@@ -64,12 +60,6 @@ export default function LeadsPage() {
   const [currentActionType, setCurrentActionType] = useState<string | null>(null);
 
   const [userProducts, setUserProducts] = useState<AIProduct[]>([]);
-
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [open, setOpen] = useState(false);
-  const [selectedFileForImport, setSelectedFileForImport] = useState<File | null>(null);
-  const [importTargetStage, setImportTargetStage] = useState<LeadStage>("Nuevo");
-  const [isImporting, setIsImporting] = useState(false);
 
   const [isLeadDetailsModalOpen, setIsLeadDetailsModalOpen] = useState(false);
   const [selectedLeadForDetails, setSelectedLeadForDetails] = useState<Lead | null>(null);
@@ -515,14 +505,9 @@ export default function LeadsPage() {
     setIsHybridQuoteModalOpen(true);
   };
 
-  // Import handlers
-  const handleImportComplete = (importedLeads: Lead[]) => {
-    setLeads(prevLeads => [...importedLeads, ...prevLeads]);
-    setIsImportModalOpen(false);
-    toast({
-      title: "Importación completada",
-      description: `Se importaron ${importedLeads.length} leads correctamente.`
-    });
+  // Lead creation handler
+  const handleCreateLead = () => {
+    router.push('/leads/create');
   };
 
   // Image handlers
@@ -673,38 +658,11 @@ export default function LeadsPage() {
           {/* Title and Action Buttons */}
           <div className="p-4 sm:p-6 lg:p-6 border-b border-border/50">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground">Flujo de Leads</h1>
-<LeadImportDialog 
-  open={open} 
-  onOpenChange={setOpen} 
-  onImportComplete={handleImportComplete} 
-  formatXmlLeads={formatXmlLeads} 
-  formatCsvLeads={formatCsvLeads} 
-/>
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-foreground">Pipeline de Ventas</h1>
+                <p className="text-muted-foreground mt-1">Gestiona los leads promocionados desde las fuentes externas</p>
+              </div>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-                <Button 
-                  variant="outline" 
-                  className="h-10 text-sm w-full sm:w-auto" 
-                  onClick={async () => {
-                    try {
-                      const token = await user?.getIdToken();
-                      const response = await fetch(`/api/debug-leads?organizationId=${currentOrganization?.id}`, {
-                        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-                      });
-                      const data = await response.json();
-                      console.log('🔍 Debug data:', data);
-                      toast({
-                        title: "Debug Info", 
-                        description: `Meta: ${data.counts?.metaLeads || 0}, Flow: ${data.counts?.flowLeads || 0}, Active: ${data.counts?.activeFlowLeads || 0}`
-                      });
-                    } catch (error) {
-                      console.error('Debug error:', error);
-                      toast({title: "Error", description: "Error al obtener debug info", variant: "destructive"});
-                    }
-                  }}
-                >
-                  🔍 Debug
-                </Button>
                 <Button 
                   variant="outline" 
                   className="h-10 text-sm w-full sm:w-auto" 
@@ -721,16 +679,16 @@ export default function LeadsPage() {
                 <Button 
                   variant="default" 
                   className="bg-primary text-primary-foreground hover:bg-primary/90 h-10 text-sm w-full sm:w-auto" 
-                  onClick={() => router.push('/leads/create')}
+                  onClick={handleCreateLead}
                 >
-                  <PlusCircle className="mr-2 h-4 w-4" /> Crear Lead
+                  <PlusCircle className="mr-2 h-4 w-4" /> Crear Lead Manual
                 </Button>
                 <Button 
                   variant="outline" 
-                  className="border-primary/20 text-primary hover:bg-primary/10 h-10 text-sm w-full sm:w-auto" 
-                  onClick={() => setIsImportModalOpen(true)}
+                  className="border-green-500/20 text-green-600 hover:bg-green-500/10 h-10 text-sm w-full sm:w-auto" 
+                  onClick={() => router.push('/lead-sources')}
                 >
-                  <FileUp className="mr-2 h-4 w-4" /> Importar
+                  <Search className="mr-2 h-4 w-4" /> Fuentes de Leads
                 </Button>
                 <Button 
                   variant="outline" 
@@ -914,13 +872,6 @@ export default function LeadsPage() {
         isSettingFeaturedImage={isSettingFeaturedImage}
       />
 
-      <LeadImportDialog
-        open={isImportModalOpen}
-        onOpenChange={setIsImportModalOpen}
-        onImportComplete={handleImportComplete}
-        formatXmlLeads={formatXmlLeads}
-        formatCsvLeads={formatCsvLeads}
-      />
 
       <LeadActionResultModal
         open={isActionResultModalOpen}

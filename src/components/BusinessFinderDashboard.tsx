@@ -7,8 +7,10 @@ import { useOrganization } from '@/hooks/useOrganization';
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import LoadingComponent from '@/components/LoadingComponent';
-import { Search, LineChart, Users, Target, Clock, TrendingUp } from 'lucide-react';
+import { Search, LineChart, Users, Target, Clock, TrendingUp, Upload, Database, ArrowRight, FileText } from 'lucide-react';
 import { db } from '@/lib/firebase';
+import { ContextualTooltip } from '@/components/ui/contextual-tooltip';
+import { EmptyState } from '@/components/ui/empty-state';
 import { collection, query, where, getDocs, orderBy, Timestamp as FirestoreTimestamp } from 'firebase/firestore';
 
 const LEAD_STAGES_CLIENT = [
@@ -174,7 +176,13 @@ export default function BusinessFinderDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="bg-card border border-border p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
             <div className="flex flex-row items-center justify-between pb-3">
-              <h3 className="text-sm font-medium text-muted-foreground">Total Leads</h3>
+              <ContextualTooltip 
+                content="Número total de leads registrados en tu sistema desde todas las fuentes (CSV, Google Places, Meta Ads, etc.)"
+                showIcon={true}
+                iconType="info"
+              >
+                <h3 className="text-sm font-medium text-muted-foreground">Total Leads</h3>
+              </ContextualTooltip>
               <Users className="h-4 w-4 text-muted-foreground" />
             </div>
             <div className="space-y-1">
@@ -188,7 +196,13 @@ export default function BusinessFinderDashboard() {
           </div>
           <div className="bg-card border border-border p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
             <div className="flex flex-row items-center justify-between pb-3">
-              <h3 className="text-sm font-medium text-muted-foreground">Leads por Etapa</h3>
+              <ContextualTooltip 
+                content="Distribución de tus leads según su etapa en el pipeline: Nuevo, Contactado, Calificado, Propuesta Enviada, etc."
+                showIcon={true}
+                iconType="info"
+              >
+                <h3 className="text-sm font-medium text-muted-foreground">Leads por Etapa</h3>
+              </ContextualTooltip>
               <LineChart className="h-4 w-4 text-muted-foreground" />
             </div>
             <div className="space-y-2">
@@ -211,7 +225,13 @@ export default function BusinessFinderDashboard() {
           </div>
           <div className="bg-card border border-border p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
             <div className="flex flex-row items-center justify-between pb-3">
-              <h3 className="text-sm font-medium text-muted-foreground">Tasa de Conversión</h3>
+              <ContextualTooltip 
+                content="Porcentaje de leads que han llegado a la etapa 'Ganado'. Es tu métrica clave de éxito en ventas."
+                showIcon={true}
+                iconType="info"
+              >
+                <h3 className="text-sm font-medium text-muted-foreground">Tasa de Conversión</h3>
+              </ContextualTooltip>
               <Target className="h-4 w-4 text-muted-foreground" />
             </div>
             <div className="space-y-1">
@@ -222,6 +242,85 @@ export default function BusinessFinderDashboard() {
                 {statsLoading ? 'Cargando...' : 'Leads ganados vs total'}
               </p>
             </div>
+          </div>
+        </div>
+
+        {/* Quick Actions Section */}
+        <div className="bg-card border border-border rounded-lg p-6">
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold text-foreground flex items-center">
+              <ArrowRight className="mr-2 h-5 w-5 text-muted-foreground" />
+              Acciones Rápidas
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Accede rápidamente a las funciones más utilizadas del flujo de leads
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <ContextualTooltip 
+              content="Importa leads masivamente desde un archivo CSV. Formato requerido: nombre, email, teléfono, dirección."
+              side="top"
+            >
+              <Button 
+                variant="outline" 
+                className="h-auto p-4 border-blue-500/20 text-blue-600 hover:bg-blue-500/10 flex-col gap-2 w-full"
+                onClick={() => {
+                  router.push('/lead-sources');
+                  // Try to activate CSV import tab if possible
+                  setTimeout(() => {
+                    const csvTab = document.querySelector('[value="file-import"]') as HTMLElement;
+                    if (csvTab) csvTab.click();
+                  }, 100);
+                }}
+              >
+                <Upload className="h-6 w-6" />
+                <div className="text-center">
+                  <div className="font-medium">Importar Leads desde CSV</div>
+                  <div className="text-xs text-muted-foreground">Sube un archivo CSV con tus leads</div>
+                </div>
+              </Button>
+            </ContextualTooltip>
+            
+            <ContextualTooltip 
+              content="Busca negocios potenciales en Google Places usando palabras clave y ubicación. Perfecto para prospección local."
+              side="top"
+            >
+              <Button 
+                variant="outline" 
+                className="h-auto p-4 border-green-500/20 text-green-600 hover:bg-green-500/10 flex-col gap-2 w-full"
+                onClick={() => {
+                  router.push('/lead-sources');
+                  // Try to activate google places tab if possible  
+                  setTimeout(() => {
+                    const placesTab = document.querySelector('[value="google-places"]') as HTMLElement;
+                    if (placesTab) placesTab.click();
+                  }, 100);
+                }}
+              >
+                <Search className="h-6 w-6" />
+                <div className="text-center">
+                  <div className="font-medium">Buscar Negocios</div>
+                  <div className="text-xs text-muted-foreground">Encuentra nuevos prospectos en Google Places</div>
+                </div>
+              </Button>
+            </ContextualTooltip>
+            
+            <ContextualTooltip 
+              content="Accede a tu pipeline principal donde gestionas el flujo de ventas, actualizas etapas y haces seguimiento."
+              side="top"
+            >
+              <Button 
+                variant="outline" 
+                className="h-auto p-4 border-purple-500/20 text-purple-600 hover:bg-purple-500/10 flex-col gap-2 w-full"
+                onClick={() => router.push('/leads')}
+              >
+                <FileText className="h-6 w-6" />
+                <div className="text-center">
+                  <div className="font-medium">Ir a mi Flujo de Ventas</div>
+                  <div className="text-xs text-muted-foreground">Gestiona tu pipeline de ventas</div>
+                </div>
+              </Button>
+            </ContextualTooltip>
           </div>
         </div>
 
@@ -278,11 +377,16 @@ export default function BusinessFinderDashboard() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <Users className="mx-auto h-12 w-12 text-muted-foreground/30 mb-4" />
-              <p>No hay leads recientes</p>
-              <p className="text-sm mt-1">¡Comienza buscando nuevos leads!</p>
-            </div>
+            <EmptyState
+              icon={Users}
+              title="No hay leads recientes"
+              description="¡Comienza buscando nuevos leads para ver tu actividad aquí!"
+              action={{
+                label: "Buscar Leads",
+                onClick: () => router.push('/lead-sources')
+              }}
+              size="sm"
+            />
           )}
         </div>
       </div>

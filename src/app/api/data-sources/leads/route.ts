@@ -64,27 +64,34 @@ export async function POST(request: NextRequest) {
 
     console.log(`📋 Obteniendo leads de ${source} para organización:`, organizationId);
 
-    const config = DATA_SOURCE_CONFIG[source as DataSource];
-    if (!config) {
-      console.error(`❌ Fuente de datos no válida: ${source}`);
-      console.log('📁 Fuentes válidas:', Object.keys(DATA_SOURCE_CONFIG));
-      return NextResponse.json({ 
-        message: `Fuente de datos no válida: ${source}. Fuentes válidas: ${Object.keys(DATA_SOURCE_CONFIG).join(', ')}` 
-      }, { status: 400 });
+    // Handle special case for imported-leads
+    let collectionName: string;
+    if (source === 'imported-leads') {
+      collectionName = 'imported-leads';
+    } else {
+      const config = DATA_SOURCE_CONFIG[source as DataSource];
+      if (!config) {
+        console.error(`❌ Fuente de datos no válida: ${source}`);
+        console.log('📁 Fuentes válidas:', Object.keys(DATA_SOURCE_CONFIG));
+        return NextResponse.json({ 
+          message: `Fuente de datos no válida: ${source}. Fuentes válidas: ${Object.keys(DATA_SOURCE_CONFIG).join(', ')}` 
+        }, { status: 400 });
+      }
+      collectionName = config.collection;
     }
 
     // Obtener leads de la colección fuente (manejar colecciones que no existen)
     let sourceSnapshot;
     try {
       const sourceQuery = firestoreDbAdmin
-        .collection(config.collection)
+        .collection(collectionName)
         .where('organizationId', '==', organizationId)
         .orderBy('updatedAt', 'desc');
       
       sourceSnapshot = await sourceQuery.get();
-      console.log(`📊 Encontrados ${sourceSnapshot.size} leads en ${config.collection}`);
+      console.log(`📊 Encontrados ${sourceSnapshot.size} leads en ${collectionName}`);
     } catch (collectionError: any) {
-      console.log(`ℹ️ Colección ${config.collection} no existe o está vacía:`, collectionError.message);
+      console.log(`ℹ️ Colección ${collectionName} no existe o está vacía:`, collectionError.message);
       // Retornar array vacío si la colección no existe
       return NextResponse.json({ 
         leads: [],
@@ -93,7 +100,7 @@ export async function POST(request: NextRequest) {
         transferred: 0,
         available: 0,
         metadata: {
-          collection: config.collection,
+          collection: collectionName,
           organizationId,
           generatedAt: new Date().toISOString(),
           note: 'Colección no existe - tabla vacía'
@@ -103,7 +110,7 @@ export async function POST(request: NextRequest) {
 
     // Si no hay leads en la fuente, retornar array vacío (no es error)
     if (sourceSnapshot.size === 0) {
-      console.log(`ℹ️ No hay leads en ${config.collection}, retornando array vacío`);
+      console.log(`ℹ️ No hay leads en ${collectionName}, retornando array vacío`);
       return NextResponse.json({ 
         leads: [],
         source,
@@ -111,7 +118,7 @@ export async function POST(request: NextRequest) {
         transferred: 0,
         available: 0,
         metadata: {
-          collection: config.collection,
+          collection: collectionName,
           organizationId,
           generatedAt: new Date().toISOString()
         }
@@ -126,7 +133,7 @@ export async function POST(request: NextRequest) {
       const flowQuery = firestoreDbAdmin
         .collection('leads-flow')
         .where('organizationId', '==', organizationId)
-        .where('sourceCollection', '==', config.collection);
+        .where('sourceCollection', '==', collectionName);
       
       flowSnapshot = await flowQuery.get();
       transferredIds = new Set(
@@ -178,6 +185,19 @@ export async function POST(request: NextRequest) {
           unifiedData.phone = data.phone || '';
           unifiedData.company = data.company || '';
           break;
+          
+        case 'imported-leads':
+          unifiedData.name = data.fullName || data.name || '';
+          unifiedData.email = data.email || '';
+          unifiedData.phone = data.phone || data.phoneNumber || '';
+          unifiedData.company = data.company || data.companyName || '';
+          unifiedData.stage = data.stage || 'Nuevo';
+          unifiedData.value = data.estimatedValue || 0;
+          unifiedData.notes = data.notes || '';
+          unifiedData.batchId = data.batchId;
+          unifiedData.rowNumber = data.rowNumber;
+          unifiedData.transferredToFlow = data.isPromoted || false;
+          break;
       }
 
       // Si está transferido, obtener información del lead en el flujo
@@ -211,7 +231,7 @@ export async function POST(request: NextRequest) {
       transferred: unifiedLeads.filter(lead => lead.transferredToFlow).length,
       available: unifiedLeads.filter(lead => !lead.transferredToFlow).length,
       metadata: {
-        collection: config.collection,
+        collection: collectionName,
         organizationId,
         generatedAt: new Date().toISOString()
       }
