@@ -1,4 +1,3 @@
-// LogicGateNode/constants.ts
 import { LogicGateNodeConfig } from './schema';
 
 export const LOGIC_GATE_DEFAULTS: LogicGateNodeConfig = {
@@ -7,7 +6,7 @@ export const LOGIC_GATE_DEFAULTS: LogicGateNodeConfig = {
 };
 
 export const HELP_CONTENT = {
-  nodeType: 'logic-gate',
+  nodeType: 'logicGate',
   title: 'Compuerta Lógica',
   description: 'Este nodo permite seleccionar y evaluar una compuerta lógica básica entre dos valores booleanos (a y b).',
   usage: [
@@ -24,4 +23,4 @@ export const HELP_CONTENT = {
     'Usa NOT solo con una entrada (a); la entrada b será ignorada.',
     'El resultado se puede almacenar en una variable para futuras evaluaciones.',
   ],
-};
+} as const;

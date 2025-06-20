@@ -7,10 +7,16 @@ export const ComparisonOperators = [
   'isEmpty', 'isNotEmpty', 'length>', 'length<', 'length=='
 ] as const;
 
+// Alias for backwards compatibility
+export const COMPARISON_OPERATORS = ComparisonOperators;
+
 export type ComparisonOperator = typeof ComparisonOperators[number];
 
 // Operadores lógicos para combinar condiciones
 export const LogicalOperators = ['AND', 'OR'] as const;
+// Alias for backwards compatibility
+export const LOGIC_OPERATORS = LogicalOperators;
+
 export type LogicalOperator = typeof LogicalOperators[number];
 
 // Schema para una condición individual

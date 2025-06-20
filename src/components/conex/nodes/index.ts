@@ -5,6 +5,8 @@ import { Component as HttpRequestNode } from './HttpRequestNode';
 import { MonitorNode } from './MonitorNode';
 import { TriggerNode } from './TriggerNode';
 import { Component as LeadValidatorNode } from './LeadValidatorNode';
+import { Component as LogicGateNode } from './LogicGate';
+import { Component as DataFetcherNode } from './DataFetcher';
 
 export const nodeTypes = {
   trigger: TriggerNode,
@@ -13,6 +15,8 @@ export const nodeTypes = {
   dataTransform: DataTransformNode,
   monitor: MonitorNode,
   leadValidator: LeadValidatorNode,
+  logicGate: LogicGateNode,
+  dataFetcher: DataFetcherNode,
 };
 
 export {
@@ -22,4 +26,6 @@ export {
   DataTransformNode,
   MonitorNode,
   LeadValidatorNode,
+  LogicGateNode,
+  DataFetcherNode,
 };

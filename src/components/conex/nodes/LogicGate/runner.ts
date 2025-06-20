@@ -1,4 +1,3 @@
-// LogicGateNode/runner.ts
 import { LogicGateNodeConfig } from './schema';
 
 export interface LogicGateNodeContext {
@@ -38,10 +37,10 @@ export async function runLogicGateNode(
         result = !(a || !!b);
         break;
       case 'XOR':
-        result = a !== b;
+        result = a !== !!b;
         break;
       case 'XNOR':
-        result = a === b;
+        result = a === !!b;
         break;
       default:
         throw new Error(`Compuerta desconocida: ${config.gateType}`);

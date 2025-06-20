@@ -1,8 +1,6 @@
-// BluePrint-Node-LogicGate.md
-
 # LogicGateNode - Technical Specification
 
-**Node Type**: `logic-gate`  
+**Node Type**: `logicGate`  
 **Category**: `validation`  
 **Version**: `1.0.0`  
 **Compatibility**: FlowBuilder v2.x

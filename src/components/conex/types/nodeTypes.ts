@@ -1,4 +1,4 @@
-import { Zap, Link, RefreshCw, Monitor, Globe, UserCheck } from 'lucide-react';
+import { Zap, Link, RefreshCw, Monitor, Globe, UserCheck, Settings, Database } from 'lucide-react';
 import { NodeType } from './index';
 
 export const NODE_TYPES: NodeType[] = [
@@ -38,6 +38,18 @@ export const NODE_TYPES: NodeType[] = [
     icon: UserCheck, 
     description: 'Valida y edita datos de leads' 
   },
+  { 
+    type: 'logicGate', 
+    label: 'Compuerta Lógica', 
+    icon: Settings, 
+    description: 'Operaciones lógicas entre valores booleanos' 
+  },
+  { 
+    type: 'dataFetcher', 
+    label: 'Obtener Datos', 
+    icon: Database, 
+    description: 'Obtiene datos de la base de datos por ID, rango o todos' 
+  },
 ];
 
 export const getNodeLabel = (type: string): string => {
@@ -48,6 +60,8 @@ export const getNodeLabel = (type: string): string => {
     dataTransform: 'Transformar Datos',
     monitor: 'Monitor',
     leadValidator: 'Validador de Leads',
+    logicGate: 'Compuerta Lógica',
+    dataFetcher: 'Obtener Datos',
   };
   return labels[type] || type;
 };
@@ -105,6 +119,18 @@ export const getDefaultNodeConfig = (type: string): any => {
         trueMessage: 'Validación exitosa',
         falseMessage: 'Validación fallida'
       }
+    },
+    logicGate: {
+      name: 'Compuerta Lógica',
+      gateType: 'AND'
+    },
+    dataFetcher: {
+      name: 'Obtener Datos',
+      fetchMode: 'all',
+      collection: 'leads',
+      enableLogging: true,
+      includeMetadata: true,
+      timeout: 10000
     },
   };
   return configs[type] || {};

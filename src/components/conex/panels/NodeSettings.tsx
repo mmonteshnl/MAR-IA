@@ -19,6 +19,9 @@ import {
   DataTransformSettings 
 } from '../settings';
 import { Settings as HttpRequestSettings } from '../nodes/HttpRequestNode';
+import { LeadValidatorNodeUser as LeadValidatorSettings } from '../nodes/LeadValidatorNode/LeadValidatorNodeSettings';
+import { LogicGateNodeSettings } from '../nodes/LogicGate/LogicGateNodeSettings';
+import { DataFetcherNodeSettings } from '../nodes/DataFetcher/DataFetcherNodeSettings';
 
 interface NodeSettingsModalProps extends NodeSettingsProps {
   isOpen: boolean;
@@ -42,7 +45,10 @@ export function NodeSettings({ node, onUpdate, onClose, onDelete, isOpen }: Node
       apiCall: 'API Genérica',
       httpRequest: 'HTTP Request',
       dataTransform: 'Transformar Datos',
-      monitor: 'Monitor'
+      monitor: 'Monitor',
+      leadValidator: 'Validador de Leads',
+      logicGate: 'Compuerta Lógica',
+      dataFetcher: 'Obtener Datos'
     };
     return labels[type] || type;
   };
@@ -53,38 +59,44 @@ export function NodeSettings({ node, onUpdate, onClose, onDelete, isOpen }: Node
         <DialogHeader>
           <DialogTitle className="text-xl text-gray-100 flex items-center gap-2">
             <Settings className="h-5 w-5" />
-            Configuración del Nodo
+            {node.type === 'leadValidator' ? 'Validador de Leads' : 
+             node.type === 'logicGate' ? 'Compuerta Lógica' : 
+             node.type === 'dataFetcher' ? 'Obtener Datos' : 'Configuración del Nodo'}
           </DialogTitle>
         </DialogHeader>
         
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <Badge variant="outline" className="text-blue-400 border-blue-400">
-              {getNodeTypeLabel(node.type)}
-            </Badge>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={onDelete}
-              className="text-red-400 border-red-400 hover:bg-red-900/20 hover:text-red-300"
-            >
-              <Trash2 className="h-4 w-4 mr-1" />
-              Eliminar Nodo
-            </Button>
-          </div>
-          
-          <div className="space-y-2">
-            <Label className="text-gray-300">Nombre del Nodo</Label>
-            <Input
-              value={config.name || ''}
-              onChange={(e) => setConfig({ ...config, name: e.target.value })}
-              placeholder="Ingresa un nombre para el nodo"
-              className="bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400"
-            />
-            <p className="text-xs text-gray-400">
-              Usa un nombre descriptivo que identifique claramente la función de este nodo
-            </p>
-          </div>
+          {node.type !== 'leadValidator' && node.type !== 'logicGate' && node.type !== 'dataFetcher' && (
+            <>
+              <div className="flex items-center justify-between">
+                <Badge variant="outline" className="text-blue-400 border-blue-400">
+                  {getNodeTypeLabel(node.type)}
+                </Badge>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={onDelete}
+                  className="text-red-400 border-red-400 hover:bg-red-900/20 hover:text-red-300"
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Eliminar Nodo
+                </Button>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-gray-300">Nombre del Nodo</Label>
+                <Input
+                  value={config.name || ''}
+                  onChange={(e) => setConfig({ ...config, name: e.target.value })}
+                  placeholder="Ingresa un nombre para el nodo"
+                  className="bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400"
+                />
+                <p className="text-xs text-gray-400">
+                  Usa un nombre descriptivo que identifique claramente la función de este nodo
+                </p>
+              </div>
+            </>
+          )}
 
           {node.type === 'apiCall' && (
             <div className="space-y-2">
@@ -139,28 +151,44 @@ export function NodeSettings({ node, onUpdate, onClose, onDelete, isOpen }: Node
               </div>
             </div>
           )}
+
+          {node.type === 'leadValidator' && (
+            <LeadValidatorSettings config={config} onChange={setConfig} onClose={onClose} />
+          )}
+
+          {node.type === 'logicGate' && (
+            <LogicGateNodeSettings config={config} onChange={setConfig} onClose={onClose} />
+          )}
+
+          {node.type === 'dataFetcher' && (
+            <DataFetcherNodeSettings config={config} onChange={setConfig} onClose={onClose} />
+          )}
         </div>
 
-        <DialogFooter className="gap-2">
-          <Button 
-            variant="outline" 
-            onClick={onClose}
-            className="text-gray-300 border-gray-600 hover:bg-gray-700"
-          >
-            Cancelar
-          </Button>
-          <Button 
-            onClick={handleSave} 
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            <Settings className="h-4 w-4 mr-2" />
-            Guardar Configuración
-          </Button>
-        </DialogFooter>
-        
-        <div className="text-xs text-gray-400 border-t border-gray-600 pt-3 mt-3">
-          <p>💡 <strong>Atajo de teclado:</strong> Presione <kbd className="bg-gray-700 px-1 rounded text-gray-200">Supr</kbd> mientras selecciona un nodo para eliminarlo rápidamente</p>
-        </div>
+        {node.type !== 'leadValidator' && node.type !== 'logicGate' && node.type !== 'dataFetcher' && (
+          <>
+            <DialogFooter className="gap-2">
+              <Button 
+                variant="outline" 
+                onClick={onClose}
+                className="text-gray-300 border-gray-600 hover:bg-gray-700"
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleSave} 
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Guardar Configuración
+              </Button>
+            </DialogFooter>
+            
+            <div className="text-xs text-gray-400 border-t border-gray-600 pt-3 mt-3">
+              <p>💡 <strong>Atajo de teclado:</strong> Presione <kbd className="bg-gray-700 px-1 rounded text-gray-200">Supr</kbd> mientras selecciona un nodo para eliminarlo rápidamente</p>
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

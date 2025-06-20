@@ -1,6 +1,8 @@
+import { createDefaultLeadValidatorNodeConfig, validateLeadValidatorNodeConfig } from './runner';
+
 // Exportaciones principales del LeadValidatorNode Template
 export { LeadValidatorNode as Component } from './LeadValidatorNode';
-export { LeadValidatorNodeUser as User } from './LeadValidatorNodeUser';
+export { LeadValidatorNodeUser } from './LeadValidatorNodeSettings';
 export { executeLeadValidatorNode as runner, validateLeadValidatorNodeConfig, createDefaultLeadValidatorNodeConfig } from './runner';
 
 // Exportaciones de tipos y schemas

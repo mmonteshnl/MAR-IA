@@ -39,12 +39,17 @@ export function LeadValidatorNodeUser({ config, onChange, onClose }: LeadValidat
   const updateConfig = (newConfig: LeadValidatorNodeConfig) => {
     setCurrentConfig(newConfig);
     
-    // Validar configuración
-    const validation = validateLeadValidatorNodeConfig(newConfig);
-    if (!validation.valid) {
-      setValidationErrors(validation.errors || []);
-    } else {
+    // Validar configuración usando Zod schema
+    try {
+      validateLeadValidatorNodeConfig(newConfig);
       setValidationErrors([]);
+    } catch (error) {
+      if (error instanceof Error) {
+        setValidationErrors([{
+          path: 'config',
+          message: error.message
+        }]);
+      }
     }
   };
 

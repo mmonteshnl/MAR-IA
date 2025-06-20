@@ -1,4 +1,3 @@
-// LogicGateNode/schema.ts
 import { z } from 'zod';
 
 export const LogicGateNodeConfigSchema = z.object({
