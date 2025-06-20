@@ -164,7 +164,7 @@ export const useValuationConfig = () => {
     if (auth.currentUser) {
       fetchConfigs();
     }
-  }, [auth.currentUser]);
+  }, [auth.currentUser?.uid]);
 
   return {
     configs,

@@ -66,7 +66,7 @@ export default function FlowsPage() {
     if (user && organization) {
       fetchFlows();
     }
-  }, [user, organization]);
+  }, [user?.uid, organization?.id]);
 
   // Función para generar alias automáticamente
   const generateAlias = (name: string): string => {

@@ -39,7 +39,7 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import Image from 'next/image';
 import LoadingComponent from '@/components/LoadingComponent';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import OnboardingTour from '@/components/onboarding/OnboardingTour';
 
 // Replace LogoIcon with logo.png in SidebarHeader
@@ -103,6 +103,7 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
     if (!user || !user.uid) return;
     
     try {
+      // Try to update first, if document doesn't exist, create it
       await updateDoc(doc(db, 'users', user.uid), {
         hasCompletedOnboarding: true,
         onboardingCompletedAt: new Date().toISOString()
@@ -110,12 +111,38 @@ const AppLayoutClient = ({ children }: { children: React.ReactNode }) => {
       
       setShowOnboardingTour(false);
       toast({
-        title: "¡Bienvenido a Mar-IA! 🎉",
-        description: "Has completado el tour de introducción. ¡Ahora estás listo para comenzar!"
+        title: "¡Tour completado! 🎉",
+        description: "¡Ahora estás listo para comenzar!"
       });
     } catch (error) {
       console.error('Error updating onboarding status:', error);
-      setShowOnboardingTour(false);
+      
+      // If update fails because document doesn't exist, create it
+      if (error.code === 'not-found') {
+        try {
+          await setDoc(doc(db, 'users', user.uid), {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName || '',
+            photoURL: user.photoURL || '',
+            hasCompletedOnboarding: true,
+            onboardingCompletedAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
+          
+          setShowOnboardingTour(false);
+          toast({
+            title: "¡Tour completado! 🎉",
+            description: "¡Ahora estás listo para comenzar!"
+          });
+        } catch (createError) {
+          console.error('Error creating user document:', createError);
+          setShowOnboardingTour(false);
+        }
+      } else {
+        setShowOnboardingTour(false);
+      }
     }
   };
 
