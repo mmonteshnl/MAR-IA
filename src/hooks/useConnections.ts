@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from './use-auth';
 import { useOrganization } from './useOrganization';
 
@@ -36,27 +36,47 @@ export function useConnections(): UseConnectionsReturn {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Cache and performance refs
+  const cacheRef = useRef<{ [key: string]: { data: Connection[], timestamp: number } }>({});
+  const loadingRef = useRef(false);
+  const CACHE_DURATION = 3 * 60 * 1000; // 3 minutes
+  
+  // Memoized identifiers
+  const userId = useMemo(() => user?.uid, [user?.uid]);
+  const orgId = useMemo(() => organization?.id, [organization?.id]);
+  const cacheKey = useMemo(() => `${userId}_${orgId}`, [userId, orgId]);
 
-  const fetchConnections = async () => {
-    if (!user || !organization) {
-      console.log('❌ Cannot fetch connections - missing auth data');
+  const fetchConnections = useCallback(async () => {
+    if (!userId || !orgId) {
       setLoading(false);
       setError(null);
       setConnections([]);
       return;
     }
+    
+    // Prevent multiple simultaneous requests
+    if (loadingRef.current) return;
+    
+    // Check cache first
+    const cached = cacheRef.current[cacheKey];
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      setConnections(cached.data);
+      setLoading(false);
+      return;
+    }
 
     try {
+      loadingRef.current = true;
       setLoading(true);
       setError(null);
       
-      console.log('🔗 Fetching connections from Firebase API');
-      const token = await user.getIdToken();
+      const token = await user!.getIdToken();
       
       const response = await fetch('/api/connections', {
         headers: {
           'Authorization': `Bearer ${token}`,
-          'x-organization-id': organization.id
+          'x-organization-id': orgId
         }
       });
 
@@ -65,16 +85,23 @@ export function useConnections(): UseConnectionsReturn {
       }
 
       const data = await response.json();
-      setConnections(data.connections || []);
-      console.log(`✅ Loaded ${data.connections?.length || 0} connections from Firebase`);
+      const fetchedConnections = data.connections || [];
+      
+      // Update cache
+      cacheRef.current[cacheKey] = {
+        data: fetchedConnections,
+        timestamp: Date.now()
+      };
+      
+      setConnections(fetchedConnections);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch connections';
       setError(errorMessage);
-      console.error('Error fetching connections:', err);
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
-  };
+  }, [userId, orgId, cacheKey, user]);
 
   const createConnection = async (connectionData: CreateConnectionData): Promise<Connection> => {
     if (!user || !organization) {
@@ -178,10 +205,10 @@ export function useConnections(): UseConnectionsReturn {
   };
 
   useEffect(() => {
-    if (user && organization) {
+    if (userId && orgId) {
       fetchConnections();
     }
-  }, [user?.uid, organization?.id]);
+  }, [userId, orgId, fetchConnections]);
 
   return {
     connections,

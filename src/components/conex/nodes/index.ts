@@ -8,6 +8,7 @@ import { Component as LeadValidatorNode } from './LeadValidatorNode';
 import { Component as LogicGateNode } from './LogicGate';
 import { Component as DataFetcherNode } from './DataFetcher';
 import { ConversationalAICallNode } from './ConversationalAICallNode';
+import { SendEmailNode } from './SendEmailNode';
 
 export const nodeTypes = {
   trigger: TriggerNode,
@@ -19,6 +20,7 @@ export const nodeTypes = {
   logicGate: LogicGateNode,
   dataFetcher: DataFetcherNode,
   conversationalAICall: ConversationalAICallNode,
+  sendEmail: SendEmailNode,
 };
 
 export {
@@ -31,4 +33,5 @@ export {
   LogicGateNode,
   DataFetcherNode,
   ConversationalAICallNode,
+  SendEmailNode,
 };

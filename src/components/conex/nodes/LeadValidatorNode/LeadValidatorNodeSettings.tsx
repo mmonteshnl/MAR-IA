@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,32 +35,58 @@ export function LeadValidatorNodeUser({ config, onChange, onClose }: LeadValidat
   const [previewConfig, setPreviewConfig] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
 
-  // Función para actualizar configuración y validar
-  const updateConfig = (newConfig: LeadValidatorNodeConfig) => {
-    setCurrentConfig(newConfig);
-    
-    // Validar configuración usando Zod schema
-    try {
-      validateLeadValidatorNodeConfig(newConfig);
-      setValidationErrors([]);
-    } catch (error) {
-      if (error instanceof Error) {
-        setValidationErrors([{
-          path: 'config',
-          message: error.message
-        }]);
-      }
-    }
-  };
+  // Debouncing refs
+  const validationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const onChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const VALIDATION_DEBOUNCE_MS = 300;
+  const ONCHANGE_DEBOUNCE_MS = 500;
 
-  // Función para manejar cambios en fields básicos
-  const handleBasicChange = (field: string, value: any) => {
+  // Debounced validation function
+  const debouncedValidation = useCallback((newConfig: LeadValidatorNodeConfig) => {
+    if (validationTimeoutRef.current) {
+      clearTimeout(validationTimeoutRef.current);
+    }
+
+    validationTimeoutRef.current = setTimeout(() => {
+      try {
+        validateLeadValidatorNodeConfig(newConfig);
+        setValidationErrors([]);
+      } catch (error) {
+        if (error instanceof Error) {
+          setValidationErrors([{
+            path: 'config',
+            message: error.message
+          }]);
+        }
+      }
+    }, VALIDATION_DEBOUNCE_MS);
+  }, []);
+
+  // Debounced onChange call
+  const debouncedOnChange = useCallback((newConfig: LeadValidatorNodeConfig) => {
+    if (onChangeTimeoutRef.current) {
+      clearTimeout(onChangeTimeoutRef.current);
+    }
+
+    onChangeTimeoutRef.current = setTimeout(() => {
+      onChange(newConfig);
+    }, ONCHANGE_DEBOUNCE_MS);
+  }, [onChange]);
+
+  // Optimized config update function
+  const updateConfig = useCallback((newConfig: LeadValidatorNodeConfig) => {
+    setCurrentConfig(newConfig);
+    debouncedValidation(newConfig);
+    debouncedOnChange(newConfig);
+  }, [debouncedValidation, debouncedOnChange]);
+
+  // Memoized handlers
+  const handleBasicChange = useCallback((field: string, value: any) => {
     const newConfig = { ...currentConfig, [field]: value };
     updateConfig(newConfig);
-  };
+  }, [currentConfig, updateConfig]);
 
-  // Función para agregar condición
-  const addCondition = () => {
+  const addCondition = useCallback(() => {
     const newCondition = {
       field: '',
       operator: '==' as const,
@@ -77,10 +103,9 @@ export function LeadValidatorNodeUser({ config, onChange, onClose }: LeadValidat
     }
     
     updateConfig(newConfig);
-  };
+  }, [currentConfig, updateConfig]);
 
-  // Función para eliminar condición
-  const removeCondition = (index: number) => {
+  const removeCondition = useCallback((index: number) => {
     const newConfig = { ...currentConfig };
     
     if (currentConfig.mode === 'validator') {
@@ -91,10 +116,10 @@ export function LeadValidatorNodeUser({ config, onChange, onClose }: LeadValidat
     }
     
     updateConfig(newConfig);
-  };
+  }, [currentConfig, updateConfig]);
 
-  // Función para actualizar condición específica
-  const updateCondition = (index: number, field: string, value: any) => {
+  // Memoized update condition function
+  const updateCondition = useCallback((index: number, field: string, value: any) => {
     const newConfig = { ...currentConfig };
     
     if (currentConfig.mode === 'validator' && newConfig.validatorConfig?.conditions) {
@@ -105,20 +130,33 @@ export function LeadValidatorNodeUser({ config, onChange, onClose }: LeadValidat
     }
     
     updateConfig(newConfig);
-  };
+  }, [currentConfig, updateConfig]);
 
-  // Aplicar configuración de ejemplo
-  const applyExample = (exampleKey: keyof typeof EXAMPLE_CONFIGS) => {
+  // Memoized example application
+  const applyExample = useCallback((exampleKey: keyof typeof EXAMPLE_CONFIGS) => {
     const example = EXAMPLE_CONFIGS[exampleKey];
     updateConfig({ ...currentConfig, ...example });
     toast({
       title: 'Ejemplo Aplicado',
       description: `Configuración "${example.name}" cargada exitosamente`,
     });
-  };
+  }, [currentConfig, updateConfig]);
 
-  // Función para guardar cambios
-  const handleSave = () => {
+  // Memoized JSON stringified values to prevent re-computation on every render
+  const memoizedConfigJson = useMemo(() => 
+    JSON.stringify(currentConfig, null, 2), [currentConfig]
+  );
+  
+  const memoizedEditorConfigJson = useMemo(() => 
+    JSON.stringify(currentConfig.editorConfig || {}, null, 2), [currentConfig.editorConfig]
+  );
+  
+  const memoizedRouterConfigJson = useMemo(() => 
+    JSON.stringify(currentConfig.routerConfig || {}, null, 2), [currentConfig.routerConfig]
+  );
+
+  // Memoized save handler
+  const handleSave = useCallback(() => {
     if (validationErrors.length === 0) {
       onChange(currentConfig);
       onClose?.();
@@ -127,7 +165,7 @@ export function LeadValidatorNodeUser({ config, onChange, onClose }: LeadValidat
         description: 'Los cambios se han aplicado correctamente',
       });
     }
-  };
+  }, [validationErrors.length, currentConfig, onChange, onClose]);
 
   return (
     <div className="space-y-4 text-white">
@@ -220,7 +258,7 @@ export function LeadValidatorNodeUser({ config, onChange, onClose }: LeadValidat
           </CardHeader>
           <CardContent>
             <pre className="text-xs bg-gray-800 p-3 rounded border border-gray-700 overflow-auto max-h-64 text-gray-300">
-              {JSON.stringify(currentConfig, null, 2)}
+              {memoizedConfigJson}
             </pre>
           </CardContent>
         </Card>
@@ -485,7 +523,7 @@ export function LeadValidatorNodeUser({ config, onChange, onClose }: LeadValidat
                   <Label htmlFor="editorJsonConfig" className="text-gray-300 text-xs">Configuración JSON del Editor</Label>
                   <Textarea
                     id="editorJsonConfig"
-                    value={JSON.stringify(currentConfig.editorConfig || {}, null, 2)}
+                    value={memoizedEditorConfigJson}
                     onChange={(e) => {
                       try {
                         const parsed = JSON.parse(e.target.value);
@@ -525,7 +563,7 @@ export function LeadValidatorNodeUser({ config, onChange, onClose }: LeadValidat
                   <Label htmlFor="routerJsonConfig" className="text-gray-300 text-xs">Configuración JSON del Router</Label>
                   <Textarea
                     id="routerJsonConfig"
-                    value={JSON.stringify(currentConfig.routerConfig || {}, null, 2)}
+                    value={memoizedRouterConfigJson}
                     onChange={(e) => {
                       try {
                         const parsed = JSON.parse(e.target.value);
@@ -645,7 +683,7 @@ export function LeadValidatorNodeUser({ config, onChange, onClose }: LeadValidat
             <strong>Ejemplos de condiciones:</strong>
             <ul className="list-disc list-inside mt-1 space-y-1">
               <li><code>context == "premium"</code> - Lead premium</li>
-              <li><code>leadValue > 5000</code> - Valor mayor a 5000</li>
+              <li><code>leadValue &gt; 5000</code> - Valor mayor a 5000</li>
               <li><code>leadEmail contains "@empresa.com"</code> - Email corporativo</li>
             </ul>
           </div>

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { FlowDefinition } from '@/lib/flow-executor';
+import { logger } from '@/lib/logger';
 
 export interface FlowExecution {
   executionId: string;
@@ -33,21 +34,19 @@ export function useFlowExecutor(): UseFlowExecutorReturn {
   const [error, setError] = useState<string | null>(null);
   const [currentExecution, setCurrentExecution] = useState<FlowExecution | null>(null);
 
-  const executeFlow = async (options: ExecuteFlowOptions): Promise<FlowExecution> => {
+  const executeFlow = useCallback(async (options: ExecuteFlowOptions): Promise<FlowExecution> => {
     try {
       setExecuting(true);
       setError(null);
       
       if (options.enableLogs) {
-        console.log('🚀 Starting flow execution...');
-        console.log('📋 Input data received:', options.inputData);
-        console.log('🔗 Flow nodes:', options.flowDefinition.nodes.length);
-        console.log('⚡ Flow connections:', options.flowDefinition.edges.length);
+        logger.debug('Starting flow execution...');
+        logger.debug('Input data received:', options.inputData);
+        logger.debug('Flow nodes:', options.flowDefinition.nodes.length);
+        logger.debug('Flow connections:', options.flowDefinition.edges.length);
       }
 
-      // For now, simulate execution locally for demo purposes
-      // In production, this would make an API call with proper auth
-      console.log('🧪 DEMO MODE: Simulating flow execution locally');
+      logger.debug('DEMO MODE: Simulating flow execution locally');
       
       // Asegurar que tenemos datos de entrada válidos
       const inputData = Object.keys(options.inputData || {}).length > 0 
@@ -93,7 +92,7 @@ export function useFlowExecutor(): UseFlowExecutorReturn {
                 const headers = node.data.config.headers || {};
                 
                 if (options.enableLogs) {
-                  console.log(`🌐 Making real HTTP ${method} request to:`, url);
+                  logger.debug(`Making real HTTP ${method} request to:`, url);
                 }
                 
                 // Hacer la llamada real usando fetch
@@ -119,14 +118,14 @@ export function useFlowExecutor(): UseFlowExecutorReturn {
                 };
                 
                 if (options.enableLogs) {
-                  console.log(`✅ HTTP ${method} request completed:`, {
+                  logger.debug(`✅ HTTP ${method} request completed:`, {
                     status: response.status,
                     data: responseData
                   });
                 }
               } catch (error) {
                 if (options.enableLogs) {
-                  console.error('❌ HTTP request failed:', error);
+                  logger.error('❌ HTTP request failed:', error);
                 }
                 
                 simulatedResults[nodeId] = {
@@ -209,9 +208,9 @@ export function useFlowExecutor(): UseFlowExecutorReturn {
               
               if (options.enableLogs) {
                 if (validatorResult.success) {
-                  console.log(`✅ LEAD VALIDATOR: Completed successfully in mode ${validatorResult.mode}`);
+                  logger.debug(`✅ LEAD VALIDATOR: Completed successfully in mode ${validatorResult.mode}`);
                 } else {
-                  console.error(`❌ LEAD VALIDATOR: Failed - ${validatorResult.error}`);
+                  logger.error(`❌ LEAD VALIDATOR: Failed - ${validatorResult.error}`);
                 }
               }
               
@@ -224,7 +223,7 @@ export function useFlowExecutor(): UseFlowExecutorReturn {
               };
               
               if (options.enableLogs) {
-                console.error('❌ LEAD VALIDATOR: Exception during execution:', error);
+                logger.error('❌ LEAD VALIDATOR: Exception during execution:', error);
               }
             }
             break;
@@ -295,13 +294,13 @@ export function useFlowExecutor(): UseFlowExecutorReturn {
       setCurrentExecution(execution);
 
       if (options.enableLogs) {
-        console.log('✅ Flow execution completed');
-        console.log('📊 Results:', execution.results);
+        logger.debug('✅ Flow execution completed');
+        logger.debug('📊 Results:', execution.results);
         
         if (simulatedResult.success) {
-          console.log('🎉 Execution successful!');
+          logger.debug('🎉 Execution successful!');
         } else {
-          console.error('❌ Execution failed:', execution.error);
+          logger.error('❌ Execution failed:', execution.error);
         }
         
         // Log individual step results for debugging
@@ -311,11 +310,11 @@ export function useFlowExecutor(): UseFlowExecutorReturn {
           // Si es un nodo Monitor, mostrar el log especial
           if ((stepResult as any)?.consoleLog) {
             const monitorResult = stepResult as any;
-            console.log(monitorResult.consoleLog.title);
-            console.log('⏰ Timestamp:', monitorResult.consoleLog.timestamp);
-            console.log('📦 Datos capturados:', monitorResult.consoleLog.data);
+            logger.debug(monitorResult.consoleLog.title);
+            logger.debug('⏰ Timestamp:', monitorResult.consoleLog.timestamp);
+            logger.debug('📦 Datos capturados:', monitorResult.consoleLog.data);
           } else {
-            console.log(stepResult);
+            logger.debug(stepResult);
           }
           
           console.groupEnd();
@@ -326,19 +325,19 @@ export function useFlowExecutor(): UseFlowExecutorReturn {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to execute flow';
       setError(errorMessage);
-      console.error('Flow execution error:', err);
+      logger.error('Flow execution error:', err);
       throw err;
     } finally {
       setExecuting(false);
     }
-  };
+  }, []);
 
-  const resumeExecution = async (executionId: string): Promise<FlowExecution> => {
+  const resumeExecution = useCallback(async (executionId: string): Promise<FlowExecution> => {
     try {
       setExecuting(true);
       setError(null);
       
-      console.log('🔄 DEMO MODE: Simulating resume execution:', executionId);
+      logger.debug('🔄 DEMO MODE: Simulating resume execution:', executionId);
 
       // Simulate resumed execution
       const execution: FlowExecution = {
@@ -352,22 +351,22 @@ export function useFlowExecutor(): UseFlowExecutorReturn {
       };
 
       setCurrentExecution(execution);
-      console.log('✅ Flow execution resumed and completed');
+      logger.debug('✅ Flow execution resumed and completed');
 
       return execution;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to resume execution';
       setError(errorMessage);
-      console.error('Flow resume error:', err);
+      logger.error('Flow resume error:', err);
       throw err;
     } finally {
       setExecuting(false);
     }
-  };
+  }, []);
 
-  const getExecutionHistory = async (): Promise<FlowExecution[]> => {
+  const getExecutionHistory = useCallback(async (): Promise<FlowExecution[]> => {
     try {
-      console.log('📋 DEMO MODE: Simulating execution history');
+      logger.debug('📋 DEMO MODE: Simulating execution history');
       
       // Return mock execution history
       return [
@@ -392,14 +391,14 @@ export function useFlowExecutor(): UseFlowExecutorReturn {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch execution history';
       setError(errorMessage);
-      console.error('Execution history error:', err);
+      logger.error('Execution history error:', err);
       return [];
     }
-  };
+  }, []);
 
-  const clearError = () => {
+  const clearError = useCallback(() => {
     setError(null);
-  };
+  }, []);
 
   return {
     executing,

@@ -115,16 +115,24 @@ export default function FlowsPage() {
   };
 
   const handleTemplateSelect = (template: FlowTemplate) => {
+    console.log('🔍 DEPURACIÓN: Plantilla seleccionada:', template);
+    console.log('🔍 DEPURACIÓN: Template flowData:', template.flowData);
+    console.log('🔍 DEPURACIÓN: Template nodes count:', template.flowData?.nodes?.length);
+    console.log('🔍 DEPURACIÓN: Template edges count:', template.flowData?.edges?.length);
+    
     // Pre-fill form with template data
     setFormData({
       name: template.name,
       description: template.description,
       isActive: true,
       trigger: {
-        type: 'manual',
-        settings: {}
+        type: 'manual_lead_action', // Use proper trigger type for templates
+        config: {}
       },
-      icon: 'Workflow'
+      icon: template.id === 'whatsapp-welcome-meta' ? 'Mail' : 
+            template.id === 'slack-high-value-notification' ? 'Bell' :
+            template.id === 'ai-call-high-priority' ? 'Phone' : 'Workflow',
+      isEnabled: true
     });
     
     // Create the flow with template data
@@ -136,11 +144,17 @@ export default function FlowsPage() {
       alias: autoAlias
     };
     
+    console.log('🔍 DEPURACIÓN: Datos para la API:', flowDataWithAlias);
     createFlowWithTemplate(flowDataWithAlias, template);
   };
 
   const createFlowWithTemplate = async (flowData: CreateFlowRequest, template: FlowTemplate) => {
+    console.log('🔍 DEPURACIÓN: Iniciando createFlowWithTemplate');
+    console.log('🔍 DEPURACIÓN: Organization:', organization);
+    console.log('🔍 DEPURACIÓN: User:', user);
+    
     if (!organization || !user) {
+      console.error('🔍 DEPURACIÓN: Missing organization or user');
       toast({
         title: 'Error',
         description: 'Organization or user not found',
@@ -151,28 +165,73 @@ export default function FlowsPage() {
     
     setSaving(true);
     try {
+      console.log('🔍 DEPURACIÓN: Getting user token...');
       const token = await user.getIdToken();
+      console.log('🔍 DEPURACIÓN: Token obtained successfully');
       
+      const requestBody = {
+        ...flowData,
+        organizationId: organization.id,
+        definition: template.flowData, // Use template's flow data as definition
+        variables: template.variables || {},
+        requiredConnections: template.requiredConnections || []
+      };
+      
+      console.log('🔍 DEPURACIÓN: Request body enviado a API:', requestBody);
+      console.log('🔍 DEPURACIÓN: Template definition en request:', requestBody.definition);
+      console.log('🔍 DEPURACIÓN: Required fields check:', {
+        name: !!requestBody.name,
+        description: !!requestBody.description,
+        icon: !!requestBody.icon,
+        trigger: !!requestBody.trigger,
+        definition: !!requestBody.definition,
+        organizationId: !!requestBody.organizationId
+      });
+      
+      console.log('🔍 DEPURACIÓN: Making fetch request to /api/flows...');
       const response = await fetch('/api/flows', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          ...flowData,
-          organizationId: organization.id,
-          flowData: template.flowData, // Use template's flow data
-          variables: template.variables || {},
-          requiredConnections: template.requiredConnections || []
-        })
+        body: JSON.stringify(requestBody)
       });
+      
+      console.log('🔍 DEPURACIÓN: Response received, status:', response.status);
+      console.log('🔍 DEPURACIÓN: Response ok:', response.ok);
 
       if (!response.ok) {
-        throw new Error('Failed to create flow from template');
+        console.log('🔍 DEPURACIÓN: Response not ok, getting error details...');
+        let errorText;
+        let errorData;
+        
+        try {
+          errorText = await response.text();
+          console.log('🔍 DEPURACIÓN: Raw error text:', errorText);
+        } catch (textError) {
+          console.error('🔍 DEPURACIÓN: Error reading response text:', textError);
+          errorText = 'Could not read response';
+        }
+        
+        try {
+          errorData = JSON.parse(errorText);
+          console.log('🔍 DEPURACIÓN: Parsed error data:', errorData);
+        } catch (parseError) {
+          console.error('🔍 DEPURACIÓN: Error parsing JSON:', parseError);
+          errorData = { error: 'Could not parse error response', raw: errorText, status: response.status };
+        }
+        
+        console.error('🔍 DEPURACIÓN: Error de API:', errorData, 'al intentar escoger una de: Biblioteca de Plantillas CONEX');
+        console.error('🔍 DEPURACIÓN: Response status:', response.status);
+        console.error('🔍 DEPURACIÓN: Response headers:', Object.fromEntries(response.headers.entries()));
+        throw new Error(`Failed to create flow from template: ${errorData.error || 'Unknown error'}`);
       }
 
       const newFlow = await response.json();
+      console.log('🔍 DEPURACIÓN: Nuevo flujo recibido de la API:', newFlow);
+      console.log('🔍 DEPURACIÓN: Definición del flujo:', newFlow.definition);
+      
       setFlows([...flows, newFlow]);
       
       toast({
@@ -181,14 +240,19 @@ export default function FlowsPage() {
       });
       
       // Open the flow in the builder for customization
+      console.log('🔍 DEPURACIÓN: Pasando al FlowBuilder:', newFlow);
       setEditingFlow(newFlow);
       setShowBuilder(true);
       
     } catch (error) {
-      console.error('Error creating flow from template:', error);
+      console.error('🔍 DEPURACIÓN: Catch block - Error creating flow from template:', error);
+      console.error('🔍 DEPURACIÓN: Error type:', typeof error);
+      console.error('🔍 DEPURACIÓN: Error message:', error instanceof Error ? error.message : String(error));
+      console.error('🔍 DEPURACIÓN: Error stack:', error instanceof Error ? error.stack : 'No stack');
+      
       toast({
         title: 'Error',
-        description: 'Failed to create flow from template',
+        description: `Failed to create flow from template: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: 'destructive'
       });
     } finally {

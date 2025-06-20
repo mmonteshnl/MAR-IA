@@ -1,6 +1,7 @@
 import Handlebars from 'handlebars';
 import { decrypt } from './secure-crypto';
 import { ConnectionCredentials } from '@/types/conex';
+import { EmailService } from '@/lib/email-service';
 
 export interface FlowNode {
   id: string;
@@ -37,6 +38,9 @@ export interface ExecutionContext {
 
 export class FlowExecutor {
   private context: ExecutionContext;
+  private pendingPersist: boolean = false;
+  private persistDebounceTimer: NodeJS.Timeout | null = null;
+  private readonly PERSIST_DEBOUNCE_MS = 1000; // 1 second debounce
 
   constructor(organizationId?: string, createdBy?: string, executionId?: string) {
     this.context = {
@@ -75,15 +79,37 @@ export class FlowExecutor {
     }
   }
 
-  // Persist execution state to Firestore (Server-side only)
+  // Debounced persist execution state to Firestore (Server-side only)
+  private debouncedPersistExecutionState(): void {
+    if (!this.context.organizationId || !this.context.executionId) {
+      return;
+    }
+
+    // Clear existing timer
+    if (this.persistDebounceTimer) {
+      clearTimeout(this.persistDebounceTimer);
+    }
+
+    // Mark as pending
+    this.pendingPersist = true;
+
+    // Set new debounced timer
+    this.persistDebounceTimer = setTimeout(async () => {
+      if (this.pendingPersist) {
+        await this.persistExecutionState();
+        this.pendingPersist = false;
+      }
+    }, this.PERSIST_DEBOUNCE_MS);
+  }
+
+  // Immediate persist execution state to Firestore (Server-side only)
   private async persistExecutionState(): Promise<void> {
     if (!this.context.organizationId || !this.context.executionId) {
-      return; // Skip persistence if no organization context
+      return;
     }
 
     // Only persist on server-side (when running in Node.js environment)
     if (typeof window !== 'undefined') {
-      console.log('💾 Skipping persistence on client-side');
       return;
     }
 
@@ -113,9 +139,7 @@ export class FlowExecutor {
         variables: this.context.variables
       }, { merge: true });
 
-      console.log(`💾 Execution state persisted: ${this.context.executionId}`);
     } catch (error) {
-      console.error('Failed to persist execution state:', error);
       // Don't throw - execution can continue without persistence
     }
   }
@@ -175,7 +199,7 @@ export class FlowExecutor {
     executionId?: string;
   }> {
     try {
-      // Persist initial execution state
+      // Persist initial execution state (immediate for start)
       await this.persistExecutionState();
 
       const { nodes, edges } = definition;
@@ -195,9 +219,9 @@ export class FlowExecutor {
         if (!node) continue;
 
         try {
-          // Update current step and persist
+          // Update current step and use debounced persist
           this.context.currentStep = nodeId;
-          await this.persistExecutionState();
+          this.debouncedPersistExecutionState();
 
           const result = await this.executeNode(node);
           results[nodeId] = result;
@@ -206,12 +230,12 @@ export class FlowExecutor {
           // Update context variables with step results
           this.context.variables[`step_${nodeId}`] = result;
 
-          // Persist after each step
-          await this.persistExecutionState();
+          // Use debounced persist for intermediate steps
+          this.debouncedPersistExecutionState();
           
         } catch (error) {
           this.context.status = 'failed';
-          await this.persistExecutionState();
+          await this.persistExecutionState(); // Immediate persist for errors
           
           return {
             success: false,
@@ -223,7 +247,7 @@ export class FlowExecutor {
       }
 
       this.context.status = 'completed';
-      await this.persistExecutionState();
+      await this.persistExecutionState(); // Immediate persist for completion
 
       return {
         success: true,
@@ -233,7 +257,7 @@ export class FlowExecutor {
 
     } catch (error) {
       this.context.status = 'failed';
-      await this.persistExecutionState();
+      await this.persistExecutionState(); // Immediate persist for errors
       
       return {
         success: false,
@@ -264,6 +288,9 @@ export class FlowExecutor {
       
       case 'conversationalAICall':
         return await this.executeConversationalAICallNode(node);
+      
+      case 'sendEmail':
+        return await this.executeSendEmailNode(node);
       
       default:
         throw new Error(`Unknown node type: ${node.type}`);
@@ -824,6 +851,87 @@ export class FlowExecutor {
         nodeId: node.id,
         nodeName: node.data.name,
       };
+    }
+  }
+
+  // Execute send email node using centralized EmailService
+  private async executeSendEmailNode(node: FlowNode): Promise<any> {
+    try {
+      const config = node.data.config;
+      const { organizationId } = this.context.variables.trigger.input;
+
+      console.log(`📧 Ejecutando nodo SendEmail: ${node.data.name}`);
+
+      // 1. Renderizar campos con variables del flujo
+      const from = this.renderTemplate(config.from, this.context.variables);
+      let to = this.renderTemplate(config.to, this.context.variables);
+      const subject = this.renderTemplate(config.subject, this.context.variables);
+      const body = this.renderTemplate(config.bodyTemplate || config.body, this.context.variables);
+
+      // 2. Lógica especial para {{team.emails}}
+      if (to.includes('{{team.emails}}')) {
+        const memberEmails = await this.getOrganizationMemberEmails(organizationId);
+        to = memberEmails.join(',');
+      }
+
+      console.log('📧 Parámetros del email:', {
+        from,
+        to: to.split(',').map(email => email.trim()),
+        subject,
+        bodyLength: body.length
+      });
+
+      // 3. ¡LA MEJORA! Usar nuestro servicio centralizado
+      const result = await EmailService.send({
+        from,
+        to: to.split(',').map(email => email.trim()),
+        subject,
+        html: `<p>${body.replace(/\n/g, '<br>')}</p>`,
+      });
+
+      console.log('📧 Resultado del envío:', result);
+
+      return {
+        success: result.success,
+        messageId: result.messageId,
+        error: result.error,
+        nodeId: node.id,
+        nodeName: node.data.name,
+        emailsSent: result.success ? to.split(',').length : 0,
+        emailData: {
+          from,
+          to: to.split(',').map(email => email.trim()),
+          subject,
+          timestamp: new Date().toISOString()
+        }
+      };
+
+    } catch (error) {
+      console.error(`❌ Error ejecutando nodo SendEmail ${node.data.name}:`, error);
+      
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error desconocido en SendEmail',
+        nodeId: node.id,
+        nodeName: node.data.name,
+      };
+    }
+  }
+
+  // La función getOrganizationMemberEmails es específica de la lógica de CONEX.
+  private async getOrganizationMemberEmails(orgId: string): Promise<string[]> {
+    try {
+      // En un entorno real, esto haría una consulta a Firestore para obtener
+      // los emails de los miembros de la organización
+      console.log(`🔍 Obteniendo emails de miembros para organización: ${orgId}`);
+      
+      // Por ahora, retornamos emails de prueba
+      // TODO: Implementar consulta real a Firestore
+      return ['ventas1@empresa.com', 'ventas2@empresa.com', 'gerente@empresa.com'];
+      
+    } catch (error) {
+      console.error('Error obteniendo emails del equipo:', error);
+      return ['fallback@empresa.com'];
     }
   }
 }

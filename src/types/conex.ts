@@ -1,5 +1,10 @@
 // Types for Conex module
 
+export interface FlowData {
+  nodes: any[];
+  edges: any[];
+}
+
 export interface Connection {
   id: string;
   name: string;

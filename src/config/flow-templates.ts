@@ -562,6 +562,139 @@ export const FLOW_TEMPLATES: FlowTemplate[] = [
         }
       ]
     }
+  },
+  {
+    id: 'email-team-notification-new-lead',
+    name: 'Notificar al Equipo sobre Nuevo Lead',
+    description: 'Envía automáticamente un email al equipo de ventas cuando se recibe un nuevo lead calificado.',
+    category: 'notificaciones',
+    difficulty: 'facil',
+    estimatedTime: '3-5 minutos',
+    useCase: 'Perfecto para equipos que quieren notificación inmediata por email cuando llega un lead importante.',
+    requiredConnections: [],
+    variables: {
+      fromEmail: 'sistema@empresa.com',
+      teamEmails: '{{team.emails}}',
+      emailSubject: 'Nuevo Lead Calificado: {{lead.name}}'
+    },
+    flowData: {
+      nodes: [
+        {
+          id: 'trigger-new-lead',
+          type: 'trigger',
+          position: { x: 50, y: 100 },
+          data: {
+            label: 'Nuevo Lead Calificado',
+            config: {
+              triggerType: 'manual_lead_action',
+              eventSource: 'lead-qualification',
+              description: 'Se activa cuando un lead es marcado como calificado'
+            }
+          }
+        },
+        {
+          id: 'validate-lead-data',
+          type: 'logicGate',
+          position: { x: 300, y: 100 },
+          data: {
+            label: 'Validar Datos del Lead',
+            config: {
+              condition: 'lead.name && lead.email && lead.phone',
+              trueOutput: 'valid_lead',
+              falseOutput: 'invalid_lead',
+              description: 'Verifica que el lead tenga los datos mínimos requeridos'
+            }
+          }
+        },
+        {
+          id: 'send-team-notification',
+          type: 'sendEmail',
+          position: { x: 550, y: 50 },
+          data: {
+            label: 'Enviar Email al Equipo',
+            config: {
+              from: 'sistema@empresa.com',
+              to: '{{team.emails}}',
+              subject: '🎯 Nuevo Lead Calificado: {{lead.name}}',
+              bodyTemplate: '¡Hola equipo!\n\nTenemos un nuevo lead calificado que requiere atención:\n\n📋 INFORMACIÓN DEL LEAD:\n• Nombre: {{lead.name}}\n• Email: {{lead.email}}\n• Teléfono: {{lead.phone}}\n• Empresa: {{lead.company}}\n• Fuente: {{lead.source}}\n• Valor estimado: ${{lead.estimatedValue}}\n\n💡 CONTEXTO:\n• Interés mostrado: {{lead.interestArea}}\n• Urgencia: {{lead.urgency}}\n• Mejor horario de contacto: {{lead.preferredContactTime}}\n\n🎬 PRÓXIMOS PASOS:\n1. Revisar perfil completo en el CRM\n2. Asignar responsable en las próximas 2 horas\n3. Contactar en menos de 24 horas\n\n¡A por este lead! 💪\n\n---\nMensaje generado automáticamente por Mar-IA CRM\nTimestamp: {{now}}'
+            }
+          }
+        },
+        {
+          id: 'log-notification-sent',
+          type: 'monitor',
+          position: { x: 800, y: 50 },
+          data: {
+            label: 'Registrar Notificación Enviada',
+            config: {
+              logLevel: 'info',
+              message: 'Notificación por email enviada al equipo para lead: {{lead.name}}',
+              trackEvents: ['email_sent', 'team_notified'],
+              saveToDatabase: true,
+              alertOnError: false
+            }
+          }
+        },
+        {
+          id: 'send-fallback-slack',
+          type: 'apiCall',
+          position: { x: 550, y: 200 },
+          data: {
+            label: 'Notificación de Respaldo (Datos Incompletos)',
+            config: {
+              method: 'POST',
+              url: '/api/slack/send-message',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                channel: '#leads-incompletos',
+                text: '⚠️ Lead con datos incompletos recibido',
+                attachments: [
+                  {
+                    color: 'warning',
+                    fields: [
+                      { title: 'ID', value: '{{lead.id}}', short: true },
+                      { title: 'Nombre', value: '{{lead.name || "No proporcionado"}}', short: true },
+                      { title: 'Email', value: '{{lead.email || "No proporcionado"}}', short: true },
+                      { title: 'Teléfono', value: '{{lead.phone || "No proporcionado"}}', short: true }
+                    ]
+                  }
+                ]
+              })
+            }
+          }
+        }
+      ],
+      edges: [
+        {
+          id: 'trigger-to-validate',
+          source: 'trigger-new-lead',
+          target: 'validate-lead-data',
+          type: 'default'
+        },
+        {
+          id: 'validate-to-email',
+          source: 'validate-lead-data',
+          target: 'send-team-notification',
+          type: 'conditional',
+          sourceHandle: 'true'
+        },
+        {
+          id: 'validate-to-fallback',
+          source: 'validate-lead-data',
+          target: 'send-fallback-slack',
+          type: 'conditional',
+          sourceHandle: 'false'
+        },
+        {
+          id: 'email-to-log',
+          source: 'send-team-notification',
+          target: 'log-notification-sent',
+          type: 'default'
+        }
+      ]
+    }
   }
 ];
 

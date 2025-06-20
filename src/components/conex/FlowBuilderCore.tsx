@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useRef } from 'react';
+import React, { useCallback, useState, useRef, useMemo, memo } from 'react';
 import ReactFlow, {
   Node,
   Edge,
@@ -45,7 +45,8 @@ const initialNodes: Node[] = [
 
 const initialEdges: Edge[] = [];
 
-export function FlowBuilderCore({ onSave, initialFlowData, loading }: FlowBuilderProps) {
+export const FlowBuilderCore = memo<FlowBuilderProps>(function FlowBuilderCore({ onSave, initialFlowData, loading }) {
+  
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialFlowData?.nodes || initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialFlowData?.edges || initialEdges);
@@ -58,7 +59,8 @@ export function FlowBuilderCore({ onSave, initialFlowData, loading }: FlowBuilde
     [key: string]: string | number;
   };
 
-  const [testData, setTestData] = useState<TestData>({
+  // Memoized test data to prevent unnecessary re-renders
+  const [testData, setTestData] = useState<TestData>(() => ({
     leadName: 'Lead de Prueba',
     leadEmail: 'prueba@ejemplo.com',
     leadPhone: '+1234567890',
@@ -68,16 +70,15 @@ export function FlowBuilderCore({ onSave, initialFlowData, loading }: FlowBuilde
     leadIndustry: 'Tecnología',
     leadAddress: 'Dirección de Prueba',
     leadValue: 15000
-  });
+  }));
   
   const { executeFlow, executing } = useFlowExecutor();
 
-  // Función para actualizar los nodos Monitor con los resultados reales
+  // Memoized function to update nodes with execution results
   const updateNodesWithExecutionResults = useCallback((executionResults: Record<string, any>) => {
     setNodes((currentNodes) => 
       currentNodes.map((node) => {
         if (node.type === 'monitor') {
-          // Buscar los resultados correspondientes a este nodo
           const nodeResult = executionResults[node.id];
           if (nodeResult) {
             return {
@@ -152,19 +153,20 @@ export function FlowBuilderCore({ onSave, initialFlowData, loading }: FlowBuilde
     setShowNodeSettings(true);
   }, []);
 
-  const handleSave = () => {
+  // Memoized handlers to prevent unnecessary re-renders
+  const handleSave = useCallback(() => {
     if (!reactFlowInstance) return;
     
     const flowData = reactFlowInstance.toObject();
     onSave(flowData);
-  };
+  }, [reactFlowInstance, onSave]);
 
-  const getFlowJson = () => {
+  const getFlowJson = useCallback(() => {
     if (!reactFlowInstance) return null;
     return reactFlowInstance.toObject();
-  };
+  }, [reactFlowInstance]);
 
-  const copyJsonToClipboard = () => {
+  const copyJsonToClipboard = useCallback(() => {
     const flowData = getFlowJson();
     if (flowData) {
       navigator.clipboard.writeText(JSON.stringify(flowData, null, 2));
@@ -173,20 +175,19 @@ export function FlowBuilderCore({ onSave, initialFlowData, loading }: FlowBuilde
         description: 'El JSON del flujo ha sido copiado al portapapeles',
       });
     }
-  };
+  }, [getFlowJson]);
 
-  const handleTestFlow = () => {
+  const handleTestFlow = useCallback(() => {
     setShowTestModal(true);
-  };
+  }, []);
 
-  const executeTestFlow = async () => {
+  const executeTestFlow = useCallback(async () => {
     if (!reactFlowInstance) return;
     setShowTestModal(false);
 
     try {
       const flowData = reactFlowInstance.toObject();
       
-      // Convertir los nodos de ReactFlow al formato del FlowExecutor
       const flowDefinition = {
         nodes: flowData.nodes.map(node => ({
           id: node.id,
@@ -203,14 +204,12 @@ export function FlowBuilderCore({ onSave, initialFlowData, loading }: FlowBuilde
         }))
       };
       
-      // Ejecutar el flujo usando el hook
       const result = await executeFlow({
         inputData: testData,
         flowDefinition,
         enableLogs: true
       });
       
-      // Actualizar los nodos Monitor con los resultados reales
       if (result.status === 'completed' && result.stepResults) {
         updateNodesWithExecutionResults(result.stepResults);
       }
@@ -222,26 +221,23 @@ export function FlowBuilderCore({ onSave, initialFlowData, loading }: FlowBuilde
       });
 
     } catch (error) {
-      console.error('❌ Error ejecutando flujo:', error);
       toast({
         title: 'Error en Ejecución',
         description: `Error: ${error instanceof Error ? error.message : 'Error desconocido'}`,
         variant: 'destructive',
       });
     }
-  };
+  }, [reactFlowInstance, testData, executeFlow, updateNodesWithExecutionResults]);
 
-  const updateTestData = (field: string, value: any) => {
+  const updateTestData = useCallback((field: string, value: any) => {
     setTestData(prev => {
-      // Si prev es un objeto vacío y estamos agregando el primer campo,
-      // necesitamos asegurarnos de que el estado se actualice correctamente
       const newData = { ...prev };
       newData[field] = value;
       return newData;
     });
-  };
+  }, []);
 
-  const resetTestData = () => {
+  const resetTestData = useCallback(() => {
     setTestData({
       leadName: 'Lead de Prueba',
       leadEmail: 'prueba@ejemplo.com',
@@ -253,9 +249,9 @@ export function FlowBuilderCore({ onSave, initialFlowData, loading }: FlowBuilde
       leadAddress: 'Dirección de Prueba',
       leadValue: 15000
     });
-  };
+  }, []);
 
-  const setEmptyTestData = () => {
+  const setEmptyTestData = useCallback(() => {
     setTestData({
       leadName: '',
       leadEmail: '',
@@ -267,13 +263,13 @@ export function FlowBuilderCore({ onSave, initialFlowData, loading }: FlowBuilde
       leadAddress: '',
       leadValue: 0
     });
-  };
+  }, []);
 
-  const setMinimalTestData = () => {
+  const setMinimalTestData = useCallback(() => {
     setTestData({});
-  };
+  }, []);
 
-  const updateNodeConfig = (nodeId: string, config: any) => {
+  const updateNodeConfig = useCallback((nodeId: string, config: any) => {
     setNodes((nds) =>
       nds.map((node) =>
         node.id === nodeId
@@ -281,9 +277,9 @@ export function FlowBuilderCore({ onSave, initialFlowData, loading }: FlowBuilde
           : node
       )
     );
-  };
+  }, [setNodes]);
 
-  const deleteNode = (nodeId: string) => {
+  const deleteNode = useCallback((nodeId: string) => {
     setNodes((nds) => nds.filter((node) => node.id !== nodeId));
     setEdges((eds) => eds.filter((edge) => edge.source !== nodeId && edge.target !== nodeId));
     setSelectedNode(null);
@@ -291,19 +287,19 @@ export function FlowBuilderCore({ onSave, initialFlowData, loading }: FlowBuilde
       title: 'Node Deleted',
       description: 'Node and its connections have been removed',
     });
-  };
+  }, [setNodes, setEdges]);
 
   const onKeyDown = useCallback((event: KeyboardEvent) => {
     if (event.key === 'Delete' && selectedNode) {
       event.preventDefault();
       deleteNode(selectedNode.id);
     }
-  }, [selectedNode]);
+  }, [selectedNode, deleteNode]);
 
-  const handleCloseNodeSettings = () => {
+  const handleCloseNodeSettings = useCallback(() => {
     setShowNodeSettings(false);
     setSelectedNode(null);
-  };
+  }, []);
 
   React.useEffect(() => {
     document.addEventListener('keydown', onKeyDown);
@@ -542,4 +538,4 @@ export function FlowBuilderCore({ onSave, initialFlowData, loading }: FlowBuilde
       )}
     </div>
   );
-}
+});

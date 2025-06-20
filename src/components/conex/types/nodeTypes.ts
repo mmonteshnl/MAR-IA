@@ -1,4 +1,4 @@
-import { Zap, Link, RefreshCw, Monitor, Globe, UserCheck, Settings, Database } from 'lucide-react';
+import { Zap, Link, RefreshCw, Monitor, Globe, UserCheck, Settings, Database, Mail } from 'lucide-react';
 import { NodeType } from './index';
 
 export const NODE_TYPES: NodeType[] = [
@@ -50,6 +50,12 @@ export const NODE_TYPES: NodeType[] = [
     icon: Database, 
     description: 'Obtiene datos de la base de datos por ID, rango o todos' 
   },
+  { 
+    type: 'sendEmail', 
+    label: 'Enviar Email', 
+    icon: Mail, 
+    description: 'Envía correos electrónicos usando Resend' 
+  },
 ];
 
 export const getNodeLabel = (type: string): string => {
@@ -62,6 +68,7 @@ export const getNodeLabel = (type: string): string => {
     leadValidator: 'Validador de Leads',
     logicGate: 'Compuerta Lógica',
     dataFetcher: 'Obtener Datos',
+    sendEmail: 'Enviar Email',
   };
   return labels[type] || type;
 };
@@ -131,6 +138,13 @@ export const getDefaultNodeConfig = (type: string): any => {
       enableLogging: true,
       includeMetadata: true,
       timeout: 10000
+    },
+    sendEmail: {
+      name: 'Enviar Email',
+      from: 'sistema@empresa.com',
+      to: '{{team.emails}}',
+      subject: 'Notificación desde CONEX',
+      bodyTemplate: 'Hola,\n\nEste es un mensaje automático generado por el flujo de CONEX.\n\nSaludos.'
     },
   };
   return configs[type] || {};

@@ -24,11 +24,25 @@ export async function POST(request: NextRequest) {
     }
 
     const body: CreateFlowRequest = await request.json();
+    console.log('🔍 API: Received request body:', body);
+    console.log('🔍 API: Organization ID:', organizationId);
     const { name, description, icon, trigger, definition, isEnabled = true } = body;
 
     // Validate required fields
-    if (!name || !description || !icon || !trigger || !definition) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    const missingFields = [];
+    if (!name) missingFields.push('name');
+    if (!description) missingFields.push('description');
+    if (!icon) missingFields.push('icon');
+    if (!trigger) missingFields.push('trigger');
+    if (!definition) missingFields.push('definition');
+    
+    if (missingFields.length > 0) {
+      console.error('Missing required fields:', missingFields, 'Body received:', body);
+      return NextResponse.json({ 
+        error: 'Missing required fields', 
+        missingFields,
+        receivedFields: Object.keys(body)
+      }, { status: 400 });
     }
 
     // Create flow document
