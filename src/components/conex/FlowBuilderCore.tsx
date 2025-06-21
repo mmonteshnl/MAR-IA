@@ -54,6 +54,8 @@ export const FlowBuilderCore = memo<FlowBuilderProps>(function FlowBuilderCore({
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [showNodeSettings, setShowNodeSettings] = useState(false);
   const [showJsonModal, setShowJsonModal] = useState(false);
+  const [editableJson, setEditableJson] = useState<string>('');
+  const [jsonError, setJsonError] = useState<string>('');
   const [showTestModal, setShowTestModal] = useState(false);
   type TestData = {
     [key: string]: string | number;
@@ -174,6 +176,77 @@ export const FlowBuilderCore = memo<FlowBuilderProps>(function FlowBuilderCore({
         title: 'JSON Copiado',
         description: 'El JSON del flujo ha sido copiado al portapapeles',
       });
+    }
+  }, [getFlowJson]);
+
+  const openJsonModal = useCallback(() => {
+    const flowData = getFlowJson();
+    if (flowData) {
+      setEditableJson(JSON.stringify(flowData, null, 2));
+      setJsonError('');
+      setShowJsonModal(true);
+    }
+  }, [getFlowJson]);
+
+  const validateAndApplyJson = useCallback(() => {
+    try {
+      const parsedData = JSON.parse(editableJson);
+      
+      // Validate required structure
+      if (!parsedData.nodes || !Array.isArray(parsedData.nodes)) {
+        throw new Error('El JSON debe contener un array "nodes"');
+      }
+      if (!parsedData.edges || !Array.isArray(parsedData.edges)) {
+        throw new Error('El JSON debe contener un array "edges"');
+      }
+
+      // Validate nodes structure
+      for (const node of parsedData.nodes) {
+        if (!node.id || !node.type || !node.position || !node.data) {
+          throw new Error(`Nodo inválido: debe tener id, type, position y data`);
+        }
+      }
+
+      // Validate edges structure
+      for (const edge of parsedData.edges) {
+        if (!edge.source || !edge.target) {
+          throw new Error(`Edge inválido: debe tener source y target`);
+        }
+      }
+
+      // Apply the changes
+      setNodes(parsedData.nodes);
+      setEdges(parsedData.edges);
+      
+      // Set viewport if provided
+      if (parsedData.viewport && reactFlowInstance) {
+        reactFlowInstance.setViewport(parsedData.viewport);
+      }
+
+      setJsonError('');
+      setShowJsonModal(false);
+      
+      toast({
+        title: 'Flujo Actualizado',
+        description: 'El flujo se ha actualizado desde el JSON exitosamente',
+      });
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'JSON inválido';
+      setJsonError(errorMessage);
+      toast({
+        title: 'Error en JSON',
+        description: errorMessage,
+        variant: 'destructive'
+      });
+    }
+  }, [editableJson, setNodes, setEdges, reactFlowInstance]);
+
+  const resetJsonChanges = useCallback(() => {
+    const flowData = getFlowJson();
+    if (flowData) {
+      setEditableJson(JSON.stringify(flowData, null, 2));
+      setJsonError('');
     }
   }, [getFlowJson]);
 
@@ -335,9 +408,9 @@ export const FlowBuilderCore = memo<FlowBuilderProps>(function FlowBuilderCore({
       {/* Flow Canvas */}
       <div className="flex-1 relative">
         <div className="absolute top-4 right-4 z-10 flex gap-2">
-          <Button onClick={() => setShowJsonModal(true)} variant="outline">
+          <Button onClick={openJsonModal} variant="outline">
             <Code className="h-4 w-4 mr-2" />
-            Ver JSON
+            Editar JSON
           </Button>
           <Button onClick={handleSave} disabled={loading}>
             <Save className="h-4 w-4 mr-2" />
@@ -382,18 +455,24 @@ export const FlowBuilderCore = memo<FlowBuilderProps>(function FlowBuilderCore({
         </div>
       </div>
 
-      {/* JSON Modal */}
+      {/* JSON Editor Modal */}
       <Dialog open={showJsonModal} onOpenChange={setShowJsonModal}>
-        <DialogContent className="max-w-4xl max-h-[80vh] bg-gray-900 border-gray-700">
-          <DialogHeader>
+        <DialogContent className="max-w-7xl max-h-[95vh] bg-gray-900 border-gray-700 flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle className="text-white flex items-center justify-between">
-              <span>JSON del Flujo</span>
+              <div className="flex items-center gap-3">
+                <Code className="h-6 w-6 text-blue-400" />
+                <div>
+                  <div className="text-lg font-semibold">Editor JSON del Flujo</div>
+                  <div className="text-xs text-gray-400 font-normal">Editor avanzado con herramientas de formateo y validación</div>
+                </div>
+              </div>
               <div className="flex gap-2">
                 <Button
                   onClick={copyJsonToClipboard}
                   size="sm"
                   variant="outline"
-                  className="border-gray-600 text-gray-300 hover:bg-gray-800"
+                  className="border-gray-600 text-gray-300 hover:bg-gray-800 hover:border-gray-500"
                 >
                   <Copy className="h-4 w-4 mr-2" />
                   Copiar
@@ -409,15 +488,206 @@ export const FlowBuilderCore = memo<FlowBuilderProps>(function FlowBuilderCore({
               </div>
             </DialogTitle>
           </DialogHeader>
-          <div className="mt-4">
-            <div className="bg-gray-800 rounded-lg p-4 max-h-[60vh] overflow-auto">
-              <pre className="text-sm text-gray-200 whitespace-pre-wrap">
-                {JSON.stringify(getFlowJson(), null, 2)}
-              </pre>
+          
+          <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+            {/* Toolbar */}
+            <div className="flex-shrink-0 flex items-center justify-between bg-gray-800/50 border border-gray-700 rounded-lg p-3 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => {
+                      try {
+                        const parsed = JSON.parse(editableJson);
+                        setEditableJson(JSON.stringify(parsed, null, 2));
+                        setJsonError('');
+                        toast({ title: 'JSON Formateado', description: 'El JSON ha sido formateado correctamente' });
+                      } catch (error) {
+                        const errorMessage = error instanceof Error ? error.message : 'JSON inválido';
+                        setJsonError(errorMessage);
+                        toast({ title: 'Error de Formato', description: errorMessage, variant: 'destructive' });
+                      }
+                    }}
+                    size="sm"
+                    variant="outline"
+                    className="border-gray-600 text-gray-300 hover:bg-gray-700 text-xs h-8"
+                  >
+                    🎨 Formatear
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setEditableJson(editableJson.replace(/\s+/g, ' ').trim());
+                      toast({ title: 'JSON Comprimido', description: 'Se removieron espacios innecesarios' });
+                    }}
+                    size="sm"
+                    variant="outline"
+                    className="border-gray-600 text-gray-300 hover:bg-gray-700 text-xs h-8"
+                  >
+                    📦 Comprimir
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      try {
+                        JSON.parse(editableJson);
+                        setJsonError('');
+                        toast({ title: 'JSON Válido', description: 'La sintaxis JSON es correcta', variant: 'default' });
+                      } catch (error) {
+                        const errorMessage = error instanceof Error ? error.message : 'JSON inválido';
+                        setJsonError(errorMessage);
+                      }
+                    }}
+                    size="sm"
+                    variant="outline"
+                    className="border-gray-600 text-gray-300 hover:bg-gray-700 text-xs h-8"
+                  >
+                    ✅ Validar
+                  </Button>
+                </div>
+                <div className="w-px h-6 bg-gray-600"></div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={resetJsonChanges}
+                    size="sm"
+                    variant="outline"
+                    className="border-gray-600 text-gray-300 hover:bg-gray-700 text-xs h-8"
+                  >
+                    ↶ Revertir
+                  </Button>
+                </div>
+              </div>
+              <div className="text-xs text-gray-400 flex items-center gap-4">
+                <span>Líneas: {editableJson.split('\n').length}</span>
+                <span>Caracteres: {editableJson.length}</span>
+                <span>Tamaño: {(editableJson.length / 1024).toFixed(1)} KB</span>
+              </div>
             </div>
-            <p className="text-xs text-gray-400 mt-2">
-              Este JSON representa la estructura completa de tu flujo incluyendo nodos, conexiones y configuraciones.
-            </p>
+
+            {/* Error Display */}
+            {jsonError && (
+              <div className="flex-shrink-0 bg-red-900/20 border border-red-500/30 rounded-lg p-3 mb-4">
+                <div className="flex items-start gap-3">
+                  <div className="text-red-400 text-lg">⚠️</div>
+                  <div className="flex-1">
+                    <h4 className="text-sm font-medium text-red-300 mb-1">Error de Validación JSON</h4>
+                    <p className="text-xs text-red-200 bg-red-900/20 p-2 rounded border border-red-500/20 font-mono">{jsonError}</p>
+                    <p className="text-xs text-red-300/70 mt-2">Revisa la sintaxis y corrige los errores antes de aplicar los cambios.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* JSON Editor */}
+            <div className="flex-1 overflow-hidden">
+              <div className="h-full bg-gray-850 rounded-lg border border-gray-700 shadow-lg">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 bg-gray-800">
+                  <div className="flex items-center gap-3">
+                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    <span className="text-sm font-medium text-gray-300 ml-2">flow.json</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="text-xs text-gray-500 bg-gray-700 px-2 py-1 rounded">
+                      JSON
+                    </div>
+                  </div>
+                </div>
+                <div className="relative h-[calc(100%-3.5rem)]">
+                  <textarea
+                    value={editableJson}
+                    onChange={(e) => setEditableJson(e.target.value)}
+                    className="w-full h-full bg-gray-850 text-gray-200 p-4 font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/50 border-0 leading-relaxed pl-16"
+                    placeholder='{\n  "nodes": [],\n  "edges": [],\n  "viewport": {\n    "x": 0,\n    "y": 0,\n    "zoom": 1\n  }\n}'
+                    spellCheck={false}
+                    style={{
+                      tabSize: 2,
+                      fontFamily: 'JetBrains Mono, Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace'
+                    }}
+                  />
+                  {/* Line numbers overlay */}
+                  <div className="absolute left-0 top-0 w-12 h-full bg-gray-800/80 border-r border-gray-700 pointer-events-none">
+                    <div className="p-4 text-xs text-gray-500 font-mono leading-relaxed">
+                      {editableJson.split('\n').map((_, index) => (
+                        <div key={index} className="h-5 flex items-center justify-end pr-2">
+                          {index + 1}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Instructions */}
+            <div className="flex-shrink-0 mt-4 bg-blue-900/20 border border-blue-700/30 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <div className="text-blue-400 text-xl">💡</div>
+                <div className="flex-1">
+                  <h5 className="text-sm font-semibold text-blue-300 mb-3">Guía de Edición JSON</h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-blue-200/80">
+                    <div>
+                      <h6 className="font-medium text-blue-300 mb-2">📋 Estructura Principal</h6>
+                      <ul className="space-y-1 list-disc list-inside pl-2">
+                        <li><code className="bg-blue-900/30 px-1 rounded">nodes</code>: Array de nodos del flujo</li>
+                        <li><code className="bg-blue-900/30 px-1 rounded">edges</code>: Array de conexiones</li>
+                        <li><code className="bg-blue-900/30 px-1 rounded">viewport</code>: Vista del canvas (opcional)</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <h6 className="font-medium text-blue-300 mb-2">🛠️ Herramientas</h6>
+                      <ul className="space-y-1 list-disc list-inside pl-2">
+                        <li><strong>Formatear:</strong> Organiza el JSON con indentación</li>
+                        <li><strong>Comprimir:</strong> Elimina espacios innecesarios</li>
+                        <li><strong>Validar:</strong> Verifica la sintaxis JSON</li>
+                        <li><strong>Revertir:</strong> Restaura el estado original</li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-blue-700/20">
+                    <p className="text-blue-200/70 text-xs">
+                      <strong>Tip:</strong> Usa <kbd className="bg-blue-900/40 px-1 rounded text-blue-200">Ctrl/Cmd + A</kbd> para seleccionar todo, 
+                      <kbd className="bg-blue-900/40 px-1 rounded text-blue-200">Tab</kbd> para indentar, y 
+                      <kbd className="bg-blue-900/40 px-1 rounded text-blue-200">Ctrl/Cmd + Z</kbd> para deshacer.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer Actions */}
+          <div className="flex-shrink-0 flex justify-between items-center pt-4 border-t border-gray-700">
+            <div className="flex items-center gap-4 text-xs text-gray-500">
+              <div className="flex items-center gap-2">
+                {jsonError ? (
+                  <>
+                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                    <span className="text-red-400">JSON Inválido</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    <span className="text-green-400">JSON Válido</span>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                onClick={() => setShowJsonModal(false)}
+                variant="outline"
+                className="border-gray-600 text-gray-300 hover:bg-gray-800 hover:border-gray-500"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={validateAndApplyJson}
+                disabled={!!jsonError}
+                className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Aplicar Cambios
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

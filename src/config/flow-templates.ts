@@ -695,6 +695,200 @@ export const FLOW_TEMPLATES: FlowTemplate[] = [
         }
       ]
     }
+  },
+  {
+    id: 'template-initiate-ai-call',
+    name: 'Iniciar Llamada IA a Lead',
+    description: 'Inicia una llamada conversacional con un agente de IA de ElevenLabs a un lead específico.',
+    category: 'comunicacion',
+    difficulty: 'intermedio',
+    estimatedTime: '10 minutos',
+    useCase: 'Perfecto para calificar leads, dar la bienvenida o realizar seguimientos automáticos con una voz hiperrealista.',
+    requiredConnections: ['elevenlabs'],
+    variables: {
+      agentId: 'TU_AGENT_ID_POR_DEFECTO',
+      voiceId: 'TU_VOICE_ID_POR_DEFECTO',
+      companyName: 'Tu Empresa',
+      webhookBaseUrl: 'https://tu-crm.com'
+    },
+    flowData: {
+      nodes: [
+        {
+          id: 'trigger',
+          type: 'trigger',
+          position: { x: 50, y: 150 },
+          data: { 
+            label: 'Recibir Datos del Lead',
+            config: { 
+              name: 'Recibir Datos del Lead',
+              triggerType: 'manual_lead_action',
+              description: 'Trigger para iniciar llamada IA con datos del lead'
+            } 
+          }
+        },
+        {
+          id: 'generate-script',
+          type: 'dataTransform',
+          position: { x: 300, y: 150 },
+          data: {
+            label: 'Generar Guion de Llamada',
+            config: {
+              name: 'Generar Guion de Llamada',
+              transformations: [
+                {
+                  field: 'callScript',
+                  operation: 'template',
+                  template: 'Hola {{fullName}}, soy María, asistente virtual de {{companyName}}. Te contacto porque has mostrado interés en nuestros servicios de {{businessType || "consultoría"}}. Me gustaría conocer más sobre tu proyecto y cómo podemos ayudarte. ¿Tienes unos minutos para hablar?'
+                },
+                {
+                  field: 'callMetadata',
+                  operation: 'object',
+                  value: {
+                    crm_lead_id: '{{id}}',
+                    crm_organization_id: '{{organizationId}}',
+                    lead_name: '{{fullName}}',
+                    business_type: '{{businessType}}'
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          id: 'initiate-call',
+          type: 'conversationalAICall',
+          position: { x: 550, y: 150 },
+          data: {
+            label: 'Llamar con ElevenLabs',
+            config: {
+              name: 'Llamar con ElevenLabs',
+              agentId: '{{variables.agentId}}',
+              voiceId: '{{variables.voiceId}}',
+              phoneField: 'phone',
+              instructionsTemplate: '{{generate-script.callScript}}',
+              maxDuration: 300,
+              webhookUrl: '{{variables.webhookBaseUrl}}/api/flows/run/procesar-resultado-llamada',
+              updateLeadStage: true,
+              newStageOnSuccess: 'contacted'
+            }
+          }
+        }
+      ],
+      edges: [
+        { id: 'e1', source: 'trigger', target: 'generate-script', type: 'default' },
+        { id: 'e2', source: 'generate-script', target: 'initiate-call', type: 'default' }
+      ]
+    }
+  },
+  {
+    id: 'template-process-ai-call-result',
+    name: 'Procesar Resultado de Llamada IA',
+    description: 'Recibe los datos de una llamada finalizada desde ElevenLabs, analiza el resultado y actualiza el CRM.',
+    category: 'integracion',
+    difficulty: 'avanzado',
+    estimatedTime: '15 minutos',
+    useCase: 'Actúa como un webhook inteligente para registrar transcripciones, actualizar el estado del lead y notificar al equipo.',
+    requiredConnections: ['resend'],
+    variables: {
+      teamEmails: 'ventas@empresa.com',
+      notificationFrom: 'sistema@empresa.com'
+    },
+    flowData: {
+      nodes: [
+        {
+          id: 'trigger',
+          type: 'trigger',
+          position: { x: 50, y: 250 },
+          data: { 
+            label: 'Webhook: Resultado de Llamada Recibido',
+            config: { 
+              name: 'Webhook: Resultado de Llamada Recibido',
+              triggerType: 'webhook',
+              description: 'Recibe resultados de llamadas desde ElevenLabs'
+            } 
+          }
+        },
+        {
+          id: 'update-lead-history',
+          type: 'apiCall',
+          position: { x: 300, y: 150 },
+          data: {
+            label: 'Guardar Transcripción en Lead',
+            config: {
+              name: 'Guardar Transcripción en Lead',
+              method: 'POST',
+              url: '/api/leads/add-communication',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                leadId: '{{metadata.crm_lead_id}}',
+                type: 'AI_CALL_RESULT',
+                status: '{{status}}',
+                duration_seconds: '{{duration_seconds}}',
+                transcript: '{{transcript}}',
+                timestamp: '{{now}}',
+                metadata: {
+                  call_outcome: '{{outcome}}',
+                  confidence_score: '{{confidence}}',
+                  ai_agent_used: 'elevenlabs'
+                }
+              })
+            }
+          }
+        },
+        {
+          id: 'check-if-demo-booked',
+          type: 'logicGate',
+          position: { x: 300, y: 350 },
+          data: {
+            label: '¿Se Agendó una Demo?',
+            config: {
+              name: '¿Se Agendó una Demo?',
+              condition: 'transcript.toLowerCase().includes("demo") || transcript.toLowerCase().includes("reunión") || transcript.toLowerCase().includes("cita") || outcome === "appointment_scheduled"',
+              trueOutput: 'demo_booked',
+              falseOutput: 'followup_needed'
+            }
+          }
+        },
+        {
+          id: 'notify-team-success',
+          type: 'sendEmail',
+          position: { x: 550, y: 250 },
+          data: {
+            label: 'Notificar Demo Agendada',
+            config: {
+              name: 'Notificar Demo Agendada',
+              from: '{{variables.notificationFrom}}',
+              to: '{{variables.teamEmails}}',
+              subject: '🎉 ¡Éxito! Demo Agendada por IA - {{metadata.lead_name}}',
+              bodyTemplate: '¡Excelentes noticias!\n\nEl agente de IA ha logrado agendar una demo con el lead {{metadata.lead_name}}.\n\n📋 DETALLES DE LA LLAMADA:\n• Lead ID: {{metadata.crm_lead_id}}\n• Duración: {{duration_seconds}} segundos\n• Estado: {{status}}\n• Resultado: {{outcome}}\n\n📝 TRANSCRIPCIÓN:\n{{transcript}}\n\n🎯 PRÓXIMOS PASOS:\n1. Confirmar la demo en el calendario\n2. Preparar materiales de presentación\n3. Enviar recordatorio al lead\n\n¡Genial trabajo del sistema automatizado! 🚀\n\n---\nMensaje generado automáticamente\nTimestamp: {{now}}'
+            }
+          }
+        },
+        {
+          id: 'notify-team-followup',
+          type: 'sendEmail',
+          position: { x: 550, y: 450 },
+          data: {
+            label: 'Notificar para Seguimiento Manual',
+            config: {
+              name: 'Notificar para Seguimiento Manual',
+              from: '{{variables.notificationFrom}}',
+              to: '{{variables.teamEmails}}',
+              subject: '📞 Seguimiento Necesario - {{metadata.lead_name}}',
+              bodyTemplate: 'Hola equipo,\n\nLa llamada con IA ha finalizado pero se requiere seguimiento manual.\n\n📋 DETALLES DE LA LLAMADA:\n• Lead ID: {{metadata.crm_lead_id}}\n• Duración: {{duration_seconds}} segundos\n• Estado: {{status}}\n• Resultado: {{outcome}}\n\n📝 TRANSCRIPCIÓN:\n{{transcript}}\n\n🎯 ACCIONES RECOMENDADAS:\n1. Revisar la transcripción completa en el CRM\n2. Evaluar el nivel de interés del lead\n3. Definir estrategia de seguimiento personalizada\n4. Contactar en las próximas 24-48 horas\n\nRecuerda revisar el historial completo del lead antes del contacto.\n\n---\nMensaje generado automáticamente\nTimestamp: {{now}}'
+            }
+          }
+        }
+      ],
+      edges: [
+        { id: 'e1', source: 'trigger', target: 'update-lead-history', type: 'default' },
+        { id: 'e2', source: 'trigger', target: 'check-if-demo-booked', type: 'default' },
+        { id: 'e3', source: 'check-if-demo-booked', target: 'notify-team-success', type: 'conditional', sourceHandle: 'true' },
+        { id: 'e4', source: 'check-if-demo-booked', target: 'notify-team-followup', type: 'conditional', sourceHandle: 'false' }
+      ]
+    }
   }
 ];
 

@@ -1,6 +1,98 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authAdmin, firestoreDbAdmin } from '@/lib/firebaseAdmin';
 
+// POST endpoint for testing specific instance connection
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { instanceId, webhookPort } = body;
+
+    if (!instanceId) {
+      return NextResponse.json({ 
+        connected: false, 
+        message: 'Instance ID is required' 
+      }, { status: 400 });
+    }
+
+    // Find the instance in the database
+    const instanceQuery = await firestoreDbAdmin
+      .collectionGroup('whatsapp_instances')
+      .where('instanceName', '==', instanceId)
+      .where('isActive', '==', true)
+      .get();
+
+    if (instanceQuery.empty) {
+      return NextResponse.json({
+        connected: false,
+        message: `WhatsApp instance '${instanceId}' not found or inactive`
+      });
+    }
+
+    const instanceDoc = instanceQuery.docs[0];
+    const instanceData = instanceDoc.data();
+
+    // Check if webhook is configured and reachable
+    const webhookUrl = instanceData.webhookUrl;
+    const status = instanceData.status;
+
+    if (status !== 'connected') {
+      return NextResponse.json({
+        connected: false,
+        message: `Instance '${instanceId}' is ${status || 'disconnected'}`
+      });
+    }
+
+    if (!webhookUrl) {
+      return NextResponse.json({
+        connected: false,
+        message: `Instance '${instanceId}' has no webhook configured`
+      });
+    }
+
+    // Try to test webhook connectivity if port is provided
+    if (webhookPort) {
+      try {
+        const testUrl = `http://localhost:${webhookPort}/webhook/test`;
+        const response = await fetch(testUrl, { 
+          method: 'GET',
+          timeout: 5000
+        });
+        
+        if (!response.ok) {
+          return NextResponse.json({
+            connected: false,
+            message: `Webhook port ${webhookPort} is not responding`
+          });
+        }
+      } catch (error) {
+        return NextResponse.json({
+          connected: false,
+          message: `Cannot reach webhook on port ${webhookPort}`
+        });
+      }
+    }
+
+    return NextResponse.json({
+      connected: true,
+      message: `Instance '${instanceId}' is connected and ready`,
+      details: {
+        instanceId,
+        status,
+        webhookUrl,
+        phoneNumber: instanceData.phoneNumber,
+        lastActivity: instanceData.lastActivity
+      }
+    });
+
+  } catch (error) {
+    console.error('Error testing WhatsApp connection:', error);
+    return NextResponse.json({
+      connected: false,
+      message: 'Error testing connection: ' + (error instanceof Error ? error.message : 'Unknown error')
+    }, { status: 500 });
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('Authorization');

@@ -194,6 +194,7 @@ export default function FlowsPage() {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
+          'x-organization-id': organization.id
         },
         body: JSON.stringify(requestBody)
       });

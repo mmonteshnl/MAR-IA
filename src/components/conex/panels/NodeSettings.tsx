@@ -22,6 +22,8 @@ import { Settings as HttpRequestSettings } from '../nodes/HttpRequestNode';
 import { LeadValidatorNodeUser as LeadValidatorSettings } from '../nodes/LeadValidatorNode/LeadValidatorNodeSettings';
 import { LogicGateNodeSettings } from '../nodes/LogicGate/LogicGateNodeSettings';
 import { DataFetcherNodeSettings } from '../nodes/DataFetcher/DataFetcherNodeSettings';
+import { WhatsAppNodeSettings } from '../nodes/WhatsAppNode/WhatsAppNodeSettings';
+import { ConversationalAICallNodeSettings } from '../nodes/ConversationalAICallNode/ConversationalAICallNodeSettings';
 
 interface NodeSettingsModalProps extends NodeSettingsProps {
   isOpen: boolean;
@@ -48,7 +50,9 @@ export function NodeSettings({ node, onUpdate, onClose, onDelete, isOpen }: Node
       monitor: 'Monitor',
       leadValidator: 'Validador de Leads',
       logicGate: 'Compuerta Lógica',
-      dataFetcher: 'Obtener Datos'
+      dataFetcher: 'Obtener Datos',
+      whatsapp: 'WhatsApp',
+      conversationalAICall: 'Llamada IA Conversacional'
     };
     return labels[type] || type;
   };
@@ -61,12 +65,14 @@ export function NodeSettings({ node, onUpdate, onClose, onDelete, isOpen }: Node
             <Settings className="h-5 w-5" />
             {node.type === 'leadValidator' ? 'Validador de Leads' : 
              node.type === 'logicGate' ? 'Compuerta Lógica' : 
-             node.type === 'dataFetcher' ? 'Obtener Datos' : 'Configuración del Nodo'}
+             node.type === 'dataFetcher' ? 'Obtener Datos' : 
+             node.type === 'whatsapp' ? 'WhatsApp' :
+             node.type === 'conversationalAICall' ? 'Llamada IA Conversacional' : 'Configuración del Nodo'}
           </DialogTitle>
         </DialogHeader>
         
         <div className="space-y-6">
-          {node.type !== 'leadValidator' && node.type !== 'logicGate' && node.type !== 'dataFetcher' && (
+          {node.type !== 'leadValidator' && node.type !== 'logicGate' && node.type !== 'dataFetcher' && node.type !== 'whatsapp' && node.type !== 'conversationalAICall' && (
             <>
               <div className="flex items-center justify-between">
                 <Badge variant="outline" className="text-blue-400 border-blue-400">
@@ -163,9 +169,36 @@ export function NodeSettings({ node, onUpdate, onClose, onDelete, isOpen }: Node
           {node.type === 'dataFetcher' && (
             <DataFetcherNodeSettings config={config} onChange={setConfig} onClose={onClose} />
           )}
+
+          {node.type === 'whatsapp' && (
+            <WhatsAppNodeSettings config={config} onUpdate={setConfig} />
+          )}
+
+          {node.type === 'conversationalAICall' && (
+            <ConversationalAICallNodeSettings config={config} onChange={setConfig} onClose={onClose} />
+          )}
         </div>
 
-        {node.type !== 'leadValidator' && node.type !== 'logicGate' && node.type !== 'dataFetcher' && (
+        {node.type === 'whatsapp' && (
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={onClose}
+              className="text-gray-300 border-gray-600 hover:bg-gray-700"
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleSave} 
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Guardar Configuración WhatsApp
+            </Button>
+          </DialogFooter>
+        )}
+
+        {node.type !== 'leadValidator' && node.type !== 'logicGate' && node.type !== 'dataFetcher' && node.type !== 'whatsapp' && node.type !== 'conversationalAICall' && (
           <>
             <DialogFooter className="gap-2">
               <Button 

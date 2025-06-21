@@ -9,6 +9,7 @@ import { Component as LogicGateNode } from './LogicGate';
 import { Component as DataFetcherNode } from './DataFetcher';
 import { ConversationalAICallNode } from './ConversationalAICallNode';
 import { SendEmailNode } from './SendEmailNode';
+import { WhatsAppNode } from './WhatsAppNode';
 
 export const nodeTypes = {
   trigger: TriggerNode,
@@ -21,6 +22,7 @@ export const nodeTypes = {
   dataFetcher: DataFetcherNode,
   conversationalAICall: ConversationalAICallNode,
   sendEmail: SendEmailNode,
+  whatsapp: WhatsAppNode,
 };
 
 export {
@@ -34,4 +36,5 @@ export {
   DataFetcherNode,
   ConversationalAICallNode,
   SendEmailNode,
+  WhatsAppNode,
 };

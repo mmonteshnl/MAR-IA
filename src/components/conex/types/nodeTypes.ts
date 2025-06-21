@@ -1,4 +1,4 @@
-import { Zap, Link, RefreshCw, Monitor, Globe, UserCheck, Settings, Database, Mail } from 'lucide-react';
+import { Zap, Link, RefreshCw, Monitor, Globe, UserCheck, Settings, Database, Mail, MessageSquare, Phone } from 'lucide-react';
 import { NodeType } from './index';
 
 export const NODE_TYPES: NodeType[] = [
@@ -56,6 +56,18 @@ export const NODE_TYPES: NodeType[] = [
     icon: Mail, 
     description: 'Envía correos electrónicos usando Resend' 
   },
+  { 
+    type: 'whatsapp', 
+    label: 'WhatsApp', 
+    icon: MessageSquare, 
+    description: 'Envía mensajes de WhatsApp con validación de webhook' 
+  },
+  { 
+    type: 'conversationalAICall', 
+    label: 'Llamada IA Conversacional', 
+    icon: Phone, 
+    description: 'Realiza llamadas automáticas con IA usando ElevenLabs' 
+  },
 ];
 
 export const getNodeLabel = (type: string): string => {
@@ -69,6 +81,8 @@ export const getNodeLabel = (type: string): string => {
     logicGate: 'Compuerta Lógica',
     dataFetcher: 'Obtener Datos',
     sendEmail: 'Enviar Email',
+    whatsapp: 'WhatsApp',
+    conversationalAICall: 'Llamada IA Conversacional',
   };
   return labels[type] || type;
 };
@@ -145,6 +159,30 @@ export const getDefaultNodeConfig = (type: string): any => {
       to: '{{team.emails}}',
       subject: 'Notificación desde CONEX',
       bodyTemplate: 'Hola,\n\nEste es un mensaje automático generado por el flujo de CONEX.\n\nSaludos.'
+    },
+    whatsapp: {
+      name: 'WhatsApp',
+      instanceId: '',
+      phoneNumber: '{{lead.phone}}',
+      message: 'Hola, este es un mensaje desde el flujo automatizado.',
+      messageTemplate: 'Hola {{lead.name}}, gracias por tu interés. Te contactamos desde {{company.name}}.',
+      useTemplate: false,
+      connectionStatus: 'unknown',
+      webhookPort: '8000',
+      variables: {
+        'company.name': 'Mi Empresa'
+      }
+    },
+    conversationalAICall: {
+      name: 'Llamada IA Conversacional',
+      agentId: '',
+      voiceId: '',
+      phoneField: 'phone',
+      instructionsTemplate: 'Hola {{fullName}}, soy María, asistente virtual de {{organizationName}}. Te contacto porque has mostrado interés en nuestros servicios. ¿Tienes unos minutos para hablar?',
+      maxDuration: 600,
+      webhookUrl: '',
+      updateLeadStage: false,
+      newStageOnSuccess: 'contacted'
     },
   };
   return configs[type] || {};
