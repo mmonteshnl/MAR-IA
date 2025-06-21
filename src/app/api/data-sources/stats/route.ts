@@ -110,6 +110,65 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Add QR leads statistics
+    try {
+      console.log('🔍 Procesando fuente: qr-leads');
+      
+      let totalQRLeads = 0;
+      let transferredQRLeads = 0;
+      
+      // Get all QR tracking links for this organization
+      const qrLinksSnapshot = await firestoreDbAdmin
+        .collection('organizations')
+        .doc(organizationId)
+        .collection('qr-tracking-links')
+        .get();
+
+      // For each QR link, count its public leads
+      for (const qrLinkDoc of qrLinksSnapshot.docs) {
+        const publicLeadsSnapshot = await firestoreDbAdmin
+          .collection('organizations')
+          .doc(organizationId)
+          .collection('qr-tracking-links')
+          .doc(qrLinkDoc.id)
+          .collection('publicLeads')
+          .get();
+
+        for (const leadDoc of publicLeadsSnapshot.docs) {
+          const leadData = leadDoc.data();
+          totalQRLeads++;
+          if (leadData.status === 'promoted') {
+            transferredQRLeads++;
+          }
+        }
+      }
+
+      const pendingQRLeads = Math.max(0, totalQRLeads - transferredQRLeads);
+
+      stats.push({
+        source: 'qr-leads' as any,
+        total: totalQRLeads,
+        transferred: transferredQRLeads,
+        pending: pendingQRLeads,
+        isActive: totalQRLeads > 0,
+        lastSync: totalQRLeads > 0 ? new Date().toISOString() : undefined
+      });
+
+      console.log(`📈 QR Leads: ${totalQRLeads} total, ${transferredQRLeads} transferidos, ${pendingQRLeads} pendientes`);
+
+    } catch (error) {
+      console.error('❌ Error obteniendo stats para QR leads:', error);
+      
+      // Add default stats in case of error
+      stats.push({
+        source: 'qr-leads' as any,
+        total: 0,
+        transferred: 0,
+        pending: 0,
+        isActive: false
+      });
+    }
+
     // Ordenar por número de leads pendientes (descendente)
     stats.sort((a, b) => b.pending - a.pending);
 

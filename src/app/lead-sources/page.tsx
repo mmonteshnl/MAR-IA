@@ -25,7 +25,8 @@ import {
   Search,
   Upload,
   Plus,
-  Send
+  Send,
+  QrCode
 } from 'lucide-react';
 import CsvMappingModal from '@/components/leads/CsvMappingModal';
 import { DataSource, DATA_SOURCE_CONFIG, type DataSourceStats, type UnifiedLead } from '@/types/data-sources';
@@ -64,10 +65,18 @@ const ENHANCED_LEAD_SOURCES = [
     description: 'Leads desde búsquedas de Google Places',
     collection: 'google-places-leads',
     color: 'bg-green-900/20 text-green-300 border-green-600'
+  },
+  {
+    key: 'qr-leads' as any,
+    name: 'Capturados por QR',
+    icon: <QrCode className="h-4 w-4" />,
+    description: 'Leads capturados desde códigos QR',
+    collection: 'qr-leads',
+    color: 'bg-pink-900/20 text-pink-300 border-pink-600'
   }
 ] as const;
 
-type SourceKey = DataSource | 'google-places';
+type SourceKey = DataSource | 'google-places' | 'qr-leads';
 
 const ProspectsHubPage = () => {
   const { user, loading: authLoading, initialLoadDone } = useAuth();

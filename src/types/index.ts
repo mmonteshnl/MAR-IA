@@ -62,7 +62,7 @@ export interface ExtendedLead extends MetaLeadAdsModel {
   email: string; // Direct mapping
   phone: string; // Maps to phoneNumber
   company: string; // Maps to companyName
-  address?: string | null; // Derived from homeListing or other sources
+  address?: string; // Derived from homeListing or other sources
   website?: string | null; // Not available in Meta model, kept for imports
   businessType?: string | null; // Derived from campaign/vehicle/home analysis
   notes?: string | null; // Maps to customDisclaimerResponses or derived
@@ -154,6 +154,65 @@ export interface TrackingAnalytics {
     browsers: { [browser: string]: number };
     countries: { [country: string]: number };
     referrers: { [referrer: string]: number };
+  };
+}
+
+// QR Tracking Links Types
+export interface QRTrackingLink {
+  id: string;
+  organizationId: string;
+  name: string;
+  description: string;
+  publicUrlId: string; // Short cryptographically secure ID for public URLs
+  scanCount: number;
+  submissionCount: number;
+  isActive: boolean;
+  createdAt: Timestamp | string;
+  createdBy: string;
+  updatedAt: Timestamp | string;
+  metadata: {
+    qrCodeDataUrl?: string; // Base64 encoded QR code image
+    targetAudience?: string;
+    expectedLeads?: number;
+    notes?: string;
+  };
+}
+
+export interface QRPublicLead {
+  id: string;
+  leadData: {
+    name: string;
+    email: string;
+    phone: string;
+    notes?: string;
+  };
+  status: 'pending_promotion' | 'promoted';
+  createdAt: Timestamp | string;
+  ipAddress: string;
+  userAgent: string;
+  metadata: {
+    deviceType?: string;
+    browser?: string;
+    country?: string;
+    referrer?: string;
+    promotedAt?: Timestamp | string;
+    promotedBy?: string;
+    promotedToLeadId?: string;
+  };
+}
+
+export interface QRScanEvent {
+  id?: string;
+  publicUrlId: string;
+  organizationId: string;
+  timestamp: Timestamp | string;
+  scanData: {
+    ipAddress: string;
+    userAgent: string;
+    deviceType: string;
+    browser: string;
+    country?: string;
+    referrer?: string;
   };
 }
 

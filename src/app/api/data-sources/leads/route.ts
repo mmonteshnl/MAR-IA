@@ -64,10 +64,13 @@ export async function POST(request: NextRequest) {
 
     console.log(`📋 Obteniendo leads de ${source} para organización:`, organizationId);
 
-    // Handle special case for imported-leads
+    // Handle special cases
     let collectionName: string;
     if (source === 'imported-leads') {
       collectionName = 'imported-leads';
+    } else if (source === 'qr-leads') {
+      // Special handling for QR leads - we'll process them differently
+      return await handleQRLeads(organizationId, uid);
     } else {
       const config = DATA_SOURCE_CONFIG[source as DataSource];
       if (!config) {
@@ -245,6 +248,105 @@ export async function POST(request: NextRequest) {
       error: error.message,
       stack: error.stack,
       source: request.body,
+      timestamp: new Date().toISOString()
+    }, { status: 500 });
+  }
+}
+
+// Handle QR leads separately since they have a different structure
+async function handleQRLeads(organizationId: string, uid: string) {
+  try {
+    console.log('🔍 Processing QR leads for organization:', organizationId);
+    
+    const qrLeads: UnifiedLead[] = [];
+    
+    // Get all QR tracking links for this organization
+    const qrLinksSnapshot = await firestoreDbAdmin
+      .collection('organizations')
+      .doc(organizationId)
+      .collection('qr-tracking-links')
+      .get();
+
+    // For each QR link, get its public leads
+    for (const qrLinkDoc of qrLinksSnapshot.docs) {
+      const qrLinkData = qrLinkDoc.data();
+      
+      const publicLeadsSnapshot = await firestoreDbAdmin
+        .collection('organizations')
+        .doc(organizationId)
+        .collection('qr-tracking-links')
+        .doc(qrLinkDoc.id)
+        .collection('publicLeads')
+        .orderBy('createdAt', 'desc')
+        .get();
+
+      for (const leadDoc of publicLeadsSnapshot.docs) {
+        const leadData = leadDoc.data();
+        
+        // Transform to unified lead format
+        const unifiedLead: UnifiedLead = {
+          id: leadDoc.id,
+          name: leadData.leadData?.name || '',
+          email: leadData.leadData?.email || '',
+          phone: leadData.leadData?.phone || '',
+          company: '', // QR leads don't typically have company info
+          source: 'qr-leads' as any,
+          sourceId: leadDoc.id,
+          sourceData: leadData,
+          organizationId,
+          uid: uid,
+          createdAt: leadData.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+          updatedAt: leadData.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+          transferredToFlow: leadData.status === 'promoted',
+          // Additional fields for QR leads
+          notes: leadData.leadData?.notes || '',
+          stage: leadData.status === 'promoted' ? 'Promocionado' : 'Pendiente',
+          // Metadata specific to QR leads
+          qrLinkName: qrLinkData.name,
+          qrLinkId: qrLinkDoc.id,
+          publicUrlId: qrLinkData.publicUrlId,
+          ipAddress: leadData.ipAddress,
+          userAgent: leadData.userAgent,
+          deviceType: leadData.metadata?.deviceType,
+          browser: leadData.metadata?.browser,
+          country: leadData.metadata?.country,
+          promotedAt: leadData.metadata?.promotedAt?.toDate?.()?.toISOString(),
+          promotedBy: leadData.metadata?.promotedBy,
+          promotedToLeadId: leadData.metadata?.promotedToLeadId
+        };
+
+        qrLeads.push(unifiedLead);
+      }
+    }
+
+    // Sort by creation date, with non-transferred leads first
+    qrLeads.sort((a, b) => {
+      if (a.transferredToFlow !== b.transferredToFlow) {
+        return a.transferredToFlow ? 1 : -1;
+      }
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+
+    console.log(`🎯 Returning ${qrLeads.length} QR leads`);
+
+    return NextResponse.json({ 
+      leads: qrLeads,
+      source: 'qr-leads',
+      total: qrLeads.length,
+      transferred: qrLeads.filter(lead => lead.transferredToFlow).length,
+      available: qrLeads.filter(lead => !lead.transferredToFlow).length,
+      metadata: {
+        collection: 'qr-leads',
+        organizationId,
+        generatedAt: new Date().toISOString()
+      }
+    }, { status: 200 });
+
+  } catch (error: any) {
+    console.error('💥 Error getting QR leads:', error);
+    return NextResponse.json({ 
+      message: 'Error obteniendo leads de QR.',
+      error: error.message,
       timestamp: new Date().toISOString()
     }, { status: 500 });
   }

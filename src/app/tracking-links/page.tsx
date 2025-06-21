@@ -27,7 +27,11 @@ import {
   Tablet,
   Globe,
   Clock,
-  Activity
+  Activity,
+  QrCode,
+  Download,
+  Users2,
+  UserPlus
 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { format } from 'date-fns';
@@ -128,6 +132,26 @@ interface TrackingLink {
   };
 }
 
+interface QRTrackingLink {
+  id: string;
+  organizationId: string;
+  name: string;
+  description: string;
+  publicUrlId: string;
+  scanCount: number;
+  submissionCount: number;
+  isActive: boolean;
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string;
+  metadata: {
+    qrCodeDataUrl?: string;
+    targetAudience?: string;
+    expectedLeads?: number;
+    notes?: string;
+  };
+}
+
 interface TrackingStats {
   totalLinks: number;
   totalClicks: number;
@@ -201,6 +225,8 @@ export default function TrackingLinksPage() {
   
   const [trackingLinks, setTrackingLinks] = useState<TrackingLink[]>([]);
   const [filteredLinks, setFilteredLinks] = useState<TrackingLink[]>([]);
+  const [qrTrackingLinks, setQRTrackingLinks] = useState<QRTrackingLink[]>([]);
+  const [filteredQRLinks, setFilteredQRLinks] = useState<QRTrackingLink[]>([]);
   const [stats, setStats] = useState<TrackingStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -208,6 +234,39 @@ export default function TrackingLinksPage() {
   const [campaignFilter, setCampaignFilter] = useState<string>('all');
   const [selectedLinkAnalytics, setSelectedLinkAnalytics] = useState<TrackingAnalytics | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'traditional' | 'qr'>('traditional');
+  const [showQRGenerator, setShowQRGenerator] = useState(false);
+  const [qrFormData, setQRFormData] = useState({
+    name: '',
+    description: '',
+    targetAudience: '',
+    expectedLeads: 0,
+    notes: ''
+  });
+
+  // Fetch QR tracking links
+  const fetchQRTrackingLinks = async () => {
+    if (!user || !currentOrganization) return;
+    
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch(`/api/qr-tracking-links?organizationId=${currentOrganization.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setQRTrackingLinks(data.qrTrackingLinks || []);
+      } else {
+        console.error('Error fetching QR tracking links:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error fetching QR tracking links:', error);
+    }
+  };
 
   // Fetch tracking links
   useEffect(() => {
@@ -324,6 +383,7 @@ export default function TrackingLinksPage() {
     };
 
     fetchTrackingLinks();
+    fetchQRTrackingLinks();
   }, [user, currentOrganization, toast]);
 
   // Filter links
@@ -348,6 +408,21 @@ export default function TrackingLinksPage() {
 
     setFilteredLinks(filtered);
   }, [trackingLinks, searchTerm, typeFilter, campaignFilter]);
+
+  // Filter QR links
+  useEffect(() => {
+    let filtered = qrTrackingLinks;
+
+    if (searchTerm) {
+      filtered = filtered.filter(link => 
+        link.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        link.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        link.metadata.targetAudience?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    setFilteredQRLinks(filtered);
+  }, [qrTrackingLinks, searchTerm]);
 
   const copyToClipboard = async (url: string, title: string) => {
     try {
@@ -382,6 +457,83 @@ export default function TrackingLinksPage() {
   };
 
   const availableCampaigns = Array.from(new Set(trackingLinks.map(link => link.campaignName)));
+
+  const createQRTrackingLink = async () => {
+    if (!user || !currentOrganization) return;
+    
+    if (!qrFormData.name || !qrFormData.description) {
+      toast({
+        title: "Error",
+        description: "Nombre y descripción son requeridos",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch('/api/qr-tracking-links', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          organizationId: currentOrganization.id,
+          name: qrFormData.name,
+          description: qrFormData.description,
+          metadata: {
+            targetAudience: qrFormData.targetAudience || undefined,
+            expectedLeads: qrFormData.expectedLeads || undefined,
+            notes: qrFormData.notes || undefined
+          }
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        toast({
+          title: "¡QR generado exitosamente!",
+          description: `Link QR "${qrFormData.name}" creado y listo para usar`
+        });
+        
+        setShowQRGenerator(false);
+        setQRFormData({
+          name: '',
+          description: '',
+          targetAudience: '',
+          expectedLeads: 0,
+          notes: ''
+        });
+        
+        // Refresh QR links
+        await fetchQRTrackingLinks();
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Error",
+          description: errorData.error || "No se pudo crear el link QR",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error creating QR tracking link:', error);
+      toast({
+        title: "Error de conexión",
+        description: "No se pudo conectar con el servidor",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const downloadQRCode = (dataUrl: string, name: string) => {
+    const link = document.createElement('a');
+    link.download = `qr-${name.replace(/\s+/g, '-').toLowerCase()}.png`;
+    link.href = dataUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const fetchLinkAnalytics = async (trackingId: string) => {
     if (!user || !currentOrganization) return;
@@ -593,10 +745,100 @@ export default function TrackingLinksPage() {
           >
             🔧 Migrar URLs
           </Button>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Crear Link
-          </Button>
+          {activeTab === 'qr' && (
+            <Dialog open={showQRGenerator} onOpenChange={setShowQRGenerator}>
+              <DialogTrigger asChild>
+                <Button className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700">
+                  <QrCode className="mr-2 h-4 w-4" />
+                  Generar QR
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <QrCode className="h-5 w-5" />
+                    Generar Link QR de Tracking
+                  </DialogTitle>
+                </DialogHeader>
+                
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="name">Nombre del Link *</Label>
+                    <Input
+                      id="name"
+                      value={qrFormData.name}
+                      onChange={(e) => setQRFormData(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Ej: Campaña Verano 2024"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="description">Descripción *</Label>
+                    <Input
+                      id="description"
+                      value={qrFormData.description}
+                      onChange={(e) => setQRFormData(prev => ({ ...prev, description: e.target.value }))}
+                      placeholder="Ej: QR para capturar leads en evento"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="targetAudience">Audiencia Objetivo</Label>
+                    <Input
+                      id="targetAudience"
+                      value={qrFormData.targetAudience}
+                      onChange={(e) => setQRFormData(prev => ({ ...prev, targetAudience: e.target.value }))}
+                      placeholder="Ej: Empresarios, Jóvenes, etc."
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="expectedLeads">Leads Esperados</Label>
+                    <Input
+                      id="expectedLeads"
+                      type="number"
+                      value={qrFormData.expectedLeads}
+                      onChange={(e) => setQRFormData(prev => ({ ...prev, expectedLeads: parseInt(e.target.value) || 0 }))}
+                      placeholder="100"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="notes">Notas</Label>
+                    <Input
+                      id="notes"
+                      value={qrFormData.notes}
+                      onChange={(e) => setQRFormData(prev => ({ ...prev, notes: e.target.value }))}
+                      placeholder="Notas adicionales..."
+                    />
+                  </div>
+                  
+                  <div className="flex gap-2 pt-4">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setShowQRGenerator(false)}
+                      className="flex-1"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button 
+                      onClick={createQRTrackingLink}
+                      className="flex-1 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700"
+                    >
+                      <QrCode className="mr-2 h-4 w-4" />
+                      Generar QR
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+          {activeTab === 'traditional' && (
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Crear Link
+            </Button>
+          )}
         </div>
       </div>
 
@@ -998,19 +1240,33 @@ export default function TrackingLinksPage() {
         </div>
       )}
 
-      {/* Filters */}
-      <Card className="bg-gray-900/40 border-gray-700/50 backdrop-blur-sm">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4 items-center">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por título, lead o campaña..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'traditional' | 'qr')} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="traditional" className="flex items-center gap-2">
+            <Link2 className="h-4 w-4" />
+            Links Tradicionales
+          </TabsTrigger>
+          <TabsTrigger value="qr" className="flex items-center gap-2">
+            <QrCode className="h-4 w-4" />
+            Links QR
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="traditional" className="space-y-6">
+          {/* Filters */}
+          <Card className="bg-gray-900/40 border-gray-700/50 backdrop-blur-sm">
+            <CardContent className="p-4">
+              <div className="flex flex-col sm:flex-row gap-4 items-center">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por título, lead o campaña..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
             
             <Select value={typeFilter} onValueChange={setTypeFilter}>
               <SelectTrigger className="w-[180px]">
@@ -1050,13 +1306,13 @@ export default function TrackingLinksPage() {
               >
                 Limpiar filtros
               </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Links List */}
-      <div className="space-y-4">
+        {/* Traditional Links List */}
+        <div className="space-y-4">
         {filteredLinks.length === 0 ? (
           <Card className="bg-gray-900/40 border-gray-700/50 backdrop-blur-sm">
             <CardContent className="p-12 text-center">
@@ -1399,7 +1655,178 @@ export default function TrackingLinksPage() {
             </Card>
           ))
         )}
-      </div>
+        </div>
+        </TabsContent>
+
+        <TabsContent value="qr" className="space-y-6">
+          {/* QR Filters */}
+          <Card className="bg-gray-900/40 border-gray-700/50 backdrop-blur-sm">
+            <CardContent className="p-4">
+              <div className="flex flex-col sm:flex-row gap-4 items-center">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por nombre, descripción o audiencia..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                
+                {searchTerm && (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setSearchTerm('')}
+                  >
+                    Limpiar filtro
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* QR Links List */}
+          <div className="space-y-4">
+            {filteredQRLinks.length === 0 ? (
+              <Card className="bg-gray-900/40 border-gray-700/50 backdrop-blur-sm">
+                <CardContent className="p-12 text-center">
+                  <div className="relative mx-auto mb-6 w-24 h-24">
+                    <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-pink-500 rounded-full blur-2xl opacity-30"></div>
+                    <div className="relative flex items-center justify-center w-24 h-24 bg-gray-800/50 border border-gray-600/50 rounded-full">
+                      <QrCode className="h-12 w-12 text-gray-400" />
+                    </div>
+                  </div>
+                  <h3 className="text-xl font-semibold mb-3 text-white">No hay QR Links</h3>
+                  <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                    {qrTrackingLinks.length === 0 
+                      ? "Aún no se han creado QR links para capturar leads. Crea tu primer QR y empieza a capturar leads desde eventos, material impreso y más." 
+                      : "No hay QR links que coincidan con la búsqueda. Prueba a cambiar el término de búsqueda."}
+                  </p>
+                  <Button 
+                    onClick={() => setShowQRGenerator(true)}
+                    className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 border-0"
+                  >
+                    <QrCode className="mr-2 h-4 w-4" />
+                    Crear Primer QR
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              filteredQRLinks.map((qrLink) => (
+                <Card key={qrLink.id} className="bg-gray-900/40 border-gray-700/50 backdrop-blur-sm hover:bg-gray-900/60 hover:border-gray-600/50 transition-all duration-300">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <QrCode className="h-5 w-5 text-purple-400" />
+                          <h3 className="text-lg font-semibold">{qrLink.name}</h3>
+                          <Badge className="bg-purple-100 text-purple-800">
+                            QR Link
+                          </Badge>
+                          {!qrLink.isActive && (
+                            <Badge variant="outline" className="bg-red-50 text-red-700">
+                              Inactivo
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        <p className="text-sm text-muted-foreground mb-4">{qrLink.description}</p>
+                        
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-muted-foreground">
+                          <div>
+                            <p className="font-medium text-foreground">{qrLink.scanCount} escaneos</p>
+                            <p>Total de escaneos</p>
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">{qrLink.submissionCount} envíos</p>
+                            <p>Formularios completados</p>
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">
+                              {qrLink.metadata.targetAudience || 'N/A'}
+                            </p>
+                            <p>Audiencia objetivo</p>
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">
+                              {format(new Date(qrLink.createdAt), 'dd MMM yyyy', { locale: es })}
+                            </p>
+                            <p>Creado</p>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 p-2 bg-gray-50 rounded text-xs font-mono text-gray-600 truncate">
+                          {`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/qr/${qrLink.publicUrlId}`}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 ml-4">
+                        {qrLink.metadata.qrCodeDataUrl && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => downloadQRCode(qrLink.metadata.qrCodeDataUrl!, qrLink.name)}
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Descargar QR
+                          </Button>
+                        )}
+                        
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => copyToClipboard(
+                            `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/qr/${qrLink.publicUrlId}`, 
+                            qrLink.name
+                          )}
+                        >
+                          <Copy className="h-4 w-4 mr-2" />
+                          Copiar URL
+                        </Button>
+                        
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            window.open(`/qr/${qrLink.publicUrlId}`, '_blank');
+                          }}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          Ver Página
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {qrLink.metadata.qrCodeDataUrl && (
+                      <div className="mt-4 pt-4 border-t border-gray-700/50">
+                        <div className="flex items-center gap-4">
+                          <div className="text-sm">
+                            <p className="font-medium text-gray-300 mb-1">Código QR:</p>
+                            <img 
+                              src={qrLink.metadata.qrCodeDataUrl} 
+                              alt={`QR Code for ${qrLink.name}`}
+                              className="w-20 h-20 border border-gray-600 rounded-lg bg-white p-1"
+                            />
+                          </div>
+                          <div className="flex-1 text-sm text-gray-400">
+                            <p><strong>Conversión:</strong> {qrLink.scanCount > 0 ? Math.round((qrLink.submissionCount / qrLink.scanCount) * 100) : 0}% (envíos/escaneos)</p>
+                            {qrLink.metadata.expectedLeads && (
+                              <p><strong>Progreso:</strong> {qrLink.submissionCount} / {qrLink.metadata.expectedLeads} leads esperados</p>
+                            )}
+                            {qrLink.metadata.notes && (
+                              <p><strong>Notas:</strong> {qrLink.metadata.notes}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

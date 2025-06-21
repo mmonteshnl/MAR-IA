@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       
       for (const leadId of leadIds) {
         try {
-          const result = await transferSingleLead(leadId, uid, organizationId);
+          const result = await transferSingleLead(leadId, uid, organizationId, sourceType);
           if (result.success) {
             transferredCount++;
           } else {
@@ -119,10 +119,16 @@ export async function POST(request: NextRequest) {
 async function transferSingleLead(
   leadId: string, 
   userId: string, 
-  organizationId: string
+  organizationId: string,
+  sourceType?: string
 ): Promise<{ success: boolean; reason?: string }> {
   
-  // Verificar si ya existe en leads-flow
+  // Handle QR leads separately
+  if (sourceType === 'qr-leads') {
+    return await transferQRLead(leadId, userId, organizationId);
+  }
+
+  // Verificar si ya existe en leads-flow (for traditional leads)
   const existingFlowLead = await firestoreDbAdmin!
     .collection('leads-flow')
     .where('sourceLeadId', '==', leadId)
@@ -251,5 +257,156 @@ export async function GET(request: NextRequest) {
       message: 'Error obteniendo estadísticas.',
       error: error.message 
     }, { status: 500 });
+  }
+}
+
+async function transferQRLead(
+  leadId: string,
+  userId: string,
+  organizationId: string
+): Promise<{ success: boolean; reason?: string }> {
+  try {
+    // For QR leads, the leadId format is "qrLinkId:leadId"
+    const [qrLinkId, actualLeadId] = leadId.includes(':') ? leadId.split(':') : [leadId, leadId];
+    
+    // Find the QR lead in the organization's QR tracking links
+    let qrLeadDoc;
+    let qrLinkData;
+    
+    if (qrLinkId !== actualLeadId) {
+      // We have a specific QR link ID
+      qrLeadDoc = await firestoreDbAdmin!
+        .collection('organizations')
+        .doc(organizationId)
+        .collection('qr-tracking-links')
+        .doc(qrLinkId)
+        .collection('publicLeads')
+        .doc(actualLeadId)
+        .get();
+        
+      if (qrLeadDoc.exists) {
+        const qrLinkDocRef = await firestoreDbAdmin!
+          .collection('organizations')
+          .doc(organizationId)
+          .collection('qr-tracking-links')
+          .doc(qrLinkId)
+          .get();
+        qrLinkData = qrLinkDocRef.data();
+      }
+    } else {
+      // Search through all QR links to find the lead
+      const qrLinksSnapshot = await firestoreDbAdmin!
+        .collection('organizations')
+        .doc(organizationId)
+        .collection('qr-tracking-links')
+        .get();
+
+      for (const qrLinkDoc of qrLinksSnapshot.docs) {
+        const leadDoc = await firestoreDbAdmin!
+          .collection('organizations')
+          .doc(organizationId)
+          .collection('qr-tracking-links')
+          .doc(qrLinkDoc.id)
+          .collection('publicLeads')
+          .doc(actualLeadId)
+          .get();
+
+        if (leadDoc.exists) {
+          qrLeadDoc = leadDoc;
+          qrLinkData = qrLinkDoc.data();
+          break;
+        }
+      }
+    }
+
+    if (!qrLeadDoc || !qrLeadDoc.exists) {
+      throw new Error(`QR lead ${actualLeadId} not found`);
+    }
+
+    const leadData = qrLeadDoc.data();
+
+    // Check if already promoted
+    if (leadData?.status === 'promoted') {
+      console.log(`⏭️ QR Lead ${actualLeadId} already promoted, skipping`);
+      return { success: false, reason: 'already_promoted' };
+    }
+
+    // Create a new lead in the leads-flow collection
+    const newLeadId = `qr_${actualLeadId}_${Date.now()}`;
+    const now = new Date().toISOString();
+    
+    const flowLead = {
+      // Basic lead information
+      fullName: leadData?.leadData?.name || '',
+      email: leadData?.leadData?.email || '',
+      phoneNumber: leadData?.leadData?.phone || '',
+      companyName: '',
+      notes: leadData?.leadData?.notes || '',
+      
+      // Flow properties
+      stage: 'Nuevo',
+      status: 'active',
+      priority: 'medium',
+      organizationId,
+      createdBy: userId,
+      
+      // Source tracking
+      source: 'QR Code',
+      sourceLeadId: actualLeadId,
+      sourceCollection: 'qr-leads',
+      syncedAt: now,
+      lastSyncedAt: now,
+      
+      // QR-specific metadata
+      qrLinkName: qrLinkData?.name,
+      qrLinkId: qrLinkId !== actualLeadId ? qrLinkId : undefined,
+      publicUrlId: qrLinkData?.publicUrlId,
+      
+      // Stage history
+      currentStage: 'Nuevo',
+      stageHistory: [{
+        stage: 'Nuevo',
+        enteredAt: now,
+        triggeredBy: 'user',
+        userId: userId,
+        notes: 'Lead promocionado desde QR'
+      }],
+      
+      // Timestamps
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
+    };
+
+    // Batch operation: create new lead and update original
+    const batch = firestoreDbAdmin!.batch();
+
+    // Add to leads-flow
+    const newLeadRef = firestoreDbAdmin!.collection('leads-flow').doc(newLeadId);
+    batch.set(newLeadRef, flowLead);
+
+    // Update original QR lead status
+    const originalLeadRef = firestoreDbAdmin!
+      .collection('organizations')
+      .doc(organizationId)
+      .collection('qr-tracking-links')
+      .doc(qrLinkId !== actualLeadId ? qrLinkId : qrLeadDoc.ref.parent.parent!.id)
+      .collection('publicLeads')
+      .doc(actualLeadId);
+
+    batch.update(originalLeadRef, {
+      status: 'promoted',
+      'metadata.promotedAt': FieldValue.serverTimestamp(),
+      'metadata.promotedBy': userId,
+      'metadata.promotedToLeadId': newLeadId
+    });
+
+    await batch.commit();
+
+    console.log(`✅ QR lead ${actualLeadId} promoted successfully to ${newLeadId}`);
+    return { success: true };
+
+  } catch (error: any) {
+    console.error(`❌ Error promoting QR lead ${leadId}:`, error);
+    throw error;
   }
 }
